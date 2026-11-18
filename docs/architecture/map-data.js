@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "392599e3",
+ "commit": "2ce71c65",
  "crates": [
   {
    "bins": [
@@ -5056,6 +5056,7 @@ window.KKT_GRAPH = {
       "Missing",
       "Failed",
       "Unexpected",
+      "NoContainer",
       "File",
       "Refused"
      ]
@@ -5087,9 +5088,11 @@ window.KKT_GRAPH = {
       "restart",
       "run_once",
       "running",
+      "say",
       "tool",
       "typed",
       "up",
+      "working_dir",
       "write"
      ],
      "path": "Projects"
@@ -5191,7 +5194,8 @@ window.KKT_GRAPH = {
       "new",
       "unavailable",
       "with_config",
-      "with_file"
+      "with_file",
+      "working_in"
      ],
      "path": "testing::MemoryProjects"
     },
@@ -5498,7 +5502,8 @@ window.KKT_GRAPH = {
    "slots": [],
    "testing_third_party": [],
    "third_party": [
-    "futures"
+    "futures",
+    "serde_json"
    ]
   },
   {
@@ -22681,13 +22686,18 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Time",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
    "features": [],
    "from": "kkt-containerized-service",
    "items": [
+    "Arg",
+    "Carry",
     "ConfigReader",
     "Container",
     "Existing",
@@ -22697,13 +22707,15 @@ window.KKT_GRAPH = {
     "Inputs",
     "KeyCopies",
     "KeyCopy",
+    "Login",
     "LoginLink",
     "Output",
     "Project",
     "ProjectError",
     "Projects",
     "Provisioned",
-    "State"
+    "State",
+    "User"
    ],
    "kind": "normal",
    "optional": false,
@@ -22717,6 +22729,8 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "Arg",
+      "Carry",
       "ConfigReader",
       "Existing",
       "FileState",
@@ -22725,29 +22739,55 @@ window.KKT_GRAPH = {
       "Inputs",
       "KeyCopies",
       "KeyCopy",
+      "Login",
       "LoginLink",
       "Output",
       "Project",
       "ProjectError",
       "Projects",
       "Provisioned",
-      "State"
+      "State",
+      "User"
      ],
      "role": "uses"
     }
    ],
    "target": null,
    "test_items": [
+    "ContainerConfig",
     "FileAction",
     "ProjectFile",
     "Ran",
     "ServiceConfig",
-    "User",
     "testing",
     "testing::Memory",
-    "testing::MemoryProjects"
+    "testing::MemoryProjects",
+    "testing::Request"
    ],
    "to": "kkt-container"
+  },
+  {
+   "features": [],
+   "from": "kkt-containerized-service",
+   "items": [
+    "Env",
+    "XDG_CONFIG_HOME_DEFAULT"
+   ],
+   "kind": "normal",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Env",
+      "XDG_CONFIG_HOME_DEFAULT"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-machine"
   },
   {
    "features": [
@@ -22755,22 +22795,8 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-containerized-service",
    "items": [
-    "Container",
-    "Existing",
-    "FileAction",
-    "FileState",
-    "Folder",
-    "Output",
-    "Project",
-    "ProjectError",
-    "ProjectFile",
-    "Projects",
-    "Ran",
-    "ServiceConfig",
-    "User",
-    "testing",
-    "testing::Memory",
-    "testing::MemoryProjects"
+    "Time",
+    "testing::FixedClock"
    ],
    "kind": "dev",
    "optional": false,
@@ -22778,14 +22804,73 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Time"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-containerized-service",
+   "items": [
+    "Arg",
+    "Carry",
+    "ConfigReader",
+    "Container",
+    "ContainerConfig",
+    "Existing",
+    "FileAction",
+    "FileState",
+    "Folder",
+    "InServer",
+    "KeyCopy",
+    "Login",
+    "Output",
+    "Project",
+    "ProjectError",
+    "ProjectFile",
+    "Projects",
+    "Ran",
+    "ServiceConfig",
+    "State",
+    "User",
+    "testing",
+    "testing::Memory",
+    "testing::MemoryProjects",
+    "testing::Request"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Arg",
+      "Carry",
+      "ConfigReader",
       "FileAction",
       "FileState",
       "Folder",
+      "KeyCopy",
+      "Login",
       "Output",
       "ProjectError",
       "Ran",
       "User",
-      "testing"
+      "testing",
+      "testing::Request"
      ],
      "role": "uses"
     },
@@ -29274,7 +29359,7 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-containerized-service": {
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, and starting and stopping the service, and hands the operations it does not do itself to a fallback `Container`.",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, starting and stopping the service, its status and name pack, runs of the server's program in its container, reading its config home, backups and the web key's comparison, and hands the operations it does not do itself to a fallback `Container`.",
    "kind": "logic",
    "layer": "operations"
   },

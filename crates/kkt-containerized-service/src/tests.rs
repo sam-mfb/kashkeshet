@@ -2,10 +2,14 @@
 //! service's start and stop, and what it hands to its fallback.
 
 use crate::Containerized;
-use kkt_container::testing::{Memory, MemoryProjects};
+use futures::executor::block_on;
+use kkt_clock::Time;
+use kkt_clock::testing::FixedClock;
+use kkt_container::testing::{Memory, MemoryProjects, Request};
 use kkt_container::{
-    Container, Existing, FileAction, Folder, Output, Project, ProjectError, ProjectFile, Projects,
-    Ran, ServiceConfig, User,
+    Arg, Carry, ConfigReader, Container, ContainerConfig, Existing, FileAction, Folder, InServer,
+    KeyCopy, Login, Output, Project, ProjectError, ProjectFile, Projects, Ran, ServiceConfig,
+    State, User,
 };
 use std::io;
 use std::path::{Path, PathBuf};
@@ -215,6 +219,12 @@ impl Projects for Failing {
     fn typed(&self, args: &[&str]) -> String {
         format!("tool compose {}", args.join(" "))
     }
+    fn working_dir(&self) -> io::Result<PathBuf> {
+        unreachable!()
+    }
+    fn say(&self, _: &str) {
+        unreachable!()
+    }
     fn write(&self, _: &Project, _: &[ProjectFile]) -> Result<(), ProjectError> {
         unreachable!()
     }
@@ -319,14 +329,352 @@ fn a_tool_that_cannot_run_is_not_available_by_its_name_and_a_failure_says_how() 
 #[test]
 fn what_it_does_not_do_itself_goes_to_the_fallback() {
     let service = service(local(LOCAL_ENV));
+    let clock = FixedClock::new(Time::from_parts(2026, 11, 17, 12, 0, 0).unwrap());
     // The fallback has no install there, so it refuses; the refusal is the
     // fallback's own.
-    assert_eq!(
-        service.backup(&folder(), None),
-        Err("container is not installed".into())
-    );
+    assert!(block_on(service.upgrade(&clock, &folder(), "0.5.0", None)).is_err());
     assert!(service.projects.log().is_empty());
-    assert!(!service.fallback.calls().is_empty());
+    assert_eq!(service.fallback.calls(), ["upgrade"]);
+}
+
+// ----------------------------------------------------------------- runs in the server
+
+/// Answers `mktemp` with a folder named as asked, and the rest with `rest`.
+fn in_server(
+    rest: impl Fn(&Request) -> Option<(Option<i32>, String, String)> + 'static,
+) -> MemoryProjects {
+    local(LOCAL_ENV).answering(move |request| {
+        if let Some(answer) = rest(request) {
+            return Ok(answer);
+        }
+        Ok(match request {
+            Request::Exec { args, .. } if args[0] == "mktemp" => {
+                (Some(0), "/tmp/run.Abc123\n".into(), String::new())
+            }
+            Request::Exec { args, .. } if args[0] == "kkt" => {
+                (Some(0), "Imported.\n".into(), String::new())
+            }
+            _ => (Some(0), String::new(), String::new()),
+        })
+    })
+}
+
+fn command(carry: Carry) -> InServer<'static> {
+    let args: &'static [Arg] =
+        Box::leak(vec![Arg::Text("lanes".into()), Arg::Folder].into_boxed_slice());
+    InServer {
+        args,
+        folder_prefix: "/tmp/run",
+        carry,
+    }
+}
+
+#[test]
+fn a_run_in_the_server_carries_files_in_runs_and_removes_its_folder() {
+    let service = service(in_server(|_| None));
+    let carried = Carry::In(vec![PathBuf::from("/home/me/one.md")]);
+    assert_eq!(
+        service.run_in_server(&folder(), &command(carried)),
+        Ok("Imported.\n".into())
+    );
+    assert_eq!(
+        service.projects.log(),
+        [
+            "tool compose exec kkt mktemp -d /tmp/run.XXXXXXXXXX",
+            "tool compose cp /home/me/one.md kkt:/tmp/run.Abc123/one.md",
+            "tool compose exec --user root kkt chmod -R a+rX /tmp/run.Abc123",
+            "tool compose exec kkt kkt lanes /tmp/run.Abc123",
+            "tool compose exec --user root kkt rm -rf /tmp/run.Abc123",
+        ]
+    );
+}
+
+#[test]
+fn a_run_in_the_server_carries_files_out_after_it() {
+    let service = service(in_server(|_| None));
+    let carried = Carry::Out(PathBuf::from("/home/me/export"));
+    assert!(service.run_in_server(&folder(), &command(carried)).is_ok());
+    assert!(service.projects.has_folder(Path::new("/home/me/export")));
+    assert_eq!(
+        service.projects.log()[2..4],
+        [
+            "mkdir /home/me/export",
+            "tool compose cp kkt:/tmp/run.Abc123/. /home/me/export",
+        ]
+    );
+}
+
+#[test]
+fn a_run_refuses_a_folder_mktemp_did_not_make_as_asked() {
+    for said in ["/tmp/other\n", "/tmp/run.\n", "/tmp/run.a/b\n"] {
+        let service = service(in_server(move |request| match request {
+            Request::Exec { args, .. } if args[0] == "mktemp" => {
+                Some((Some(0), said.into(), String::new()))
+            }
+            _ => None,
+        }));
+        assert_eq!(
+            service.run_in_server(&folder(), &command(Carry::In(vec![]))),
+            Err(format!(
+                "unexpected output from the folder mktemp made in the container: {said}"
+            ))
+        );
+    }
+}
+
+#[test]
+fn a_failed_run_whose_folder_cannot_be_removed_says_so_and_gives_the_runs_error() {
+    let service = service(in_server(|request| match request {
+        Request::Exec { args, .. } if args[0] == "kkt" => {
+            Some((Some(1), String::new(), "no title".into()))
+        }
+        Request::Exec { args, .. } if args[0] == "rm" => {
+            Some((Some(1), String::new(), "busy".into()))
+        }
+        _ => None,
+    }));
+    assert_eq!(
+        service.run_in_server(&folder(), &command(Carry::In(vec![]))),
+        Err("`tool compose exec kkt kkt lanes /tmp/run.Abc123` failed (exit 1: no title)".into())
+    );
+    assert!(
+        service.projects.log().contains(
+            &"say Could not remove /tmp/run.Abc123 in the container: \
+          `tool compose exec --user root kkt rm -rf /tmp/run.Abc123` failed (exit 1: busy)"
+                .to_string()
+        )
+    );
+}
+
+#[test]
+fn a_config_home_file_is_read_in_a_new_container_and_only_a_plain_path_is_taken() {
+    let service = service(
+        local(LOCAL_ENV)
+            .answering(|_| Ok((Some(0), "name_pack = \"birds\"\n".into(), String::new()))),
+    );
+    assert_eq!(
+        service.config_home_file(&folder(), Path::new("kkt/config.toml")),
+        Ok("name_pack = \"birds\"\n".into())
+    );
+    assert!(service.projects.log()[0].starts_with("tool compose run --rm --entrypoint sh kkt -c "));
+    for refused in ["/etc/passwd", "kkt/../x", "a b", "", "kkt//x"] {
+        assert_eq!(
+            service.config_home_file(&folder(), Path::new(refused)),
+            Err(format!(
+                "{refused} is not a plain path under the config home"
+            ))
+        );
+    }
+}
+
+#[cfg(unix)]
+#[test]
+fn a_path_that_is_not_utf8_is_refused_as_not_plain_or_as_an_unreadable_config_path() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    let odd = Path::new(OsStr::from_bytes(b"kkt/\xff.toml"));
+    assert_eq!(
+        crate::in_server::config_script(odd),
+        Err(format!(
+            "{} is not a plain path under the config home",
+            odd.display()
+        ))
+    );
+    assert_eq!(
+        crate::status::config_path_text(odd),
+        Err("unreadable config path".to_string())
+    );
+}
+
+// ----------------------------------------------------------------- backups
+
+fn backing_up(said: &'static str) -> MemoryProjects {
+    local(LOCAL_ENV).answering(move |_| Ok((Some(0), said.into(), String::new())))
+}
+
+#[test]
+fn a_backup_stays_in_the_managed_folder_or_is_copied_where_the_person_asks() {
+    let said = "Backed up to /backups/kkt-backup-1\n";
+    let managed = service(backing_up(said));
+    assert_eq!(
+        managed.backup(&folder(), None),
+        Ok(at("backups/kkt-backup-1"))
+    );
+    let copied = service(backing_up(said).working_in(Some("/home/me")));
+    assert_eq!(
+        copied.backup(&folder(), Some(Path::new("saved"))),
+        Ok(PathBuf::from("/home/me/saved/kkt-backup-1"))
+    );
+    assert_eq!(
+        copied.projects.log(),
+        [
+            "tool compose exec kkt kkt backup /backups",
+            "mkdir /home/me/saved",
+            "tool compose cp kkt:/backups/kkt-backup-1 /home/me/saved",
+        ]
+    );
+}
+
+#[test]
+fn a_backup_says_what_went_wrong() {
+    let lost = service(backing_up("Backed up to /backups/x\n").working_in(None));
+    assert_eq!(
+        lost.backup(&folder(), Some(Path::new("saved"))),
+        Err("could not find the current folder: no such folder".into())
+    );
+    let odd = service(backing_up("Done.\n"));
+    assert_eq!(
+        odd.backup(&folder(), None),
+        Err("unexpected output from `kkt backup`: Done.".into())
+    );
+    let nameless = service(backing_up("Backed up to /\n"));
+    assert_eq!(
+        nameless.backup(&folder(), None),
+        Err("unexpected output from `kkt backup`: /".into())
+    );
+}
+
+// ----------------------------------------------------------------- the web key
+
+#[test]
+fn the_web_keys_copy_is_compared_without_showing_either_key() {
+    let with = |server: &'static str, status: Option<i32>| {
+        service(
+            local(LOCAL_ENV)
+                .with_file("/home/me/web-key", "web-key-1\n")
+                .answering(move |_| Ok((status, server.into(), String::new()))),
+        )
+    };
+    let key = Path::new("/home/me/web-key");
+    assert_eq!(
+        with("web-key-1\n", Some(0)).compare_web_key(&folder(), key),
+        Ok(KeyCopy::Same)
+    );
+    assert_eq!(
+        with("web-key-2\n", Some(0)).compare_web_key(&folder(), key),
+        Ok(KeyCopy::Differs)
+    );
+    assert_eq!(
+        with("web-key-2\n", Some(1)).compare_web_key(&folder(), key),
+        Err("`tool compose exec kkt kkt key show --web` failed (exit 1, no key)".into())
+    );
+    assert_eq!(
+        with("web-key-2\n", None).compare_web_key(&folder(), key),
+        Err("`tool compose exec kkt kkt key show --web` failed (ended by a signal)".into())
+    );
+}
+
+// ----------------------------------------------------------------- status
+
+struct Packs;
+
+impl ConfigReader for Packs {
+    fn settings(&self, text: &str, _: &Path, _: Option<&Path>) -> Result<ContainerConfig, String> {
+        Ok(ContainerConfig {
+            name_pack: text.strip_prefix("pack=").map(|p| p.trim().to_string()),
+            max_lane_chars: None,
+        })
+    }
+}
+
+fn serving(args: &[&str]) -> ServiceConfig {
+    ServiceConfig {
+        command: Some(args.iter().map(|a| a.to_string()).collect()),
+        entrypoint: Some(vec!["/usr/local/bin/kkt".into()]),
+        env: Some(vec!["HOME=/home/kkt".into()]),
+        working_dir: "/data".into(),
+    }
+}
+
+fn status_of(projects: MemoryProjects) -> State {
+    service(projects)
+        .status(
+            &folder(),
+            &Packs,
+            "default-pack",
+            Path::new("kkt/config.toml"),
+        )
+        .unwrap()
+}
+
+#[test]
+fn status_says_what_is_there_and_running_and_the_name_pack_serve_uses() {
+    let none = status_of(MemoryProjects::new(&["kkt"]));
+    assert!(!none.files_present);
+    let stopped = status_of(local(LOCAL_ENV));
+    assert!(stopped.files_present && !stopped.running);
+    assert_eq!(stopped.version.as_deref(), Some("0.4.0"));
+    assert_eq!(stopped.name_pack, Err("container is not running".into()));
+    let flagged = local(LOCAL_ENV).with_config("kkt", serving(&["serve", "--name-pack=birds"]));
+    flagged
+        .up(
+            &Project {
+                folder: &folder(),
+                shielded: &[],
+            },
+            &[],
+            Output::Captured,
+        )
+        .unwrap();
+    assert_eq!(status_of(flagged).name_pack, Ok("birds".into()));
+    let configured = local(LOCAL_ENV)
+        .with_config("kkt", serving(&["serve"]))
+        .answering(|request| match request {
+            Request::Exec { args, .. } if args[0] == "cat" => {
+                Ok((Some(0), "pack=stones\n".into(), String::new()))
+            }
+            _ => Ok((Some(0), String::new(), String::new())),
+        });
+    configured
+        .up(
+            &Project {
+                folder: &folder(),
+                shielded: &[],
+            },
+            &[],
+            Output::Captured,
+        )
+        .unwrap();
+    assert_eq!(status_of(configured).name_pack, Ok("stones".into()));
+}
+
+#[test]
+fn a_name_pack_with_no_container_is_unidentified() {
+    let project_folder = folder();
+    let project = Project {
+        folder: &project_folder,
+        shielded: &[],
+    };
+    assert_eq!(
+        crate::status::name_pack(
+            &local(LOCAL_ENV),
+            &project,
+            &Packs,
+            "default-pack",
+            Path::new("kkt/config.toml"),
+        ),
+        Err("could not identify the kkt container".into())
+    );
+}
+
+#[test]
+fn a_shared_installs_status_says_whether_tailscale_is_logged_in() {
+    for (said, login) in [
+        (r#"{"BackendState":"Running"}"#, Login::LoggedIn),
+        (r#"{"BackendState":"NeedsLogin"}"#, Login::NeedsLogin),
+        (
+            r#"{"BackendState":"Starting"}"#,
+            Login::Other("Starting".into()),
+        ),
+        ("not json", Login::Other("an unreadable answer".into())),
+    ] {
+        let projects =
+            tailscale(TAILSCALE_ENV).answering(move |_| Ok((Some(0), said.into(), String::new())));
+        assert_eq!(status_of(projects).login, Some(login));
+    }
+    let unreachable =
+        tailscale(TAILSCALE_ENV).answering(|_| Ok((Some(1), String::new(), "not running".into())));
+    assert_eq!(status_of(unreachable).login, Some(Login::Unreachable));
 }
 
 #[test]

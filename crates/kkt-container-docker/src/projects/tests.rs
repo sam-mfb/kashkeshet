@@ -410,7 +410,7 @@ fn inspect_reports_fields_it_cannot_read_as_missing() {
 }
 
 #[test]
-fn inspect_refuses_an_answer_it_cannot_read() {
+fn inspect_refuses_an_answer_it_cannot_read_and_says_when_there_is_no_container() {
     let folder = folder();
     for (replies, command, detail) in [
         (
@@ -427,7 +427,7 @@ fn inspect_refuses_an_answer_it_cannot_read() {
         let (docker, _host) = over(replies);
         assert_eq!(
             docker.inspect(&project(&folder), "web").unwrap_err(),
-            ProjectError::Unexpected {
+            ProjectError::NoContainer {
                 command: format!("docker compose --project-directory /srv/app {command}"),
                 detail: detail.into(),
             }

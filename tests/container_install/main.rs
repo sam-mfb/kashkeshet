@@ -1715,6 +1715,75 @@ fn config_home_file() -> String {
     ])
 }
 
+// ---------------------------------------------------------------- the tool cannot run, per call
+
+fn run_in_server_cannot_run() -> String {
+    let in_ = |extra| run_in_server_with(extra, carried_in());
+    let out = |extra| run_in_server_with(extra, carried_out());
+    let gone = || vec![cannot_run("no such file or directory")];
+    cases(&[
+        case("mktemp cannot run", &in_(vec![("mktemp -d", gone())])),
+        case(
+            "a copy in cannot run",
+            &in_(vec![(" cp /home/me/lanes/one.md", gone())]),
+        ),
+        case("the chmod cannot run", &in_(vec![("chmod -R", gone())])),
+        case(
+            "the run cannot run; the folder is removed",
+            &in_(vec![("kkt kkt lanes", gone())]),
+        ),
+        case("the copy out cannot run", &out(vec![(" cp kkt:", gone())])),
+        case(
+            "the run works but the removal cannot run",
+            &in_(vec![("rm -rf", gone())]),
+        ),
+        case(
+            "the run fails and the removal cannot run: said",
+            &in_(vec![
+                ("kkt kkt lanes", vec![exit(1, "", "lane one.md: no title")]),
+                ("rm -rf", gone()),
+            ]),
+        ),
+    ])
+}
+
+fn config_home_file_cannot_run() -> String {
+    let run = Run::new(
+        rules(vec![(
+            "--entrypoint sh",
+            vec![cannot_run("no such file or directory")],
+        )]),
+        installed_local(LOCAL_ENV),
+    );
+    let done = run
+        .docker
+        .config_home_file(&folder(), Path::new("kkt/config.toml"));
+    run.result(done);
+    cases(&[case("the run cannot run", &run)])
+}
+
+fn status_name_pack_cannot_run() -> String {
+    cases(&[
+        case(
+            "inspect cannot run",
+            &running(
+                String::new(),
+                vec![("inspect --format", vec![cannot_run("broken pipe")])],
+            ),
+        ),
+        case(
+            "reading the config file cannot run",
+            &running(
+                format!("{{{SERVE_ARGS}}}"),
+                vec![
+                    ("test -e", vec![ok("")]),
+                    ("cat --", vec![cannot_run("broken pipe")]),
+                ],
+            ),
+        ),
+    ])
+}
+
 pinned! {
     setup_local => super::setup_local();
     setup_local_with_an_admin_key => super::setup_local_with_an_admin_key();
@@ -1753,4 +1822,7 @@ pinned! {
     run_in_server => super::run_in_server();
     run_in_server_failures => super::run_in_server_failures();
     config_home_file => super::config_home_file();
+    run_in_server_cannot_run => super::run_in_server_cannot_run();
+    config_home_file_cannot_run => super::config_home_file_cannot_run();
+    status_name_pack_cannot_run => super::status_name_pack_cannot_run();
 }

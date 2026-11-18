@@ -131,6 +131,9 @@ pub enum ProjectError {
     },
     /// A command's answer was not what the operation reads.
     Unexpected { command: String, detail: String },
+    /// The tool named no container for a service, or an answer that is
+    /// not a container's ID.
+    NoContainer { command: String, detail: String },
     /// A file in or for the project could not be read, written or made.
     File {
         action: FileAction,
@@ -166,6 +169,7 @@ impl ProjectError {
                 }
             }
             ProjectError::Unexpected { detail, .. } => detail.clone(),
+            ProjectError::NoContainer { detail, .. } => detail.clone(),
             ProjectError::File { detail, .. } => detail.clone(),
             ProjectError::Refused { what } => what.clone(),
         }
@@ -193,6 +197,9 @@ impl fmt::Display for ProjectError {
             }
             ProjectError::Unexpected { command, detail } => {
                 write!(f, "unexpected output from `{command}`: {detail}")
+            }
+            ProjectError::NoContainer { command, detail } => {
+                write!(f, "no container from `{command}`: {detail}")
             }
             ProjectError::File {
                 action,
@@ -224,6 +231,12 @@ pub trait Projects {
     /// How a person would type the tool's project command with `args`, in
     /// the project's folder.
     fn typed(&self, args: &[&str]) -> String;
+    /// The folder the person runs the tool from, which paths they type are
+    /// relative to.
+    fn working_dir(&self) -> io::Result<PathBuf>;
+    /// Tells the person one line, on the terminal the tool's own output
+    /// goes to, so it comes in order with that output.
+    fn say(&self, line: &str);
 
     /// Writes each file, in order, stopping at the first that fails.
     fn write(&self, project: &Project, files: &[ProjectFile]) -> Result<(), ProjectError>;
@@ -291,7 +304,8 @@ pub trait Projects {
         inside: &str,
         host: &Path,
     ) -> Result<(), ProjectError>;
-    /// How the running `service` was started.
+    /// How the running `service` was started. The tool naming no
+    /// container for it is [`ProjectError::NoContainer`].
     fn inspect(&self, project: &Project, service: &str) -> Result<ServiceConfig, ProjectError>;
 }
 
@@ -353,6 +367,14 @@ mod tests {
         assert_eq!(
             unexpected.to_string(),
             "unexpected output from `tool inspect x`: not JSON"
+        );
+        let none = ProjectError::NoContainer {
+            command: "tool ps web".into(),
+            detail: "no container ID for web".into(),
+        };
+        assert_eq!(
+            none.to_string(),
+            "no container from `tool ps web`: no container ID for web"
         );
         let source = io::Error::new(io::ErrorKind::PermissionDenied, "denied");
         let file = ProjectError::file(FileAction::Write, Path::new("/p/.env"), &source);

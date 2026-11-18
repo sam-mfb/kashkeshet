@@ -1,0 +1,5 @@
+== the run cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker run --rm --no-deps -T --entrypoint sh kkt -c "case \"$XDG_CONFIG_HOME\" in /*) base=\"$XDG_CONFIG_HOME\" ;; *) base=\"$HOME/.config\" ;; esac; file=\"$base/kkt/config.toml\"; if [ -e \"$file\" ]; then cat -- \"$file\"; fi"
+  -> cannot run: no such file or directory
+error    Docker is not available: could not run `docker compose --project-directory /data/docker run --rm --no-deps -T --entrypoint sh kkt -c "case \"$XDG_CONFIG_HOME\" in /*) base=\"$XDG_CONFIG_HOME\" ;; *) base=\"$HOME/.config\" ;; esac; file=\"$base/kkt/config.toml\"; if [ -e \"$file\" ]; then cat -- \"$file\"; fi"`: no such file or directory
