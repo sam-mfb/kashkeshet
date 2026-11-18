@@ -182,28 +182,30 @@ pub(super) fn apply_claude(
         }
         command.add_server(&entry, config_dir)
     })();
-    if let Err(said) = applied {
-        match original {
-            Some(text) => atomic(host, client_config, text).map_err(|restore| {
-                ClientConfigError::NotRestored {
-                    error: Box::new(ClientConfigError::Command(said.clone())),
-                    restore: Box::new(restore),
-                }
-                .with_setting(source)
-            })?,
-            None if host.exists(client_config) => {
-                host.remove_file(client_config).map_err(|cause| {
-                    ClientConfigError::NotRemoved {
-                        error: Box::new(ClientConfigError::Command(said.clone())),
-                        path: client_config.to_path_buf(),
-                        cause,
-                    }
-                    .with_setting(source)
-                })?
+    let Err(failed) = applied else {
+        return Ok(());
+    };
+    // Put the config back, then say what failed, with the undoing's own
+    // failure beside it if that failed too.
+    let error = Box::new(ClientConfigError::Command(failed));
+    Err(match original {
+        Some(text) => match atomic(host, client_config, text) {
+            Ok(()) => *error,
+            Err(restore) => ClientConfigError::NotRestored {
+                error,
+                restore: Box::new(restore),
             }
-            None => (),
-        }
-        return Err(ClientConfigError::Command(said));
-    }
-    Ok(())
+            .with_setting(source),
+        },
+        None if host.exists(client_config) => match host.remove_file(client_config) {
+            Ok(()) => *error,
+            Err(cause) => ClientConfigError::NotRemoved {
+                error,
+                path: client_config.to_path_buf(),
+                cause,
+            }
+            .with_setting(source),
+        },
+        None => *error,
+    })
 }

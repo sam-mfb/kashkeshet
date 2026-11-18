@@ -583,11 +583,19 @@ mod tests {
         }
     }
     impl kkt_llm_agent_config::ClientCommand for Untouched {
-        fn remove_server(&self, _: Option<&Path>) -> Result<(), String> {
+        fn remove_server(
+            &self,
+            _: Option<&Path>,
+        ) -> Result<(), kkt_llm_agent_config::CommandError> {
             self.refused("client_command.remove_server")
+                .map_err(not_run)
         }
-        fn add_server(&self, _: &str, _: Option<&Path>) -> Result<(), String> {
-            self.refused("client_command.add_server")
+        fn add_server(
+            &self,
+            _: &str,
+            _: Option<&Path>,
+        ) -> Result<(), kkt_llm_agent_config::CommandError> {
+            self.refused("client_command.add_server").map_err(not_run)
         }
     }
 
@@ -734,6 +742,14 @@ mod tests {
         fn exists(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("database.exists");
             false
+        }
+    }
+
+    /// A client command error for a call a test did not expect.
+    fn not_run(said: String) -> kkt_llm_agent_config::CommandError {
+        kkt_llm_agent_config::CommandError {
+            kind: kkt_llm_agent_config::CommandFailure::NotRun,
+            cause: said.into(),
         }
     }
 

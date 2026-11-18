@@ -165,25 +165,32 @@ impl Host for FakeHost {
 }
 
 impl FakeHost {
-    fn command(&self, call: Call) -> Result<(), String> {
+    fn command(&self, call: Call) -> Result<(), crate::CommandError> {
         self.claude_runs.borrow_mut().push(call);
         if let Some(path) = self.claude_writes.borrow().clone() {
             self.put(path, "{}");
         }
         if self.claude_fails.get() {
-            return Err("claude mcp failed".into());
+            return Err(crate::CommandError {
+                kind: crate::CommandFailure::Failed,
+                cause: "claude mcp failed".into(),
+            });
         }
         Ok(())
     }
 }
 
 impl ClientCommand for FakeHost {
-    fn remove_server(&self, config_dir: Option<&Path>) -> Result<(), String> {
+    fn remove_server(&self, config_dir: Option<&Path>) -> Result<(), crate::CommandError> {
         self.command(Call::Remove {
             config_dir: config_dir.map(Path::to_path_buf),
         })
     }
-    fn add_server(&self, entry: &str, config_dir: Option<&Path>) -> Result<(), String> {
+    fn add_server(
+        &self,
+        entry: &str,
+        config_dir: Option<&Path>,
+    ) -> Result<(), crate::CommandError> {
         self.command(Call::Add {
             entry: entry.to_string(),
             config_dir: config_dir.map(Path::to_path_buf),
