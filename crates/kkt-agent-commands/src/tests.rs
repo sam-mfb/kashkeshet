@@ -441,3 +441,105 @@ fn an_older_servers_lane_refusals_are_still_known() {
     ));
     assert!(!lane_refused("invalid_argument", "the handle is too long"));
 }
+
+/// A key file that is there but cannot be read.
+struct Unreadable;
+impl KeyText for Unreadable {
+    fn read(&self, _: &Path) -> Result<String, KeyUnread> {
+        Err(KeyUnread {
+            missing: false,
+            reason: "Permission denied (os error 13)".into(),
+        })
+    }
+}
+
+fn avatar_refused() -> Result<Registered, Failure> {
+    Err(Failure::Refused {
+        code: "handle_taken".into(),
+        message: "the handle amber-falcon is taken".into(),
+    })
+}
+
+fn key_refused() -> Result<Registered, Failure> {
+    Err(Failure::KeyRefused {
+        key: Some("the access key in /cfg/key".into()),
+    })
+}
+
+/// Every message the commands word themselves, pinned exactly; the others
+/// are their sources' and are pinned there.
+#[test]
+fn every_agent_command_message_says_what_it_always_said() {
+    let register_with = |answer: fn() -> Result<Registered, Failure>| {
+        let (given, _) = parts(None, &[], answer);
+        block_on(register(
+            &given,
+            ConnectionOptions::NONE,
+            "/me/token".into(),
+            None,
+            new_avatar(None),
+        ))
+        .expect_err("refused")
+    };
+    assert_eq!(
+        register_with(avatar_refused),
+        "the server refused the avatar request (handle_taken)"
+    );
+    assert_eq!(
+        register_with(key_refused),
+        "could not reach the server or read its reply"
+    );
+
+    let (given, _) = parts(None, &[], registered);
+    let reclaimed = block_on(reclaim(
+        &given,
+        ConnectionOptions::NONE,
+        "amber-falcon",
+        "/me/recovery".into(),
+        "/me/token".into(),
+    ));
+    assert_eq!(reclaimed, Ok(()));
+    let (given, _) = parts(None, &[], avatar_refused);
+    assert_eq!(
+        block_on(reclaim(
+            &given,
+            ConnectionOptions::NONE,
+            "amber-falcon",
+            "/me/recovery".into(),
+            "/me/token".into(),
+        )),
+        Err("the server refused the avatar request (handle_taken)".into())
+    );
+
+    let (mut given, _) = parts(None, &[], registered);
+    given.key_files = Box::new(Unreadable);
+    let flags = ConnectionOptions {
+        key_file: Some("/elsewhere/admin".into()),
+        ..ConnectionOptions::NONE
+    };
+    assert_eq!(
+        client::admin(&given, flags),
+        Err("could not read key file /elsewhere/admin: Permission denied (os error 13)".into())
+    );
+
+    let (given, _) = parts(None, &[], registered);
+    let env = kkt_machine::Env {
+        home: None,
+        named: BTreeMap::new(),
+        xdg_config_home: None,
+        xdg_data_home: None,
+    };
+    assert_eq!(
+        connect::run(&given, &env, "cursor", ConnectionOptions::NONE, None, false,),
+        Err("unknown client".into())
+    );
+
+    assert_eq!(
+        credential_file_check(Path::new("/me/token"), "'/me/token'", 501, 0o600, 502)
+            .err()
+            .expect("another user's"),
+        String::from(
+            "credential file /me/token is owned by another user (uid 501); ask its owner or an administrator to run chown 502 '/me/token', then chmod 600 '/me/token'"
+        )
+    );
+}
