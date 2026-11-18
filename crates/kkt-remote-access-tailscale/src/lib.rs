@@ -14,7 +14,7 @@ use std::net::SocketAddr;
 const TAILSCALE_HTTPS_PORT: u16 = 443;
 
 mod runner;
-use kkt_remote_access::Node;
+use kkt_remote_access::{Node, Sharing, SharingError};
 use runner::{Output, RunError, Runner};
 
 /// Shares this machine's server through its existing Tailscale login.
@@ -44,11 +44,12 @@ impl Tailscale {
     /// Only `BackendState` must be there; the other fields are `None` or
     /// empty when they are missing, empty or not text. The error says why
     /// the answer could not be read.
-    pub fn read_status(text: &str) -> Result<Status, String> {
-        let json: Value = serde_json::from_str(text).map_err(|e| json_cause(&e))?;
+    pub fn read_status(text: &str) -> Result<Status, StatusError> {
+        let json: Value =
+            serde_json::from_str(text).map_err(|e| StatusError::Unreadable(json_cause(&e)))?;
         let backend_state = json["BackendState"]
             .as_str()
-            .ok_or("no BackendState")?
+            .ok_or(StatusError::NoBackendState)?
             .to_string();
         let non_empty = |v: &Value| v.as_str().filter(|s| !s.is_empty()).map(str::to_string);
         Ok(Status {
@@ -102,17 +103,29 @@ impl Status {
     }
 }
 
+/// Why a status answer could not be read.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum StatusError {
+    /// The answer has no backend state.
+    #[error("no BackendState")]
+    NoBackendState,
+    /// The answer is not readable JSON: the kind of error and where, never
+    /// what the answer held.
+    #[error("{0}")]
+    Unreadable(String),
+}
+
 impl kkt_remote_access::RemoteAccess for Tailscale {
-    fn prepare(&self) -> Result<Node, String> {
+    fn prepare(&self) -> Result<Node, SharingError> {
         prepare(&self.runner(), self.rerun)
     }
-    fn serve(&self, bind: SocketAddr) -> Result<(), String> {
+    fn serve(&self, bind: SocketAddr) -> Result<(), SharingError> {
         serve(&self.runner(), bind, self.rerun)
     }
-    fn served(&self, bind: SocketAddr) -> Result<Option<Node>, String> {
+    fn served(&self, bind: SocketAddr) -> Result<Option<Node>, SharingError> {
         served(&self.runner(), bind)
     }
-    fn stop(&self, bind: SocketAddr) -> Result<(), String> {
+    fn stop(&self, bind: SocketAddr) -> Result<(), SharingError> {
         stop(&self.runner(), bind, self.rerun)
     }
 }
@@ -136,37 +149,51 @@ struct Own {
 }
 
 /// Check the existing login and HTTPS setting; never runs `tailscale up`.
-fn prepare(host: &dyn Runner, rerun: &str) -> Result<Node, String> {
+fn prepare(host: &dyn Runner, rerun: &str) -> Result<Node, SharingError> {
     node(host, true, rerun)
 }
 
-fn node(host: &dyn Runner, https: bool, rerun: &str) -> Result<Node, String> {
+fn node(host: &dyn Runner, https: bool, rerun: &str) -> Result<Node, SharingError> {
     let output = host.run(&["status".into(), "--json".into()])?;
     // Tailscale may exit nonzero while logged out but still return status JSON.
     let status: NodeReport = serde_json::from_str(&output.stdout).map_err(|e| {
-        format!(
-            "could not read Tailscale status; start Tailscale and log in, then rerun {rerun} \
-             (its output could not be read: {})",
-            json_cause(&e)
+        SharingError::new(
+            Sharing::Unreadable,
+            format!(
+                "could not read Tailscale status; start Tailscale and log in, then rerun {rerun} \
+                 (its output could not be read: {})",
+                json_cause(&e)
+            ),
         )
     })?;
     if status.backend_state != RUNNING {
-        return Err(format!(
-            "Tailscale is {}; open Tailscale and log in (or run `tailscale up`), then rerun {rerun}",
-            status.backend_state
+        return Err(SharingError::new(
+            Sharing::NotLoggedIn {
+                state: status.backend_state.clone(),
+            },
+            format!(
+                "Tailscale is {}; open Tailscale and log in (or run `tailscale up`), then rerun {rerun}",
+                status.backend_state
+            ),
         ));
     }
     if !output.success {
-        return Err(format!(
-            "Tailscale status failed; check `tailscale status` before rerunning {rerun}{}",
-            said(&output)
+        return Err(SharingError::new(
+            Sharing::Failed,
+            format!(
+                "Tailscale status failed; check `tailscale status` before rerunning {rerun}{}",
+                said(&output)
+            ),
         ));
     }
     let dns_name = status.own.map(|own| own.dns_name).unwrap_or_default();
     let dns_name = dns_name.trim_end_matches('.');
     if !valid_dns(dns_name) {
-        return Err(format!(
-            "Tailscale did not report a valid node DNS name; enable MagicDNS in https://login.tailscale.com/admin/dns and rerun {rerun}"
+        return Err(SharingError::new(
+            Sharing::NoName,
+            format!(
+                "Tailscale did not report a valid node DNS name; enable MagicDNS in https://login.tailscale.com/admin/dns and rerun {rerun}"
+            ),
         ));
     }
     if https
@@ -176,8 +203,11 @@ fn node(host: &dyn Runner, https: bool, rerun: &str) -> Result<Node, String> {
             .iter()
             .any(|domain| domain.trim_end_matches('.').eq_ignore_ascii_case(dns_name))
     {
-        return Err(format!(
-            "Tailscale HTTPS certificates are not enabled for this node; open https://login.tailscale.com/admin/dns, enable MagicDNS, then under HTTPS Certificates select Enable HTTPS and accept the certificate transparency notice. Rerun {rerun} afterwards"
+        return Err(SharingError::new(
+            Sharing::NoHttps,
+            format!(
+                "Tailscale HTTPS certificates are not enabled for this node; open https://login.tailscale.com/admin/dns, enable MagicDNS, then under HTTPS Certificates select Enable HTTPS and accept the certificate transparency notice. Rerun {rerun} afterwards"
+            ),
         ));
     }
     Ok(Node {
@@ -197,21 +227,25 @@ fn valid_dns(name: &str) -> bool {
         })
 }
 
-fn target(bind: SocketAddr) -> Result<String, String> {
+fn target(bind: SocketAddr) -> Result<String, SharingError> {
     if !bind.ip().is_loopback() || bind.port() == 0 {
-        return Err(
-            "host Tailscale sharing needs a loopback server address with a fixed port".into(),
-        );
+        return Err(SharingError::new(
+            Sharing::NotLoopback,
+            "host Tailscale sharing needs a loopback server address with a fixed port",
+        ));
     }
     Ok(format!("http://{bind}"))
 }
 
-fn config(host: &dyn Runner) -> Result<Value, String> {
+fn config(host: &dyn Runner) -> Result<Value, SharingError> {
     let output = host.run(&["serve".into(), "status".into(), "--json".into()])?;
     if !output.success {
-        return Err(format!(
-            "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions{}",
-            said(&output)
+        return Err(SharingError::new(
+            Sharing::Failed,
+            format!(
+                "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions{}",
+                said(&output)
+            ),
         ));
     }
     serde_json::from_str(&output.stdout).map_err(invalid_config)
@@ -226,10 +260,13 @@ fn said(output: &Output) -> String {
     }
 }
 
-fn invalid_config(e: serde_json::Error) -> String {
-    format!(
-        "Tailscale Serve returned invalid configuration JSON: {}",
-        json_cause(&e)
+fn invalid_config(e: serde_json::Error) -> SharingError {
+    SharingError::new(
+        Sharing::Unreadable,
+        format!(
+            "Tailscale Serve returned invalid configuration JSON: {}",
+            json_cause(&e)
+        ),
     )
 }
 
@@ -253,34 +290,43 @@ fn root<'a>(config: &'a Value, node: &Node) -> Option<&'a Value> {
         .get("/")
 }
 
-fn changed(host: &dyn Runner, args: &[String]) -> Result<(), String> {
+fn changed(host: &dyn Runner, args: &[String]) -> Result<(), SharingError> {
     let output = host.run(args)?;
     if output.success {
         Ok(())
     } else {
-        Err(format!(
-            "Tailscale Serve failed: {}; check `tailscale serve status` and permissions",
-            output.stderr.trim()
+        Err(SharingError::new(
+            Sharing::Failed,
+            format!(
+                "Tailscale Serve failed: {}; check `tailscale serve status` and permissions",
+                output.stderr.trim()
+            ),
         ))
     }
 }
 
 /// Install a persistent HTTPS root proxy. Refuse to replace a different root
 /// handler, raw TCP listener, or Funnel exposure on this port.
-fn serve(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), String> {
+fn serve(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), SharingError> {
     let target = target(bind)?;
     let node = prepare(host, rerun)?;
     let config = config(host)?;
     if let Some(handler) = root(&config, &node)
         && handler.get("Proxy").and_then(Value::as_str) != Some(&target)
     {
-        return Err("Tailscale HTTPS root already serves something else; choose a different Tailscale node or remove that handler yourself".into());
+        return Err(SharingError::new(
+            Sharing::Occupied,
+            "Tailscale HTTPS root already serves something else; choose a different Tailscale node or remove that handler yourself",
+        ));
     }
     let port = TAILSCALE_HTTPS_PORT.to_string();
     if let Some(listener) = config.get("TCP").and_then(|tcp| tcp.get(&port))
         && listener.get("HTTPS").and_then(Value::as_bool) != Some(true)
     {
-        return Err("Tailscale already uses the HTTPS port for another TCP listener".into());
+        return Err(SharingError::new(
+            Sharing::Occupied,
+            "Tailscale already uses the HTTPS port for another TCP listener",
+        ));
     }
     let authority = format!("{}:{TAILSCALE_HTTPS_PORT}", node.dns_name);
     if config
@@ -289,7 +335,10 @@ fn serve(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), String>
         .and_then(Value::as_bool)
         == Some(true)
     {
-        return Err("Tailscale Funnel is enabled on this port; disable it before setting up private tailnet access".into());
+        return Err(SharingError::new(
+            Sharing::Occupied,
+            "Tailscale Funnel is enabled on this port; disable it before setting up private tailnet access",
+        ));
     }
     changed(
         host,
@@ -306,7 +355,7 @@ fn serve(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), String>
 /// `bind`, as [`serve`] sets it up, if there is one. Reads Serve's settings
 /// only, so it needs no login. With no `tailscale` program, nothing is
 /// served: `None`. Any other failure to run it is an error.
-fn served(host: &dyn Runner, bind: SocketAddr) -> Result<Option<Node>, String> {
+fn served(host: &dyn Runner, bind: SocketAddr) -> Result<Option<Node>, SharingError> {
     if !bind.ip().is_loopback() || bind.port() == 0 {
         return Ok(None);
     }
@@ -318,10 +367,13 @@ fn served(host: &dyn Runner, bind: SocketAddr) -> Result<Option<Node>, String> {
         Err(error) => return Err(error.into()),
     };
     if !output.success {
-        return Err(format!(
-            "could not read Tailscale Serve's settings ({}); start Tailscale and check \
-             `tailscale serve status`",
-            output.stderr.trim()
+        return Err(SharingError::new(
+            Sharing::Failed,
+            format!(
+                "could not read Tailscale Serve's settings ({}); start Tailscale and check \
+                 `tailscale serve status`",
+                output.stderr.trim()
+            ),
         ));
     }
     // With nothing served, Tailscale may print nothing at all.
@@ -347,7 +399,7 @@ fn served(host: &dyn Runner, bind: SocketAddr) -> Result<Option<Node>, String> {
 
 /// Remove the matching root proxy, preserving other paths, ports and login.
 /// A changed root handler is left alone and reported to the caller.
-fn stop(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), String> {
+fn stop(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), SharingError> {
     let target = target(bind)?;
     let node = node(host, false, rerun)?;
     let config = config(host)?;
@@ -355,7 +407,10 @@ fn stop(host: &dyn Runner, bind: SocketAddr, rerun: &str) -> Result<(), String> 
         return Ok(());
     };
     if handler.get("Proxy").and_then(Value::as_str) != Some(&target) {
-        return Err("Tailscale HTTPS root now serves something else; left it unchanged".into());
+        return Err(SharingError::new(
+            Sharing::Occupied,
+            "Tailscale HTTPS root now serves something else; left it unchanged",
+        ));
     }
     changed(
         host,
