@@ -199,7 +199,7 @@ fn containerized() -> Containerized {
         || kkt_container_docker::Docker::new(Box::new(super::browser::OpenerBrowser::new()));
     // The folder kkt was run in, read once: the paths a person types are
     // relative to it.
-    let working_dir = kkt_files::Files.current_dir().map_err(|e| e.to_string());
+    let working_dir = OsMachine.current_dir().map_err(|e| e.to_string());
     kkt_containerized_service::Containerized::new(
         docker(),
         docker(),

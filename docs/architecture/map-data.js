@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "bdb196b7",
+ "commit": "3c4674eb",
  "crates": [
   {
    "bins": [
@@ -7448,7 +7448,6 @@ window.KKT_GRAPH = {
       "canonicalize",
       "create_dir_all",
       "create_private",
-      "current_dir",
       "exists",
       "file_names",
       "is_file",
@@ -7467,7 +7466,6 @@ window.KKT_GRAPH = {
    "lib": "kkt_files",
    "machine_work": {
     "src/lib.rs": [
-     "env::current_dir",
      "fs",
      "fs::OpenOptions",
      "fs::OpenOptions::new",
@@ -11495,6 +11493,7 @@ window.KKT_GRAPH = {
      "doc": "The machine's facts as one process sees them.",
      "kind": "trait",
      "methods": [
+      "current_dir",
       "env",
       "path_dirs",
       "platform",
@@ -11531,7 +11530,8 @@ window.KKT_GRAPH = {
       "platform",
       "process_id",
       "program_path",
-      "path_dirs"
+      "path_dirs",
+      "current_dir"
      ],
      "kind": "struct",
      "path": "testing::FixedMachine"
@@ -11587,6 +11587,7 @@ window.KKT_GRAPH = {
    "lib": "kkt_machine_os",
    "machine_work": {
     "src/lib.rs": [
+     "env::current_dir",
      "env::current_exe",
      "env::split_paths",
      "env::var_os",

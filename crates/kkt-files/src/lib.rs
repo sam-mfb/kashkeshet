@@ -132,12 +132,6 @@ impl Files {
         Ok(())
     }
 
-    /// The folder this process works in, which relative paths are taken
-    /// from.
-    pub fn current_dir(&self) -> io::Result<PathBuf> {
-        std::env::current_dir()
-    }
-
     /// `path` made absolute against the working folder, without touching
     /// the file system.
     pub fn absolute(&self, path: &Path) -> io::Result<PathBuf> {
