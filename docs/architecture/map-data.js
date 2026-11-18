@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "57921422",
+ "commit": "6e645394",
  "crates": [
   {
    "bins": [
@@ -11700,6 +11700,15 @@ window.KKT_GRAPH = {
      "path": "Disk"
     },
     {
+     "doc": "A line a lane file's header takes.",
+     "kind": "enum",
+     "path": "HeaderKey",
+     "variants": [
+      "Name",
+      "Description"
+     ]
+    },
+    {
      "doc": "The commit a lane folder is at.",
      "kind": "trait",
      "methods": [
@@ -11718,6 +11727,21 @@ window.KKT_GRAPH = {
      "path": "LaneFile"
     },
     {
+     "doc": "What is wrong with a lane file, worded for the person who wrote it.",
+     "kind": "enum",
+     "path": "ParseError",
+     "variants": [
+      "NoHeader",
+      "NotAHeaderLine",
+      "UnknownKey",
+      "Twice",
+      "NoClosingLine",
+      "NoName",
+      "NameMismatch",
+      "NoDescription"
+     ]
+    },
+    {
      "doc": "The lanes in a folder, and where they came from.",
      "fields": [
       "lanes",
@@ -11731,6 +11755,18 @@ window.KKT_GRAPH = {
       "skipped_names"
      ],
      "path": "Read"
+    },
+    {
+     "doc": "Why a lane folder could not be read: the step that failed, with the folder or file it was on.",
+     "kind": "enum",
+     "path": "ReadError",
+     "variants": [
+      "Find",
+      "Folder",
+      "File",
+      "Lane",
+      "Commit"
+     ]
     },
     {
      "doc": "Why a `.md` file is not read as a lane.",
@@ -11749,6 +11785,16 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Skipped"
+    },
+    {
+     "doc": "Why lanes could not be written to a folder: the step that failed, with the folder or file it was on.",
+     "kind": "enum",
+     "path": "WriteError",
+     "variants": [
+      "Find",
+      "Create",
+      "Write"
+     ]
     },
     {
      "doc": "The file a lane is kept in.",
@@ -11834,7 +11880,9 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
