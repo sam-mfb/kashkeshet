@@ -8,6 +8,8 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+# The admin-name lines key_writes gives, until the key writes move there.
+kkt-deployment = { path = "../kkt-deployment" }
 kkt-keys = { path = "../kkt-keys" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-containerized-service = { path = "../kkt-containerized-service" }
