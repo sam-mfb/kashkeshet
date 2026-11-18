@@ -37,7 +37,7 @@ DOC_WORD = re.compile(r"\b(kkt|kashkeshet)\b(?![-_])", re.IGNORECASE)
 DOC_LINE = re.compile(r"^\s*//[/!](.*)$")
 HISTORY = re.compile(r"\bwas kkt-|\bformerly\b|ARCHITECTURE\.md|RUST\.md|#\d+|\bphase \d+", re.IGNORECASE)
 # A description says what a crate is and does, not what it is not.
-NEGATIVE = re.compile(r"\bknows? nothing\b|\bnever\b|\bdoes not\b|\bis not\b|\bdoesn't\b|\bisn't\b", re.IGNORECASE)
+NEGATIVE = re.compile(r"\bnot\b|\bnever\b|\bnothing\b|\bcannot\b|n['’]t\b", re.IGNORECASE)
 # One to three short sentences: room for the longest descriptions that keep
 # the rules, with a margin.
 MAX_DESCRIPTION = 360

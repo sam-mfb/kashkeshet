@@ -87,13 +87,15 @@ class DescriptionProblems(unittest.TestCase):
                 {"id": "data", "about": "The kkt database."}]}))
             self.assertEqual(check.description_problems(root), [
                 "concerns.json: the platform layer's text names kkt: kkt",
-                "concerns.json: the platform layer's text says what it is not: know nothing",
+                "concerns.json: the platform layer's text says what it is not: nothing",
                 "concerns.json: the core layer's text gives history: phase 16"])
 
     def test_a_negative_in_any_description_is_found(self):
-        for text, negative in [("It knows nothing of what runs in it.", "knows nothing"), ("It never names a tool.", "never"),
-                               ("It does not log.", "does not"), ("It is not a contract.", "is not"),
-                               ("It doesn't log.", "doesn't"), ("It isn't a contract.", "isn't")]:
+        for text, negative in [("It knows nothing of what runs in it.", "nothing"), ("It never names a tool.", "never"),
+                               ("It does not log.", "not"), ("It does  not log.", "not"), ("It Is Not a contract.", "Not"),
+                               ("Do not log here.", "not"), ("It cannot log.", "cannot"),
+                               ("It has nothing to do with logs.", "nothing"),
+                               ("It doesn't log.", "n't"), ("It doesn’t log.", "n’t"), ("It isn't a contract.", "n't")]:
             self.assertEqual(self.found({"kkt-core": {"layer": "core", "concern": text}}),
                              [f"concerns.json: kkt-core's description says what it is not: {negative}"], text)
         # A word that only contains one is fine.
