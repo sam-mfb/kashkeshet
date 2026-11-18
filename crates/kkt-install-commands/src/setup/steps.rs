@@ -268,7 +268,8 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 ))
                 .map_err(|e| e.to_string()),
             setup::Mode::Service { .. } => {
-                let admin = kkt_keys::admin_key_path(access).ok_or_else(admin_key_collision)?;
+                let admin = kkt_keys::admin_key_path(access)
+                    .ok_or_else(|| admin_key_collision().to_string())?;
                 // A key file that cannot be inspected is not replaced:
                 // `new_key_file` refuses to write over one. Only a new key
                 // is given the name.
@@ -277,24 +278,19 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                     .ready()
                     .and_then(|()| {
                         service.add_key(&admin, &|path| {
-                            let key = new_key_file(
-                                self.parts.key_files,
-                                self.parts.entropy,
-                                path,
-                                false,
-                            )?;
+                            let key =
+                                new_key_file(self.parts.key_files, self.parts.entropy, path, false)
+                                    .map_err(|e| e.to_string())?;
                             kkt_deployment::admin_name_written(
                                 path,
                                 Some(&name.to_string()),
-                                self.parts
-                                    .key_files
-                                    .write_admin_name(
-                                        path,
-                                        Some(kkt_keys::bound_to(name, &key).as_str()),
-                                    )
-                                    .map_err(|e| e.to_string()),
+                                self.parts.key_files.write_admin_name(
+                                    path,
+                                    Some(kkt_keys::bound_to(name, &key).as_str()),
+                                ),
                             )
                             .map(drop)
+                            .map_err(|e| e.to_string())
                         })
                     })
                     .map_err(|e| e.to_string())?;

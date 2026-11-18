@@ -11,6 +11,53 @@ use kkt_keys::{ADMIN_KEY_COPY_FILE_NAME, WEB_KEY_COPY_FILE_NAME};
 use kkt_keys::{admin_key_path, web_key_path};
 use std::path::{Path, PathBuf};
 
+/// Why where a key is could not be said.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum KeyPlaceError {
+    /// The serve config turns keys off.
+    #[error("keys are disabled in the serve config")]
+    KeysOffInConfig,
+    /// This machine is a client: the key is on the server's machine.
+    #[error("the {} is on the server's machine; run `kkt key show{}` there", kind.name(), kind.flag())]
+    OnServer { kind: KeyKind },
+    /// The setup record names no access key.
+    #[error("keys are disabled for this setup")]
+    KeysOffForSetup,
+    /// There is no home, so no config folder for a Docker setup's copy.
+    #[error("set HOME to find the {}", kind.name())]
+    NoHome { kind: KeyKind },
+}
+
+/// What `kkt key create` refuses before it writes anything.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum CreateRefusal {
+    /// A web or admin key of a server in Docker is made inside its
+    /// container; the host copies only mirror it.
+    #[error("{}", in_docker(*kind))]
+    InDocker { kind: KeyKind },
+    /// `--name` was given for a key other than the admin key.
+    #[error("--name names the admin agent, so it goes with --admin")]
+    NameWithoutAdmin,
+}
+
+fn in_docker(kind: KeyKind) -> &'static str {
+    match kind {
+        KeyKind::Admin => {
+            "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force --name <name>`, then restart kkt and rerun setup with --admin-key to save the host copy"
+        }
+        _ => {
+            "rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy"
+        }
+    }
+}
+
+/// The admin key's place is the access key's file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+#[error(
+    "cannot add an admin key: access_key_file is named admin-key, which is also the admin key's place in that folder; move one of the files to a different folder, or rename the access key and update access_key_file"
+)]
+pub struct AdminKeyCollision;
+
 /// A server's deployment and its access key file, as the setup record, the
 /// note of an unfinished setup, or a server found installed with no record
 /// says. `key_file` is `None` when its keys are off.
@@ -145,11 +192,11 @@ pub fn configured_key(
     access: Option<&Path>,
     kind: KeyKind,
     off: KeysOff,
-) -> Result<Option<PathBuf>, String> {
+) -> Result<Option<PathBuf>, KeyPlaceError> {
     match (access, off) {
         (Some(access), _) => Ok(kind.beside(access)),
         (None, KeysOff::NoKey) => Ok(None),
-        (None, KeysOff::Refuse) => Err("keys are disabled in the serve config".into()),
+        (None, KeysOff::Refuse) => Err(KeyPlaceError::KeysOffInConfig),
     }
 }
 
@@ -157,18 +204,14 @@ pub fn configured_key(
 /// machine whose setup record names `server`: for Docker, the host copy. A
 /// client machine has only the access key, and a record with no access key
 /// has no keys.
-pub fn recorded_key(server: &ServerKeys, kind: KeyKind) -> Result<Option<PathBuf>, String> {
+pub fn recorded_key(server: &ServerKeys, kind: KeyKind) -> Result<Option<PathBuf>, KeyPlaceError> {
     if kind != KeyKind::Access && matches!(server.deployment, Deployment::Client) {
-        return Err(format!(
-            "the {} is on the server's machine; run `kkt key show{}` there",
-            kind.name(),
-            kind.flag()
-        ));
+        return Err(KeyPlaceError::OnServer { kind });
     }
     let access = server
         .key_file
         .as_deref()
-        .ok_or("keys are disabled for this setup")?;
+        .ok_or(KeyPlaceError::KeysOffForSetup)?;
     if matches!(server.deployment, Deployment::Docker { .. }) {
         return Ok(Some(kind.docker_copy(access)));
     }
@@ -186,7 +229,7 @@ pub fn operator_key(
     unrecorded: Option<&ServerKeys>,
     config_dir: Option<&Path>,
     kind: KeyKind,
-) -> Result<KeyPlace, String> {
+) -> Result<KeyPlace, KeyPlaceError> {
     let server = recorded.or_else(|| {
         unfinished
             .and_then(|unfinished| unfinished.server.as_ref())
@@ -209,17 +252,15 @@ pub fn operator_key(
     if let Some(unfinished) = unfinished
         && unfinished.in_docker
     {
-        let access = access_key_file(
-            config_dir.ok_or_else(|| format!("set HOME to find the {}", kind.name()))?,
-        );
+        let access = access_key_file(config_dir.ok_or(KeyPlaceError::NoHome { kind })?);
         return Ok(KeyPlace::Known(Some(kind.docker_copy(&access))));
     }
     Ok(KeyPlace::Configured)
 }
 
 /// An access key may keep its old name, but cannot also be the admin key.
-pub fn admin_key_collision() -> String {
-    "cannot add an admin key: access_key_file is named admin-key, which is also the admin key's place in that folder; move one of the files to a different folder, or rename the access key and update access_key_file".into()
+pub fn admin_key_collision() -> AdminKeyCollision {
+    AdminKeyCollision
 }
 
 /// Whether `kkt key create` must first ask whether the server runs in
@@ -234,15 +275,16 @@ pub fn create_asks_for_docker(kind: KeyKind, path_given: bool) -> bool {
 /// says to ask), whose host copies only mirror the container's; and a
 /// `name` for any key but the admin key. Whether a name is a valid admin
 /// name is the caller's next check.
-pub fn create_checks(kind: KeyKind, in_docker: bool, name: Option<&str>) -> Result<(), String> {
+pub fn create_checks(
+    kind: KeyKind,
+    in_docker: bool,
+    name: Option<&str>,
+) -> Result<(), CreateRefusal> {
     if in_docker {
-        return Err(match kind {
-            KeyKind::Admin => "make or rotate the admin key inside the container: `docker compose exec kkt kkt key create --admin --force --name <name>`, then restart kkt and rerun setup with --admin-key to save the host copy".into(),
-            _ => "rotate the web key inside the container: `docker compose exec kkt kkt key create --web --force`, then restart kkt and rerun setup to refresh the host copy".into(),
-        });
+        return Err(CreateRefusal::InDocker { kind });
     }
     if name.is_some() && kind != KeyKind::Admin {
-        return Err("--name names the admin agent, so it goes with --admin".into());
+        return Err(CreateRefusal::NameWithoutAdmin);
     }
     Ok(())
 }
@@ -251,7 +293,10 @@ pub fn create_checks(kind: KeyKind, in_docker: bool, name: Option<&str>) -> Resu
 /// after [`create_checks`]: a `destination` that is the access key's file,
 /// `access`. The caller resolves both paths the same way first, so that
 /// relative paths and symlinks compare as the files they name.
-pub fn create_destination_check(destination: &Path, access: &Path) -> Result<(), String> {
+pub fn create_destination_check(
+    destination: &Path,
+    access: &Path,
+) -> Result<(), AdminKeyCollision> {
     if destination == access {
         return Err(admin_key_collision());
     }
@@ -263,6 +308,44 @@ mod tests {
     use super::*;
 
     const KINDS: [KeyKind; 3] = [KeyKind::Access, KeyKind::Web, KeyKind::Admin];
+
+    // The functions under test, with their errors as the text a person
+    // sees, which these tests pin.
+
+    fn configured_key(
+        access: Option<&Path>,
+        kind: KeyKind,
+        off: KeysOff,
+    ) -> Result<Option<PathBuf>, String> {
+        super::configured_key(access, kind, off).map_err(|e| e.to_string())
+    }
+
+    fn recorded_key(server: &ServerKeys, kind: KeyKind) -> Result<Option<PathBuf>, String> {
+        super::recorded_key(server, kind).map_err(|e| e.to_string())
+    }
+
+    fn operator_key(
+        recorded: Option<&ServerKeys>,
+        unfinished: Option<&UnfinishedSetup>,
+        unrecorded: Option<&ServerKeys>,
+        config_dir: Option<&Path>,
+        kind: KeyKind,
+    ) -> Result<KeyPlace, String> {
+        super::operator_key(recorded, unfinished, unrecorded, config_dir, kind)
+            .map_err(|e| e.to_string())
+    }
+
+    fn create_checks(kind: KeyKind, in_docker: bool, name: Option<&str>) -> Result<(), String> {
+        super::create_checks(kind, in_docker, name).map_err(|e| e.to_string())
+    }
+
+    fn create_destination_check(destination: &Path, access: &Path) -> Result<(), String> {
+        super::create_destination_check(destination, access).map_err(|e| e.to_string())
+    }
+
+    fn admin_key_collision() -> String {
+        super::admin_key_collision().to_string()
+    }
 
     /// How a setup was going to deploy the server: in Docker, or not.
     #[derive(Clone, Copy, PartialEq)]

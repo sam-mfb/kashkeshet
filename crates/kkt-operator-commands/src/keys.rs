@@ -17,14 +17,20 @@ struct Reads<'a, 'p> {
 }
 
 impl RecordedServerRead for Reads<'_, '_> {
-    fn recorded(&self) -> Result<Option<ServerKeys>, String> {
-        self.parts.installed.recorded()
+    fn recorded(&self) -> Result<Option<ServerKeys>, kkt_deployment::KeyReadError> {
+        self.parts
+            .installed
+            .recorded()
+            .map_err(|said| kkt_deployment::KeyReadError(said.into()))
     }
 }
 
 impl ServeConfigReads for Reads<'_, '_> {
-    fn configured_access(&self) -> Result<Option<PathBuf>, String> {
-        self.parts.serve.configured_access_key()
+    fn configured_access(&self) -> Result<Option<PathBuf>, kkt_deployment::KeyReadError> {
+        self.parts
+            .serve
+            .configured_access_key()
+            .map_err(|said| kkt_deployment::KeyReadError(said.into()))
     }
     fn config_dir(&self) -> Option<PathBuf> {
         kkt_config_file::config_dir(self.env.config_home().as_deref())
@@ -32,8 +38,11 @@ impl ServeConfigReads for Reads<'_, '_> {
 }
 
 impl UnrecordedReads for Reads<'_, '_> {
-    fn unfinished(&self) -> Result<Option<UnfinishedSetup>, String> {
-        self.parts.installed.unfinished()
+    fn unfinished(&self) -> Result<Option<UnfinishedSetup>, kkt_deployment::KeyReadError> {
+        self.parts
+            .installed
+            .unfinished()
+            .map_err(|said| kkt_deployment::KeyReadError(said.into()))
     }
     /// A server kkt installed here with no record. One that cannot be made
     /// out is said on standard error, as `kkt status` says it, and the keys
@@ -69,13 +78,15 @@ pub fn optional_key_path(
     path: Option<PathBuf>,
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
-    kkt_deployment::find_key(&Reads { parts, env }, path, kind)
+    kkt_deployment::find_key(&Reads { parts, env }, path, kind).map_err(|e| e.to_string())
 }
 
 /// Whether this machine's server runs in Docker, as recorded or, with no
 /// record and no unfinished setup, as found.
 pub(crate) fn runs_in_docker(parts: &OperatorParts<'_>, env: &Env) -> Result<bool, String> {
-    Ok(kkt_deployment::find_here(&Reads { parts, env })?.runs_in_docker())
+    Ok(kkt_deployment::find_here(&Reads { parts, env })
+        .map_err(|e| e.to_string())?
+        .runs_in_docker())
 }
 
 /// Where this machine's web or admin key file is, if it runs a server: for
@@ -90,6 +101,7 @@ pub fn local_operator_key(
     kind: KeyKind,
 ) -> Result<Option<PathBuf>, String> {
     kkt_deployment::find_operator_key(&Reads { parts, env }, unfinished, unrecorded, kind)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

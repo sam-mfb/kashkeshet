@@ -95,14 +95,16 @@ pub async fn run<D>(
             } else {
                 // Said at once, so they are seen even if the start fails.
                 if let Some(key) = &plan.new_web_key {
-                    new_key_file(parts.key_files, parts.entropy, key, false)?;
+                    new_key_file(parts.key_files, parts.entropy, key, false)
+                        .map_err(|e| e.to_string())?;
                     parts.output.output(format_args!(
                         "Created a new web key at {}. Read it with `kkt key show --web`.\n",
                         key.display()
                     ));
                 }
                 if let Some(key) = &plan.new_key {
-                    new_key_file(parts.key_files, parts.entropy, key, false)?;
+                    new_key_file(parts.key_files, parts.entropy, key, false)
+                        .map_err(|e| e.to_string())?;
                     parts.output.output(format_args!(
                         "Created a new access key at {}\n",
                         key.display()
