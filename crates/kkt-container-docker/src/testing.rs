@@ -343,3 +343,10 @@ impl Runner for Scripted {
         self.current_folder()
     }
 }
+
+/// Writes `contents` to `path` on this machine as a private file, exactly
+/// as Docker's host writes a key copy and the settings file, for a test
+/// that compares it with another writer.
+pub fn write_private_file(path: &Path, contents: &str) -> io::Result<()> {
+    super::runner::write(path, contents, true)
+}

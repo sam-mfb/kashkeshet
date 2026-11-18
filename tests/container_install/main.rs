@@ -376,6 +376,8 @@ fn cases(all: &[String]) -> String {
 /// `UPDATE_GOLDEN` is set; and checks no key reaches a command, a line said
 /// or an error.
 fn golden(name: &str, actual: String) {
+    // A check added in step 6a. It can only catch more, so it is within
+    // the rule that the pins do not change (msg 4060).
     keys_only_where_handled(name, &actual);
     for line in actual.lines() {
         let kind = line.split_whitespace().next().unwrap_or("");

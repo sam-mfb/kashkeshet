@@ -765,7 +765,7 @@ fn the_service_files_are_the_repositorys_own() {
 #[derive(Clone, Default)]
 struct NoBrowser;
 
-impl kkt_container::Browser for NoBrowser {
+impl crate::Browser for NoBrowser {
     fn open(&self, _: &str) -> io::Result<()> {
         Err(io::Error::new(io::ErrorKind::NotFound, "no opener"))
     }

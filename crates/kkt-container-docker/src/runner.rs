@@ -88,7 +88,7 @@ fn process(command: &NativeCommand<'_>) -> std::process::Command {
 }
 
 #[cfg(unix)]
-fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
+pub(crate) fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
     let mode = PRIVATE_FILE_MODE;
@@ -107,7 +107,7 @@ fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
 }
 
 #[cfg(not(unix))]
-fn write(path: &Path, contents: &str, _private: bool) -> io::Result<()> {
+pub(crate) fn write(path: &Path, contents: &str, _private: bool) -> io::Result<()> {
     std::fs::write(path, contents)
 }
 

@@ -1,6 +1,6 @@
-//! The person's browser, to open a login link in: start opening it now,
-//! and say later, once, if that failed. Starting returns at once. The
-//! program supplies it.
+//! What this crate needs from the person's browser, to open a sharing
+//! setup's login link: start opening it now, and say later, once, if that
+//! failed. Starting returns at once. The program supplies it.
 
 use std::io;
 

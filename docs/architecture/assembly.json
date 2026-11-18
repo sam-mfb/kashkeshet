@@ -456,7 +456,7 @@
      "note": "kkt status, for a shared install: whether its Tailscale container is logged in; kkt setup, for a shared install: its login link, its name and whether HTTPS is on"
     },
     {
-     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container's Browser",
+     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-containerized-service's Browser",
      "suppliers": [
       {
        "crate": "kkt-browser",
@@ -1244,7 +1244,7 @@
      "note": "in AgentParts' connection, which each command reads"
     },
     {
-     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container's Browser, as kkt-container-docker names it",
+     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
      "suppliers": [
       {
        "crate": "kkt-browser",

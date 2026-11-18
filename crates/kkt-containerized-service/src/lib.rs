@@ -29,8 +29,8 @@ mod tests;
 use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;
 use kkt_container::{
-    Browser, ConfigReader, Container, Existing, Folder, InServer, Inputs, KeyCopies, KeyCopy,
-    LoginLink, Project, Projects, Provisioned, State,
+    ConfigReader, Container, Existing, Folder, InServer, Inputs, KeyCopies, KeyCopy, LoginLink,
+    Project, Projects, Provisioned, State,
 };
 use kkt_keys::KeyFiles;
 use std::path::{Path, PathBuf};
@@ -44,6 +44,16 @@ fn here() -> Folder {
 /// Tells the person running kkt one line.
 pub trait Tell {
     fn say(&self, line: &str);
+}
+
+/// The person's browser, which a sharing setup's login link opens in.
+pub trait Browser {
+    /// Starts opening `url`. Fails if it cannot be started; whether it
+    /// then worked is told by `open_failure`.
+    fn open(&self, url: &str) -> std::io::Result<()>;
+    /// Why opening ended without success, if it did since the last time
+    /// this was asked. Never repeats the link, which may hold a secret.
+    fn open_failure(&self) -> Option<String>;
 }
 
 /// Reads what the node that shares the server says of itself, whatever

@@ -4,10 +4,13 @@
 //! match the same file in `tests/container_install/`.
 //!
 //! This folder sits outside `tests/container_install/` on purpose. While the
-//! container split is under way, a step may add a subject here. Until its
-//! last step, no step removes or alters a subject. No step changes the
-//! scenarios, what the scripted host answers, or their files, which all
-//! live in that folder.
+//! container split is under way, a step may add a subject here, and may
+//! change the `Containerized` subject's construction to hand it the parts
+//! it takes (msg 4045). Until its last step, no step removes a subject or
+//! changes the Docker subject. No step changes the scenarios, what the
+//! scripted host answers, or their files, which all live in that folder.
+//! The harness there may gain a check that can only catch more, such as a
+//! further check on every transcript; that is within the rule (msg 4060).
 
 use kashkeshet::machine::sharing_node::TailscaleNode;
 use kkt_container::Container;
@@ -34,7 +37,7 @@ pub fn subject(name: &str, browser: Box<dyn Browser>, host: Scripted) -> Box<dyn
             Docker::scripted(Box::new(NoBrowser), host.clone()),
             Box::new(Transcript(host.clone())),
             Box::new(TailscaleNode),
-            browser,
+            Box::new(LinkOpener(browser)),
             Box::new(KeyCopiesOn(host.clone())),
             host.current_folder().map_err(|e| e.to_string()),
         )),
@@ -62,6 +65,19 @@ impl Browser for NoBrowser {
     }
     fn open_failure(&self) -> Option<String> {
         None
+    }
+}
+
+/// The test's browser, which writes into the transcript, as the
+/// containerized service's own `Browser`.
+struct LinkOpener(Box<dyn Browser>);
+
+impl kkt_containerized_service::Browser for LinkOpener {
+    fn open(&self, url: &str) -> io::Result<()> {
+        self.0.open(url)
+    }
+    fn open_failure(&self) -> Option<String> {
+        self.0.open_failure()
     }
 }
 
