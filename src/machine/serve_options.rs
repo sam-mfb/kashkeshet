@@ -8,7 +8,8 @@
 
 use kkt_hosts::{DEFAULT_ALLOW_ANY_BIND, DEFAULT_BIND};
 use kkt_keys::{AccessKey, admin_key_path, web_key_path};
-use kkt_log_tracing::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL, LogLevel};
+use kkt_log::Level;
+use kkt_log_tracing::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
 use kkt_server::ServerSettings;
 use std::net::SocketAddr;
 use std::path::PathBuf;
@@ -72,9 +73,9 @@ pub struct ServeOptions {
     /// Write the log to this file, kept bounded, instead of to stdout.
     pub log_file: Option<PathBuf>,
     /// How much kkt's own code logs.
-    pub log_level: Option<LogLevel>,
+    pub log_level: Option<Level>,
     /// How much the libraries kkt uses log.
-    pub dependency_log_level: Option<LogLevel>,
+    pub dependency_log_level: Option<Level>,
 }
 
 impl ServeOptions {
@@ -334,8 +335,8 @@ pub struct ServeSettings {
     pub admin_key: Option<PathBuf>,
     /// The log file, if the log goes to one instead of stdout.
     pub log_file: Option<PathBuf>,
-    pub log_level: LogLevel,
-    pub dependency_log_level: LogLevel,
+    pub log_level: Level,
+    pub dependency_log_level: Level,
 }
 
 #[cfg(test)]
@@ -364,8 +365,8 @@ mod tests {
                 web_key: AccessKey::Default(PathBuf::from("web-key")),
                 admin_key: Some(PathBuf::from("admin-key")),
                 log_file: None,
-                log_level: LogLevel::Info,
-                dependency_log_level: LogLevel::Warn,
+                log_level: Level::Info,
+                dependency_log_level: Level::Warn,
             }
         );
         assert_eq!(settings.bind.to_string(), "127.0.0.1:7420");

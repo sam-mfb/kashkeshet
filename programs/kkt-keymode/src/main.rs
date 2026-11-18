@@ -29,7 +29,7 @@ use kkt_identity_keymode::KeyMode;
 use kkt_keys::AccessKey;
 use kkt_keys::{KeyFiles as _, KeyText, SelectedKeys};
 use kkt_keys_os::OsKeyFiles;
-use kkt_log_tracing::LogLevel;
+use kkt_log::Level;
 use kkt_provenance::{Build, RunSettings, ServerRun};
 use kkt_rules::Db;
 use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
@@ -120,7 +120,11 @@ async fn run(args: &[String]) -> Result<(), String> {
     if let Err(p) = kkt_hosts::check_bind(bind, allow_any_bind, access_key != AccessKey::None) {
         problems.push((p.name, "check_bind", p.rule));
     }
-    let server_settings = server_settings.check(problems).map_err(invalid)?;
+    problems.extend(server_settings.problems());
+    if let Some(problem) = first_problem(problems) {
+        return Err(invalid(problem));
+    }
+    let server_settings = server_settings.check([]).map_err(invalid)?;
     let instructions = instructions
         .as_deref()
         .map(|path| config_files::read_instructions(&ConfigDisk, path).map_err(|e| e.to_string()))
@@ -248,8 +252,8 @@ struct Settings {
     access_key: AccessKey,
     web_key: AccessKey,
     admin_key: Option<PathBuf>,
-    log_level: LogLevel,
-    dependency_log_level: LogLevel,
+    log_level: Level,
+    dependency_log_level: Level,
 }
 
 /// The config file's settings, with `--bind` over them, and the defaults
@@ -258,7 +262,7 @@ struct Settings {
 fn settings(args: &Args) -> Result<Settings, String> {
     let text = config_files::read_named(&ConfigDisk, &args.config).map_err(|e| e.to_string())?;
     let dir = args.config.parent().unwrap_or(Path::new("."));
-    let level = |name, text: &str| LogLevel::parse(name, text).map_err(|e| e.rule);
+    let level = |name, text: &str| kkt_log_tracing::parse_level(name, text).map_err(|e| e.rule);
     let config = kkt_config_file::parse_file(&text, dir, None, level).map_err(|e| {
         format!(
             "invalid setting in {}: {} {}",
@@ -414,5 +418,123 @@ impl KeyTexts for KeyFiles<'_> {
         OsKeyFiles
             .read_admin_names(&self.0)
             .map_err(|e| e.to_string())
+    }
+}
+
+/// The order the startup checks report bad settings in: the first problem
+/// in this list wins, whichever owner found it. A problem the list does not
+/// name comes after every one it does, in the order given.
+const CHECK_ORDER: &[(&str, &str)] = &[
+    ("bind", "check_bind"),
+    ("allow_any_bind", "check_bind"),
+    ("dependency_log_level", "check_dependency_log_level"),
+    ("default_limit", "floor"),
+    ("max_body_bytes", "floor"),
+    ("max_channel_name_chars", "floor"),
+    ("max_purpose_chars", "floor"),
+    ("max_description_chars", "floor"),
+    ("max_note_chars", "floor"),
+    ("max_server_announcement_chars", "floor"),
+    ("max_memory_entry_chars", "floor"),
+    ("max_memory_chars", "floor"),
+    ("max_lane_chars", "floor"),
+    ("sends_per_minute", "floor"),
+    ("registrations_per_minute", "floor"),
+    ("max_agents", "floor"),
+    ("web_page_messages", "floor"),
+    ("web_member_excerpt_chars", "floor"),
+    ("upgrade_backups_kept", "floor"),
+    ("max_response_bytes", "floor"),
+    ("max_limit", "default_limit"),
+    ("max_memory_chars", "max_memory_entry_chars"),
+    ("web_page_messages", "ceiling"),
+    ("web_session_lifetime", "floor"),
+    ("waiting_grace", "max_wait"),
+    ("max_wait", "default_wait"),
+    ("allow_host", "host"),
+];
+
+/// The first of `problems`, each (setting, owner's check, rule), in
+/// [`CHECK_ORDER`], or none.
+fn first_problem(
+    problems: Vec<(&'static str, &'static str, String)>,
+) -> Option<kkt_server::SettingError> {
+    let index = CHECK_ORDER
+        .iter()
+        .find_map(|key| {
+            problems
+                .iter()
+                .position(|(name, check, _)| (*name, *check) == *key)
+        })
+        .or_else(|| (!problems.is_empty()).then_some(0))?;
+    let (name, _, rule) = problems.into_iter().nth(index)?;
+    Some(kkt_server::SettingError { name, rule })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::first_problem;
+
+    /// Which bad setting the startup checks report, of all those given, as
+    /// `main` asks it.
+    fn first_reported(problems: Vec<(&'static str, &'static str, String)>) -> String {
+        first_problem(problems).expect("a problem").rule
+    }
+
+    /// The order bad settings are reported in, pinned: given every kind of
+    /// problem at once, last first, each report names the next in this list.
+    #[test]
+    fn bad_settings_are_reported_in_a_fixed_order() {
+        const ORDER: &[(&str, &str)] = &[
+            ("bind", "check_bind"),
+            ("allow_any_bind", "check_bind"),
+            ("dependency_log_level", "check_dependency_log_level"),
+            ("default_limit", "floor"),
+            ("max_body_bytes", "floor"),
+            ("max_channel_name_chars", "floor"),
+            ("max_purpose_chars", "floor"),
+            ("max_description_chars", "floor"),
+            ("max_note_chars", "floor"),
+            ("max_server_announcement_chars", "floor"),
+            ("max_memory_entry_chars", "floor"),
+            ("max_memory_chars", "floor"),
+            ("max_lane_chars", "floor"),
+            ("sends_per_minute", "floor"),
+            ("registrations_per_minute", "floor"),
+            ("max_agents", "floor"),
+            ("web_page_messages", "floor"),
+            ("web_member_excerpt_chars", "floor"),
+            ("upgrade_backups_kept", "floor"),
+            ("max_response_bytes", "floor"),
+            ("max_limit", "default_limit"),
+            ("max_memory_chars", "max_memory_entry_chars"),
+            ("web_page_messages", "ceiling"),
+            ("web_session_lifetime", "floor"),
+            ("waiting_grace", "max_wait"),
+            ("max_wait", "default_wait"),
+            ("allow_host", "host"),
+        ];
+        let mut left: Vec<_> = ORDER
+            .iter()
+            .rev()
+            .map(|(name, check)| (*name, *check, format!("{name}/{check}")))
+            .collect();
+        // One the order does not know comes after every known one.
+        left.insert(
+            0,
+            ("product_setting", "floor", "product_setting/floor".into()),
+        );
+        let mut reported = Vec::new();
+        while !left.is_empty() {
+            let rule = first_reported(left.clone());
+            left.retain(|(_, _, r)| *r != rule);
+            reported.push(rule);
+        }
+        let mut expected: Vec<_> = ORDER
+            .iter()
+            .map(|(name, check)| format!("{name}/{check}"))
+            .collect();
+        expected.push("product_setting/floor".into());
+        assert_eq!(reported, expected);
     }
 }

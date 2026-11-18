@@ -1263,11 +1263,11 @@
      "note": "the server's log file, opened by open_log_file with the system clock"
     },
     {
-     "own": "the log-level check, a closure over LogLevel::parse",
+     "own": "the log-level check, a closure over parse_level",
      "suppliers": [
       {
        "crate": "kkt-log-tracing",
-       "item": "LogLevel"
+       "item": "parse_level"
       }
      ],
      "crate": "kkt-config-file",
@@ -1587,11 +1587,11 @@
      "note": "The MCP endpoints and web page share the program's log."
     },
     {
-     "own": "the log-level check, a closure over LogLevel::parse",
+     "own": "the log-level check, a closure over parse_level",
      "suppliers": [
       {
        "crate": "kkt-log-tracing",
-       "item": "LogLevel"
+       "item": "parse_level"
       }
      ],
      "crate": "kkt-config-file",

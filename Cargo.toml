@@ -242,6 +242,7 @@ kkt-revision = { path = "crates/kkt-revision" }
 kkt-lane-files = { path = "crates/kkt-lane-files" }
 kkt-listen = { path = "crates/kkt-listen" }
 kkt-rolling-file = { path = "crates/kkt-rolling-file" }
+kkt-log = { path = "crates/kkt-log" }
 kkt-log-tracing = { path = "crates/kkt-log-tracing" }
 kkt-entropy = { path = "crates/kkt-entropy" }
 kkt-entropy-os = { path = "crates/kkt-entropy-os" }
@@ -263,7 +264,6 @@ kkt-terminal = { path = "crates/kkt-terminal" }
 kkt-watch = { path = "crates/kkt-watch" }
 kkt-web = { path = "crates/kkt-web" }
 tokio.workspace = true
-tracing.workspace = true
 
 # What the unit and integration tests use beyond the program's own
 # dependencies, which they also use. `kkt-db-sqlite`'s `testing` gives

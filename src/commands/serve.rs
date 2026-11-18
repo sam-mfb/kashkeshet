@@ -15,6 +15,8 @@ use kkt_clock::Clock;
 use kkt_clock_system::SystemClock;
 use kkt_entropy_os::OsEntropy;
 use kkt_identity_keymode::KeyMode;
+use kkt_log::{Level, Log};
+use kkt_log_tracing::TracingLog;
 use kkt_log_tracing::init_logging;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::{Build, RunSettings, ServerRun};
@@ -187,30 +189,49 @@ async fn serve(
     let listening = kkt_listen::listen(server.into_router(), bind)
         .await
         .map_err(|e| format!("could not listen on {bind}: {e}"))?;
-    tracing::info!(
+    TracingLog.record(Level::Info, module_path!(), format_args!(
         "kashkeshet {} (commit {}, run {run_id}) listening: web page http://{bind}/ , MCP http://{bind}/mcp ({access}){admin}, database {}{settings_from}",
         run.version,
         run.commit,
-        db_path.display()
-    );
+        db_path.display()), &[]);
     // The address as bound, which names the port the system chose when the
     // port asked for was 0, on a line of its own.
     let bound = listening
         .address()
         .map_err(|e| format!("could not read the address listened on: {e}"))?;
-    tracing::info!("bound to {bound}");
+    TracingLog.record(
+        Level::Info,
+        module_path!(),
+        format_args!("bound to {bound}"),
+        &[],
+    );
     listening
         .serve_until(
             async move {
                 match signals.stop_on_signal(shutdown).await {
-                    Ok(signal) => tracing::info!("received {signal}; shutting down"),
-                    Err(e) => tracing::error!("could not listen for shutdown signals: {e}"),
+                    Ok(signal) => TracingLog.record(
+                        Level::Info,
+                        module_path!(),
+                        format_args!("received {signal}; shutting down"),
+                        &[],
+                    ),
+                    Err(e) => TracingLog.record(
+                        Level::Error,
+                        module_path!(),
+                        format_args!("could not listen for shutdown signals: {e}"),
+                        &[],
+                    ),
                 }
             },
             |e| {
-                tracing::warn!(
-                    "could not turn off Nagle's algorithm (TCP_NODELAY) on a connection, \
+                TracingLog.record(
+                    Level::Warn,
+                    module_path!(),
+                    format_args!(
+                        "could not turn off Nagle's algorithm (TCP_NODELAY) on a connection, \
                      so its MCP replies may each take about 40 ms longer: {e}"
+                    ),
+                    &[],
                 )
             },
         )
@@ -255,21 +276,36 @@ fn backup_before_upgrade(database: &Path, keep: usize, clock: &dyn Clock) -> Res
             upgrade.from, upgrade.to
         )
     })?;
-    tracing::info!(
-        "backed up the database to {} before upgrading it from schema {} to {}",
-        written.display(),
-        upgrade.from,
-        upgrade.to
+    TracingLog.record(
+        Level::Info,
+        module_path!(),
+        format_args!(
+            "backed up the database to {} before upgrading it from schema {} to {}",
+            written.display(),
+            upgrade.from,
+            upgrade.to
+        ),
+        &[],
     );
     // The backup is made, so the upgrade is safe; an old backup left behind
     // only takes space.
     match OsBackups::new(crate::machine::database::copy).prune(&folder, keep) {
         Ok(removed) => {
             for path in removed {
-                tracing::info!("removed the old backup {}", path.display());
+                TracingLog.record(
+                    Level::Info,
+                    module_path!(),
+                    format_args!("removed the old backup {}", path.display()),
+                    &[],
+                );
             }
         }
-        Err(e) => tracing::warn!("could not remove old backups: {e}"),
+        Err(e) => TracingLog.record(
+            Level::Warn,
+            module_path!(),
+            format_args!("could not remove old backups: {e}"),
+            &[],
+        ),
     }
     Ok(())
 }

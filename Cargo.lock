@@ -1074,6 +1074,7 @@ dependencies = [
  "kkt-listen",
  "kkt-llm-agent-command",
  "kkt-llm-agent-config",
+ "kkt-log",
  "kkt-log-tracing",
  "kkt-machine",
  "kkt-machine-os",
@@ -1100,7 +1101,6 @@ dependencies = [
  "rusqlite",
  "serde_json",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -1466,6 +1466,7 @@ dependencies = [
  "kkt-keys",
  "kkt-keys-os",
  "kkt-listen",
+ "kkt-log",
  "kkt-log-tracing",
  "kkt-mcp",
  "kkt-names",
@@ -1687,7 +1688,6 @@ dependencies = [
  "kkt-api-agent",
  "kkt-api-operator",
  "kkt-api-sim",
- "kkt-backup",
  "kkt-clock",
  "kkt-entropy",
  "kkt-hosts",
