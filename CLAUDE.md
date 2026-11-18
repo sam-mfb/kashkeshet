@@ -156,6 +156,10 @@ from the values it returns.
 | `kkt-scratch` | Tests' scratch folders under `target/tmp` | Be anything but a dev-dependency | none |
 | `kkt-api-sim` | A simulated application, for tests and the web preview: `Preview`, the kkt-api crates' operations the web page uses over a world made up from a seed, answering `limits` with its own values, and `PreviewGate`, a stand-in for kkt-web's `Gate`, open or with an access key checked as kkt-admission checks one | Be in a release | `testing`: all of it |
 
+**Known exception: the setup record holds facts about many subjects.** kkt-setup's `Record` is the one file that says how this machine is set up: the kind of deployment, its server's address and access key, and which server its clients use. These facts concern several subjects, which departs from a module's unitary concern (ARCHITECTURE 1.1). They stay in one record because a person reads it and `kkt setup` writes it as one file, and existing installs depend on its form. Only the program and kkt-install-commands read it, and they hand each crate only the facts it declares in its own terms (ARCHITECTURE 3.5.8.2). The exception would end if each crate described the part of the record it owns, and kkt-setup composed those parts into the one file without knowing what they hold.
+
+**Known exception: the config file holds settings for many crates.** kkt-config-file's `Config` is the config file as a person writes it, with settings that belong to many crates, which departs from a module's unitary concern (ARCHITECTURE 1.1). It stays one file because a person edits one file, and existing installs depend on its form. Only programs depend on kkt-config-file. Each crate declares the settings it takes, with their defaults and checks, and the program hands each crate its own (ARCHITECTURE 3.5.8.2). The exception would end if each crate described its own settings, their names, defaults and checks, and kkt-config-file read the file into them without knowing what they hold.
+
 The program, in the root package:
 
 | Part | Owns | Must not | Features |
