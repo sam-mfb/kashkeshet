@@ -82,7 +82,7 @@ fn a_failed_run_says_only_its_status() {
         })
     });
     assert_eq!(
-        remove_server(&fake, &KKT, None),
+        remove_server(&fake, &KKT, None).map_err(|e| e.to_string()),
         Err("claude mcp failed with exit status: 1".to_string())
     );
 }
@@ -91,12 +91,12 @@ fn a_failed_run_says_only_its_status() {
 fn a_missing_claude_says_how_to_get_it_and_other_failures_say_why() {
     let missing = Fake::new(|| Err(io::Error::from(io::ErrorKind::NotFound)));
     assert_eq!(
-        add_server(&missing, &KKT, "{}", None),
+        add_server(&missing, &KKT, "{}", None).map_err(|e| e.to_string()),
         Err("claude was not found on PATH; install Claude Code, then retry --write".to_string())
     );
     let denied = Fake::new(|| Err(io::Error::new(io::ErrorKind::PermissionDenied, "denied")));
     assert_eq!(
-        add_server(&denied, &KKT, "{}", None),
+        add_server(&denied, &KKT, "{}", None).map_err(|e| e.to_string()),
         Err("could not run claude: denied".to_string())
     );
 }
@@ -112,7 +112,7 @@ fn the_server_name_and_the_retry_advice_are_the_callers() {
     );
     let missing = Fake::new(|| Err(io::Error::from(io::ErrorKind::NotFound)));
     assert_eq!(
-        add_server(&missing, &other, "{}", None),
+        add_server(&missing, &other, "{}", None).map_err(|e| e.to_string()),
         Err("claude was not found on PATH; install Claude Code, then retry --apply".to_string())
     );
 }

@@ -7,7 +7,7 @@ use kkt_llm_agent_command::Claude;
 /// settings, and `--write` is what a person retries with.
 const CLAUDE: Claude = Claude::new("kkt", "--write");
 use kkt_files::Files;
-use kkt_llm_agent_config::{ClientCommand, Host};
+use kkt_llm_agent_config::{ClientCommand, CommandError, CommandFailure, Host};
 use kkt_machine::Machine;
 use kkt_machine_os::OsMachine;
 use std::io;
@@ -54,10 +54,58 @@ impl Host for ClientHost {
 pub struct ClaudeCommand;
 
 impl ClientCommand for ClaudeCommand {
-    fn remove_server(&self, config_dir: Option<&Path>) -> Result<(), String> {
-        CLAUDE.remove_server(config_dir)
+    fn remove_server(&self, config_dir: Option<&Path>) -> Result<(), CommandError> {
+        CLAUDE.remove_server(config_dir).map_err(command_error)
     }
-    fn add_server(&self, entry: &str, config_dir: Option<&Path>) -> Result<(), String> {
-        CLAUDE.add_server(entry, config_dir)
+    fn add_server(&self, entry: &str, config_dir: Option<&Path>) -> Result<(), CommandError> {
+        CLAUDE.add_server(entry, config_dir).map_err(command_error)
+    }
+}
+
+/// Claude Code's failure, as the contract's kind, with Claude's own error
+/// as the cause.
+fn command_error(error: kkt_llm_agent_command::ClaudeError) -> CommandError {
+    use kkt_llm_agent_command::ClaudeError;
+    let kind = match &error {
+        ClaudeError::NotFound { .. } => CommandFailure::NotInstalled,
+        ClaudeError::NotRun(_) => CommandFailure::NotRun,
+        ClaudeError::Failed { .. } => CommandFailure::Failed,
+    };
+    CommandError {
+        kind,
+        cause: Box::new(error),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use kkt_llm_agent_command::ClaudeError;
+
+    #[test]
+    fn each_claude_failure_is_the_contracts_kind_with_claudes_words() {
+        for (error, kind, said) in [
+            (
+                ClaudeError::NotFound { retry: "--write" },
+                CommandFailure::NotInstalled,
+                "claude was not found on PATH; install Claude Code, then retry --write",
+            ),
+            (
+                ClaudeError::NotRun(io::Error::other("denied")),
+                CommandFailure::NotRun,
+                "could not run claude: denied",
+            ),
+            (
+                ClaudeError::Failed {
+                    status: "exit status: 1".into(),
+                },
+                CommandFailure::Failed,
+                "claude mcp failed with exit status: 1",
+            ),
+        ] {
+            let mapped = command_error(error);
+            assert_eq!(mapped.kind, kind);
+            assert_eq!(mapped.to_string(), said);
+        }
     }
 }

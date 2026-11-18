@@ -1528,6 +1528,9 @@ dependencies = [
 [[package]]
 name = "kkt-llm-agent-command"
 version = "0.10.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "kkt-llm-agent-config"

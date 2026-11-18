@@ -5,4 +5,4 @@
 //! runner. A caller adapts `Claude` to its own contract.
 
 mod claude;
-pub use claude::Claude;
+pub use claude::{Claude, ClaudeError};
