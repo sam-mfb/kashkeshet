@@ -63,7 +63,8 @@ pub async fn run<D: crate::ServiceDefaults>(
         path,
         fix: checks::web_key_fix(mode.as_ref()),
     });
-    // Most servers have no admin key; only one that exists is checked.
+    // Most servers have no admin key; only one that exists is checked. One
+    // that cannot be looked at is checked too, and its check says why.
     let admin_key = local_operator_key(
         parts,
         env,
@@ -71,7 +72,7 @@ pub async fn run<D: crate::ServiceDefaults>(
         found,
         KeyKind::Admin,
     )?
-    .filter(|path| parts.key_files.exists(path));
+    .filter(|path| !matches!(parts.key_files.try_exists(path), Ok(false)));
     let admin_key_to_check = admin_key.as_deref().map(|path| diagnostics::KeyToCheck {
         path,
         fix: checks::admin_key_fix(mode.as_ref()),

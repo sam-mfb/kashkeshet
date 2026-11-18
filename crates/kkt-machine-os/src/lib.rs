@@ -1,7 +1,8 @@
 //! The machine's facts as this process sees them: [`OsMachine`] implements
 //! [`Machine`](kkt_machine::Machine), reading the environment, naming the platform
 //! this program was built for, and giving this process's ID, this
-//! program's path and the folders `$PATH` names. The program
+//! program's path, the folders `$PATH` names and the folder it works in.
+//! The program
 //! asks once and passes the values on.
 
 use kkt_machine::{Env, Machine, Platform};

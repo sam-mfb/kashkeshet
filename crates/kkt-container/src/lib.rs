@@ -2,9 +2,8 @@
 //! asks a container tool about a folder of Compose files and the services
 //! they describe and acts on them, with the records it takes and gives
 //! (`Project`, `ProjectFile`, `Output`, `User`, `FileState`, `Ran`,
-//! `ServiceConfig`) and its error (`ProjectError`, with `FileAction`). It
-//! knows nothing of what runs in a project. A stand-in in memory is behind
-//! `testing`.
+//! `ServiceConfig`) and its error (`ProjectError`, with `FileAction`). A
+//! stand-in in memory is behind `testing`.
 
 mod projects;
 #[cfg(any(test, feature = "testing"))]

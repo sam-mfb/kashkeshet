@@ -1,7 +1,21 @@
 //! The wrapper's private process boundary, which tests replace.
 
 pub(super) trait Runner {
-    fn run(&self, args: &[String]) -> Result<Output, String>;
+    fn run(&self, args: &[String]) -> Result<Output, RunError>;
+}
+
+/// Why `tailscale` could not be run: `missing` when there is no such
+/// program, and what to tell the person.
+#[derive(Debug)]
+pub(super) struct RunError {
+    pub missing: bool,
+    pub said: String,
+}
+
+impl From<RunError> for String {
+    fn from(error: RunError) -> String {
+        error.said
+    }
 }
 
 pub(super) struct Output {
@@ -17,12 +31,15 @@ pub(super) struct OsRunner {
 }
 
 impl Runner for OsRunner {
-    fn run(&self, args: &[String]) -> Result<Output, String> {
+    fn run(&self, args: &[String]) -> Result<Output, RunError> {
         let output = std::process::Command::new("tailscale")
             .args(args)
             .stdin(std::process::Stdio::null())
             .output()
-            .map_err(|e| launch_error(e, self.rerun))?;
+            .map_err(|e| RunError {
+                missing: e.kind() == std::io::ErrorKind::NotFound,
+                said: launch_error(e, self.rerun),
+            })?;
         Ok(Output {
             success: output.status.success(),
             stdout: String::from_utf8_lossy(&output.stdout).into_owned(),

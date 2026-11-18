@@ -3,7 +3,7 @@
 //! answered on this machine (`ConnectionReads`).
 
 use crate::machine::keys::{make_default_key, read_key};
-use crate::machine::operate::NativeSetupFiles;
+use crate::machine::native::NativeSetupFiles;
 use crate::machine::settings::ServeOptions;
 use crate::machine::settings::Sources;
 use crate::machine::settings::serve_settings_and_sources;

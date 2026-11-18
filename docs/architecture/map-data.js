@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "726c9a19",
+ "commit": "a5e34af7",
  "crates": [
   {
    "bins": [
@@ -25,7 +25,7 @@ window.KKT_GRAPH = {
        "type": "LaneParts"
       }
      ],
-     "type": "machine::operate::NativeOperate"
+     "type": "machine::native::NativeParts"
     }
    ],
    "contracts": [
@@ -167,7 +167,7 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "ImportLanes",
      "trait_crate": "kkt-install-commands",
-     "type": "machine::operate::SetupLanes"
+     "type": "machine::native::SetupLanes"
     },
     {
      "crate": "kashkeshet",
@@ -185,7 +185,7 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "ServiceDefaults",
      "trait_crate": "kkt-install-commands",
-     "type": "machine::operate::ServiceArgs"
+     "type": "machine::native::ServiceArgs"
     },
     {
      "crate": "kashkeshet",
@@ -251,7 +251,7 @@ window.KKT_GRAPH = {
      "crate": "kashkeshet",
      "trait": "lanes::LaneServers",
      "trait_crate": "kkt-operator-commands",
-     "type": "machine::operate::HereLanes"
+     "type": "machine::native::HereLanes"
     },
     {
      "crate": "kashkeshet",
@@ -400,12 +400,12 @@ window.KKT_GRAPH = {
     {
      "doc": "The install's and the operator's commands' parts on this machine: the program's native providers and its serving settings, adapted to each.",
      "kind": "mod",
-     "path": "machine::operate"
+     "path": "machine::native"
     },
     {
      "doc": "The server `kkt lanes` acts on: as kkt-setup's `lanes_on` says, from this machine's setup record.",
      "kind": "struct",
-     "path": "machine::operate::HereLanes"
+     "path": "machine::native::HereLanes"
     },
     {
      "doc": "The operator's parts on this machine, from the implementations the program chooses.",
@@ -419,17 +419,17 @@ window.KKT_GRAPH = {
       "setup_lanes",
       "with_service_args"
      ],
-     "path": "machine::operate::NativeOperate"
+     "path": "machine::native::NativeParts"
     },
     {
      "doc": "The service capability: what an installed service runs with, compared with the defaults, as `kkt serve` would read its arguments.",
      "kind": "struct",
-     "path": "machine::operate::ServiceArgs"
+     "path": "machine::native::ServiceArgs"
     },
     {
      "doc": "The install's lane import, adapted to the operator's lane helpers.",
      "kind": "struct",
-     "path": "machine::operate::SetupLanes"
+     "path": "machine::native::SetupLanes"
     },
     {
      "doc": "The program's run-record values.",
@@ -736,7 +736,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "machine::operate::NativeOperate::install_parts",
+     "at": "machine::native::NativeParts::install_parts",
      "kind": "param",
      "name": "import_lanes",
      "traits": [
@@ -747,7 +747,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "machine::operate::NativeOperate::lane_servers",
+     "at": "machine::native::NativeParts::lane_servers",
      "kind": "param",
      "name": "installed",
      "traits": [
@@ -758,7 +758,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "machine::operate::NativeOperate::new",
+     "at": "machine::native::NativeParts::new",
      "kind": "param",
      "name": "env",
      "traits": [],
@@ -767,7 +767,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "machine::operate::NativeOperate::new",
+     "at": "machine::native::NativeParts::new",
      "kind": "param",
      "name": "platform",
      "traits": [],
@@ -776,7 +776,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "machine::operate::NativeOperate::operator_parts",
+     "at": "machine::native::NativeParts::operator_parts",
      "kind": "param",
      "name": "installed",
      "traits": [
@@ -787,7 +787,7 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "machine::operate::NativeOperate::operator_parts",
+     "at": "machine::native::NativeParts::operator_parts",
      "kind": "param",
      "name": "lane_servers",
      "traits": [
@@ -2531,6 +2531,9 @@ window.KKT_GRAPH = {
       "cursor"
      ],
      "kind": "struct",
+     "methods": [
+      "all"
+     ],
      "path": "ChannelQuery"
     },
     {
@@ -3681,7 +3684,7 @@ window.KKT_GRAPH = {
      "trait": "Backups"
     }
    ],
-   "crate_doc": "Backups, as a contract: layouts, names, file modes and pruning choices, with no file I/O (the caller supplies the time and source paths), and `Backups`, writing a layout into a folder and pruning old backups there.",
+   "crate_doc": "Backups, as a contract: layouts, names, file modes and pruning choices, worked out from the time and source paths the caller supplies, and `Backups`, writing a layout into a folder and pruning old backups there.",
    "dev_only": false,
    "features": {
     "testing": []
@@ -3977,7 +3980,8 @@ window.KKT_GRAPH = {
      "variants": [
       "NoHomeForDb",
       "NoHomeForKey",
-      "NotText"
+      "NotText",
+      "KeyFile"
      ]
     },
     {
@@ -7523,7 +7527,7 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kashkeshet",
-       "type": "machine::operate::SetupLanes"
+       "type": "machine::native::SetupLanes"
       }
      ],
      "trait": "ImportLanes"
@@ -7550,7 +7554,7 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kashkeshet",
-       "type": "machine::operate::ServiceArgs"
+       "type": "machine::native::ServiceArgs"
       }
      ],
      "trait": "ServiceDefaults"
@@ -10109,7 +10113,6 @@ window.KKT_GRAPH = {
      "kind": "trait",
      "methods": [
       "create_dir_all",
-      "exists",
       "is_file",
       "keep_staged",
       "make_default_key",
@@ -10340,7 +10343,6 @@ window.KKT_GRAPH = {
      "fs::write",
      "os::unix::fs::OpenOptionsExt",
      "os::unix::fs::PermissionsExt",
-     "Path::exists",
      "Path::is_file",
      "Path::try_exists"
     ]
@@ -11312,7 +11314,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "The machine's facts as this process sees them: `OsMachine` implements `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID, this program's path and the folders `$PATH` names.",
+   "crate_doc": "The machine's facts as this process sees them: `OsMachine` implements `Machine`, reading the environment, naming the platform this program was built for, and giving this process's ID, this program's path, the folders `$PATH` names and th...",
    "dev_only": false,
    "features": {},
    "foreign_implements": [],
@@ -11860,7 +11862,7 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kashkeshet",
-       "type": "machine::operate::HereLanes"
+       "type": "machine::native::HereLanes"
       }
      ],
      "trait": "lanes::LaneServers"
@@ -14682,7 +14684,7 @@ window.KKT_GRAPH = {
    "bins": [],
    "builds": [],
    "contracts": [],
-   "crate_doc": "Where tests put their scratch files: a folder inside Cargo's `target/` folder, never the system temporary folder, so a test run writes only inside the clone.",
+   "crate_doc": "Where tests put their scratch files: a folder inside Cargo's `target/` folder, so a test run writes only inside the clone.",
    "dev_only": true,
    "features": {},
    "foreign_implements": [],
@@ -16196,7 +16198,7 @@ window.KKT_GRAPH = {
      "path": "upgrade"
     },
     {
-     "doc": "",
+     "doc": "The folder for the backups made before an upgrade, beside `database`.",
      "kind": "fn",
      "path": "upgrade_backup_folder"
     },
@@ -19304,10 +19306,10 @@ window.KKT_GRAPH = {
       "a type of its own implements CheckService",
       "a type of its own implements ConfigText",
       "a type of its own implements Databases",
-      "machine::operate::SetupLanes implements ImportLanes",
+      "machine::native::SetupLanes implements ImportLanes",
       "a type of its own implements Output",
       "a type of its own implements ServeFacts",
-      "machine::operate::ServiceArgs implements ServiceDefaults",
+      "machine::native::ServiceArgs implements ServiceDefaults",
       "a type of its own implements SetupFiles"
      ],
      "role": "adapts"
@@ -19698,7 +19700,7 @@ window.KKT_GRAPH = {
       "a type of its own implements Paths",
       "a type of its own implements ServeConfig",
       "a type of its own implements lanes::LaneServer",
-      "machine::operate::HereLanes implements lanes::LaneServers"
+      "machine::native::HereLanes implements lanes::LaneServers"
      ],
      "role": "adapts"
     },
@@ -30285,7 +30287,7 @@ window.KKT_ASSEMBLY = {
     },
     {
      "items": [
-      "kashkeshet::machine::operate::NativeOperate",
+      "kashkeshet::machine::native::NativeParts",
       "kkt-install-commands::InstallParts",
       "kkt-install-commands::record::InstallReads",
       "kkt-setup::InstalledHere",
@@ -30294,9 +30296,9 @@ window.KKT_ASSEMBLY = {
       "kkt-operator-commands::lanes::LaneServers",
       "kkt-operator-commands::lanes::LaneServer",
       "kkt-operator-commands::lanes::LocalLanes",
-      "kashkeshet::machine::operate::HereLanes",
+      "kashkeshet::machine::native::HereLanes",
       "kkt-install-commands::ImportLanes",
-      "kashkeshet::machine::operate::SetupLanes",
+      "kashkeshet::machine::native::SetupLanes",
       "kkt-install-commands::ServeFacts",
       "kkt-install-commands::ServiceDefaults",
       "kkt-install-commands::SetupFiles",
@@ -30323,7 +30325,7 @@ window.KKT_ASSEMBLY = {
       "kkt-install-commands::record::check_setup",
       "kkt-backup::Backups"
      ],
-     "text": "main.rs builds the program's parts once, a NativeOperate with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and the program hands it to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git, and to HereLanes, which picks from it the server kkt lanes acts on (LaneServers): the program's ContainerLanes, kkt lanes run in the container over kkt-containerized-service's ServiceContainer, or kkt-operator-commands' LocalLanes, on the local database. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane helpers, over LaneParts, to the install commands' ImportLanes, on a server picked the same way. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
+     "text": "main.rs builds the program's parts once, a NativeParts with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and the program hands it to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git, and to HereLanes, which picks from it the server kkt lanes acts on (LaneServers): the program's ContainerLanes, kkt lanes run in the container over kkt-containerized-service's ServiceContainer, or kkt-operator-commands' LocalLanes, on the local database. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane helpers, over LaneParts, to the install commands' ImportLanes, on a server picked the same way. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "title": "The install and operator commands"
     }
    ],

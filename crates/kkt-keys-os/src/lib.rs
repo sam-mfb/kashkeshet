@@ -28,10 +28,6 @@ impl KeyFiles for OsKeyFiles {
         std::fs::read_to_string(path)
     }
 
-    fn exists(&self, path: &Path) -> bool {
-        path.exists()
-    }
-
     fn try_exists(&self, path: &Path) -> io::Result<bool> {
         path.try_exists()
     }

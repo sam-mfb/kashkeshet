@@ -273,11 +273,17 @@ impl Projects for Docker {
                 .map(|v| v.as_str().map(str::to_string))
                 .collect()
         };
+        // Docker gives an empty `WorkingDir` for an image that names none;
+        // like the other fields, one that cannot be read is missing.
+        let working_dir = config["WorkingDir"]
+            .as_str()
+            .filter(|dir| !dir.is_empty())
+            .map(str::to_string);
         Ok(ServiceConfig {
             command: strings(&config["Cmd"]),
             entrypoint: strings(&config["Entrypoint"]),
             env: strings(&config["Env"]),
-            working_dir: config["WorkingDir"].as_str().unwrap_or("").to_string(),
+            working_dir,
         })
     }
 }

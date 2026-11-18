@@ -12,7 +12,7 @@
 //! sharing node's login, and the server's key copies on this machine. It
 //! touches the machine only through `Projects` and kkt-keys' `KeyFiles`,
 //! for the key copies, and takes the tool's name and how its commands are typed
-//! from it, never naming a tool itself. What the sharing node's status
+//! from it. What the sharing node's status
 //! answer means comes from the `SharingNode` it is given.
 
 mod admin_key;

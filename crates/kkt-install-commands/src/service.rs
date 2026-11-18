@@ -188,8 +188,10 @@ pub fn service_plan<D>(
         no_access_key: no_access_key.then_some(true),
     };
     let inputs = parts.serve.service_settings(config, flags)?;
-    let plan = kkt_bare_service::plan(inputs.request, &|path: &Path| parts.key_files.exists(path))
-        .map_err(|e| e.to_string())?;
+    let plan = kkt_bare_service::plan(inputs.request, &|path: &Path| {
+        parts.key_files.try_exists(path)
+    })
+    .map_err(|e| e.to_string())?;
     let checked = inputs.check.check(&plan)?;
     Ok(ServicePlan {
         spec: plan.spec(program).map_err(|e| e.to_string())?,

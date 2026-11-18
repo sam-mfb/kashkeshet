@@ -432,7 +432,7 @@ mod tests {
                     command: Some(vec!["serve".into()]),
                     entrypoint: None,
                     env: None,
-                    working_dir: String::new(),
+                    working_dir: None,
                 },
             );
         let folder = Folder("/p".into());

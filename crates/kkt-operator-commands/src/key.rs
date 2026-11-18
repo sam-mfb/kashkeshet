@@ -95,24 +95,31 @@ pub fn create(
     {
         // Canonicalize existing files to also catch relative paths and
         // symlinks; a missing destination cannot overwrite an existing key.
-        let (destination, access) =
-            if parts.key_files.exists(destination) && parts.key_files.exists(&access) {
-                let resolve = |path: &Path| {
-                    parts
-                        .paths
-                        .canonicalize(path)
-                        .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
-                };
-                (resolve(destination)?, resolve(&access)?)
-            } else {
-                let resolve = |path: &Path| {
-                    parts
-                        .paths
-                        .absolute(path)
-                        .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
-                };
-                (resolve(destination)?, resolve(&access)?)
+        let there = |path: &Path| {
+            parts.key_files.try_exists(path).map_err(|e| {
+                format!(
+                    "could not tell whether the key file {} is there: {e}",
+                    path.display()
+                )
+            })
+        };
+        let (destination, access) = if there(destination)? && there(&access)? {
+            let resolve = |path: &Path| {
+                parts
+                    .paths
+                    .canonicalize(path)
+                    .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
             };
+            (resolve(destination)?, resolve(&access)?)
+        } else {
+            let resolve = |path: &Path| {
+                parts
+                    .paths
+                    .absolute(path)
+                    .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
+            };
+            (resolve(destination)?, resolve(&access)?)
+        };
         setup::create_destination_check(&destination, &access)?;
     }
     let path = match kind {

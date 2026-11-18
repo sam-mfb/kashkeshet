@@ -158,7 +158,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     }
 
     fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, String> {
-        let path = setup::client_key(staged, url);
+        let path = setup::client_key(staged, url)?;
         self.parts.key_files.keep_staged(staged, &path)?;
         Ok(path)
     }

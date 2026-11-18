@@ -120,7 +120,7 @@ pub(crate) fn read_key(path: &Path, sources: &Sources) -> Result<SharedKey, Stri
 
 #[cfg(test)]
 mod tests {
-    use crate::machine::operate::NativeOperate;
+    use crate::machine::native::NativeParts;
     use crate::machine::settings::{ServeArgs, ServeOptions};
     use crate::machine::settings::{TEST_PLATFORM, test_env, write_default_config};
     use crate::scratch;
@@ -136,7 +136,7 @@ mod tests {
         path: Option<PathBuf>,
         kind: KeyKind,
     ) -> Result<Option<PathBuf>, String> {
-        let native = NativeOperate::new(env, platform).with_service_args(serve_args);
+        let native = NativeParts::new(env, platform).with_service_args(serve_args);
         let setup_lanes = native.setup_lanes();
         let install = native.install_parts(&setup_lanes);
         let installed = kkt_install_commands::record::InstallReads::new(&install, env, platform);
@@ -156,7 +156,7 @@ mod tests {
         unrecorded: Option<&kkt_setup::Unrecorded>,
         kind: KeyKind,
     ) -> Result<Option<PathBuf>, String> {
-        let native = NativeOperate::new(env, platform);
+        let native = NativeParts::new(env, platform);
         let setup_lanes = native.setup_lanes();
         kkt_install_commands::keys::local_operator_key(
             &native.install_parts(&setup_lanes),

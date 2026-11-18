@@ -8,8 +8,7 @@ use kkt_llm_agent_config::Client;
 use std::path::PathBuf;
 
 /// What `kkt switch` does to the machine: the part of [`super::Steps`] it
-/// uses. The real implementation is in the program's
-/// `src/commands/setup/steps.rs`.
+/// uses.
 pub trait SwitchSteps {
     /// The clients whose config has a kkt entry now, whatever server it
     /// names.

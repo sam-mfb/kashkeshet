@@ -152,7 +152,7 @@ impl Client {
         let transport = StreamableHttpClientTransport::from_config(config);
         ().serve_with_lifecycle(transport, ClientLifecycleMode::Initialize)
             .await
-            .map_err(|e| self.failure(refused_at_start(&e), "MCP connection failed"))
+            .map_err(|e| self.failure(refused_at_start(&e), &connection_failed(start_cause(&e))))
     }
 
     /// `KeyRefused` if the server refused the key, else `Lost` for `reason`.
@@ -179,7 +179,7 @@ impl Client {
         let result = client
             .call_tool(params)
             .await
-            .map_err(|e| self.failure(refused_in_call(&e), "MCP connection failed"))?;
+            .map_err(|e| self.failure(refused_in_call(&e), &connection_failed(call_cause(&e))))?;
         *slot = Some(client);
         let text: String = result
             .content
@@ -209,6 +209,60 @@ fn refused_at_start(error: &ClientInitializeError) -> bool {
 /// once the key changes under a running connection.
 fn refused_in_call(error: &ServiceError) -> bool {
     matches!(error, ServiceError::TransportSend(error) if refused(error))
+}
+
+/// What to say when the connection fails, with its cause.
+fn connection_failed(cause: String) -> String {
+    format!("MCP connection failed ({cause})")
+}
+
+/// Why starting a session failed, in words of our own: never the error's
+/// text, which can quote the server's answer or the address.
+fn start_cause(error: &ClientInitializeError) -> String {
+    match error {
+        ClientInitializeError::TransportError { error, .. } => transport_cause(error),
+        ClientInitializeError::ConnectionClosed(_) => "the connection closed".into(),
+        _ => "the server's answer was not MCP".into(),
+    }
+}
+
+/// Why a call failed, in words of our own, as [`start_cause`] says.
+fn call_cause(error: &ServiceError) -> String {
+    match error {
+        ServiceError::TransportSend(error) => transport_cause(error),
+        ServiceError::TransportClosed => "the connection closed".into(),
+        ServiceError::Timeout { .. } => "the server did not answer in time".into(),
+        _ => "the server's answer was not MCP".into(),
+    }
+}
+
+/// Why the HTTP transport failed: its kind, and an HTTP status when there
+/// is one, read from the error's fields and never from its text.
+fn transport_cause(error: &DynamicTransportError) -> String {
+    let Some(error) = error
+        .error
+        .downcast_ref::<StreamableHttpError<reqwest::Error>>()
+    else {
+        return "the transport failed".into();
+    };
+    match error {
+        StreamableHttpError::Client(e) if e.is_connect() => {
+            "the server could not be reached".into()
+        }
+        StreamableHttpError::Client(e) if e.is_timeout() => {
+            "the server did not answer in time".into()
+        }
+        StreamableHttpError::Client(e) => match e.status() {
+            Some(status) => format!("the server answered HTTP {}", status.as_u16()),
+            None => "the request failed".into(),
+        },
+        StreamableHttpError::Io(_) => "reading or writing the connection failed".into(),
+        StreamableHttpError::UnexpectedEndOfStream
+        | StreamableHttpError::TransportChannelClosed => "the connection closed".into(),
+        StreamableHttpError::SessionExpired => "the session expired".into(),
+        StreamableHttpError::AuthRequired(_) => "the server asked for a key".into(),
+        _ => "the server's answer was not MCP".into(),
+    }
 }
 
 /// Whether the HTTP transport's error is the server's 401 with a
@@ -266,6 +320,59 @@ mod tests {
     /// Not a refusal, though its text names the status.
     fn other() -> StreamableHttpError<reqwest::Error> {
         StreamableHttpError::UnexpectedServerResponse("HTTP 401 Unauthorized: no".into())
+    }
+
+    #[test]
+    fn a_failed_connection_says_why_in_words_of_its_own() {
+        // The server's text, which may quote what it was sent, never shows.
+        let said = "HTTP 500: token act_secret";
+        let at_start = ClientInitializeError::TransportError {
+            error: transport(StreamableHttpError::UnexpectedServerResponse(said.into())),
+            context: "send initialize request".into(),
+        };
+        assert_eq!(start_cause(&at_start), "the server's answer was not MCP");
+        assert_eq!(
+            start_cause(&ClientInitializeError::ConnectionClosed(said.into())),
+            "the connection closed"
+        );
+        assert_eq!(
+            call_cause(&ServiceError::TransportClosed),
+            "the connection closed"
+        );
+        assert_eq!(
+            call_cause(&ServiceError::TransportSend(transport(
+                StreamableHttpError::SessionExpired
+            ))),
+            "the session expired"
+        );
+        assert_eq!(
+            call_cause(&ServiceError::TransportSend(transport(
+                StreamableHttpError::Io(std::io::Error::other(said))
+            ))),
+            "reading or writing the connection failed"
+        );
+        assert_eq!(
+            connection_failed("the connection closed".into()),
+            "MCP connection failed (the connection closed)"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_server_that_is_not_there_is_said_to_be_unreachable() {
+        // A port that was free a moment ago, with nothing listening on it now.
+        let port = std::net::TcpListener::bind("127.0.0.1:0")
+            .and_then(|listener| listener.local_addr())
+            .expect("a free port")
+            .port();
+        let client = Client::new(format!("http://127.0.0.1:{port}/mcp"), None);
+        match client.reclaim("amber-falcon", "code").await {
+            Err(Failure::Lost(said)) => assert_eq!(
+                said,
+                "MCP connection failed (the server could not be reached)"
+            ),
+            Err(other) => panic!("{other}"),
+            Ok(_) => panic!("reclaimed with no server"),
+        }
     }
 
     #[test]

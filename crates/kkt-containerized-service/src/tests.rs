@@ -631,7 +631,7 @@ fn serving(args: &[&str]) -> ServiceConfig {
         command: Some(args.iter().map(|a| a.to_string()).collect()),
         entrypoint: Some(vec!["/usr/local/bin/kkt".into()]),
         env: Some(vec!["HOME=/home/kkt".into()]),
-        working_dir: "/data".into(),
+        working_dir: Some("/data".into()),
     }
 }
 
@@ -794,9 +794,6 @@ struct KeysIn(Rc<kkt_keys::testing::Memory>);
 impl kkt_keys::KeyFiles for KeysIn {
     fn read(&self, path: &Path) -> io::Result<String> {
         self.0.read(path)
-    }
-    fn exists(&self, path: &Path) -> bool {
-        self.0.exists(path)
     }
     fn try_exists(&self, path: &Path) -> io::Result<bool> {
         self.0.try_exists(path)
