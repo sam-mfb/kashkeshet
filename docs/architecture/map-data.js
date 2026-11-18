@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "22c6dbe8",
+ "commit": "34a07a3e",
  "crates": [
   {
    "bins": [
@@ -8970,6 +8970,7 @@ window.KKT_GRAPH = {
      "kind": "trait",
      "methods": [
       "read",
+      "with_allowed_host",
       "write"
      ],
      "path": "ConfigText"
@@ -9036,6 +9037,9 @@ window.KKT_GRAPH = {
      "methods": [
       "bind",
       "config",
+      "config_dir",
+      "config_file",
+      "config_file_in_home",
       "configured_access_key",
       "database",
       "default_access_key",
@@ -9699,15 +9703,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "keys::local_operator_key",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "keys::local_operator_key",
      "holds": [
       {
        "crate": "kkt-install-commands",
@@ -9803,15 +9798,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "keys::local_web_key",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "keys::local_web_key",
      "holds": [
       {
        "crate": "kkt-install-commands",
@@ -9903,15 +9889,6 @@ window.KKT_GRAPH = {
        "crate": "kkt-deployment",
        "trait": "connection::ConnectionSource"
       }
-     ]
-    },
-    {
-     "at": "lifecycle::backup",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
      ]
     },
     {
@@ -10471,15 +10448,6 @@ window.KKT_GRAPH = {
     {
      "at": "record::check_setup",
      "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "record::check_setup",
-     "kind": "param",
      "name": "files",
      "traits": [
       {
@@ -10502,6 +10470,17 @@ window.KKT_GRAPH = {
     {
      "at": "record::check_setup",
      "kind": "param",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-install-commands",
+       "trait": "ServeFacts"
+      }
+     ]
+    },
+    {
+     "at": "record::check_setup",
+     "kind": "param",
      "name": "service",
      "traits": [
       {
@@ -10513,20 +10492,22 @@ window.KKT_GRAPH = {
     {
      "at": "record::read_setup",
      "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "record::read_setup",
-     "kind": "param",
      "name": "files",
      "traits": [
       {
        "crate": "kkt-install-commands",
        "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "record::read_setup",
+     "kind": "param",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-install-commands",
+       "trait": "ServeFacts"
       }
      ]
     },
@@ -10544,20 +10525,22 @@ window.KKT_GRAPH = {
     {
      "at": "record::read_unfinished",
      "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "record::read_unfinished",
-     "kind": "param",
      "name": "files",
      "traits": [
       {
        "crate": "kkt-install-commands",
        "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "record::read_unfinished",
+     "kind": "param",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-install-commands",
+       "trait": "ServeFacts"
       }
      ]
     },
@@ -10827,20 +10810,22 @@ window.KKT_GRAPH = {
     {
      "at": "record::write_setup_record",
      "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "record::write_setup_record",
-     "kind": "param",
      "name": "files",
      "traits": [
       {
        "crate": "kkt-install-commands",
        "trait": "SetupFiles"
+      }
+     ]
+    },
+    {
+     "at": "record::write_setup_record",
+     "kind": "param",
+     "name": "serve",
+     "traits": [
+      {
+       "crate": "kkt-install-commands",
+       "trait": "ServeFacts"
       }
      ]
     },
@@ -13603,6 +13588,7 @@ window.KKT_GRAPH = {
      "kind": "trait",
      "methods": [
       "config",
+      "config_dir",
       "configured_access_key",
       "database",
       "default_access_key"
@@ -14084,15 +14070,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "key::create",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "key::create",
      "holds": [
       {
        "crate": "kkt-operator-commands",
@@ -14148,15 +14125,6 @@ window.KKT_GRAPH = {
      "kind": "param",
      "name": "parts",
      "traits": []
-    },
-    {
-     "at": "key::header",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
     },
     {
      "at": "key::header",
@@ -14218,15 +14186,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "key::show",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "key::show",
      "holds": [
       {
        "crate": "kkt-operator-commands",
@@ -14282,15 +14241,6 @@ window.KKT_GRAPH = {
      "kind": "param",
      "name": "parts",
      "traits": []
-    },
-    {
-     "at": "keys::local_operator_key",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
     },
     {
      "at": "keys::local_operator_key",
@@ -14352,15 +14302,6 @@ window.KKT_GRAPH = {
     },
     {
      "at": "keys::optional_key_path",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
-    },
-    {
-     "at": "keys::optional_key_path",
      "holds": [
       {
        "crate": "kkt-operator-commands",
@@ -14416,15 +14357,6 @@ window.KKT_GRAPH = {
      "kind": "param",
      "name": "parts",
      "traits": []
-    },
-    {
-     "at": "keys::selected_key_path",
-     "kind": "param",
-     "name": "env",
-     "traits": [],
-     "values": [
-      "kkt-machine::Env"
-     ]
     },
     {
      "at": "keys::selected_key_path",
@@ -19749,7 +19681,8 @@ window.KKT_GRAPH = {
     "files::read_instructions",
     "files::read_named",
     "files::write",
-    "parse_file"
+    "parse_file",
+    "with_allowed_host"
    ],
    "kind": "normal",
    "optional": false,
@@ -19774,7 +19707,8 @@ window.KKT_GRAPH = {
       "files::read_instructions",
       "files::read_named",
       "files::write",
-      "parse_file"
+      "parse_file",
+      "with_allowed_host"
      ],
      "role": "uses"
     }
@@ -20249,6 +20183,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "keys::local_operator_key",
+    "record::write_setup_record",
     "service::ServicePlan",
     "service::service_plan"
    ],
@@ -24924,33 +24859,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
-    "config_dir",
-    "config_file",
-    "config_file_in_home",
-    "with_allowed_host"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "config_dir",
-      "config_file",
-      "config_file_in_home",
-      "with_allowed_host"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-config-file"
-  },
-  {
-   "features": [],
-   "from": "kkt-install-commands",
-   "items": [
     "Folder"
    ],
    "kind": "normal",
@@ -27148,27 +27056,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
-    "config_dir"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "config_dir"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-config-file"
-  },
-  {
-   "features": [],
-   "from": "kkt-operator-commands",
-   "items": [
     "Deployment",
     "KeyKind",
     "KeyReadError",
@@ -27333,27 +27220,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-llm-agent-config"
-  },
-  {
-   "features": [],
-   "from": "kkt-operator-commands",
-   "items": [
-    "Env"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Env"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-machine"
   },
   {
    "features": [],
@@ -30829,6 +30695,31 @@ window.KKT_ASSEMBLY = {
        "param": "files"
       }
      ]
+    },
+    {
+     "crate": "kkt-install-commands",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "serve"
+      }
+     ],
+     "note": "the setup record and the note of an unfinished setup, in the config folder the serving facts name",
+     "passes_on": "the serving facts the program gave InstallParts",
+     "to": [
+      {
+       "at": "record::read_setup",
+       "param": "serve"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "serve"
+      },
+      {
+       "at": "record::write_setup_record",
+       "param": "serve"
+      }
+     ]
     }
    ]
   },
@@ -32169,6 +32060,14 @@ window.KKT_ASSEMBLY = {
       {
        "at": "InstallParts",
        "param": "serve"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "serve"
+      },
+      {
+       "at": "record::read_setup",
+       "param": "serve"
       }
      ]
     },
@@ -32606,10 +32505,6 @@ window.KKT_ASSEMBLY = {
        "param": "env"
       },
       {
-       "at": "lifecycle::backup",
-       "param": "env"
-      },
-      {
        "at": "lifecycle::status",
        "param": "env"
       },
@@ -32623,14 +32518,6 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "record::InstallReads::new",
-       "param": "env"
-      },
-      {
-       "at": "record::check_setup",
-       "param": "env"
-      },
-      {
-       "at": "record::read_setup",
        "param": "env"
       },
       {
@@ -32672,30 +32559,6 @@ window.KKT_ASSEMBLY = {
       {
        "at": "setup::run",
        "param": "platform"
-      }
-     ]
-    },
-    {
-     "by": "kkt-machine-os::OsMachine",
-     "crate": "kkt-operator-commands",
-     "note": "asked once at start",
-     "produces": "kkt-machine::Env",
-     "to": [
-      {
-       "at": "key::create",
-       "param": "env"
-      },
-      {
-       "at": "key::header",
-       "param": "env"
-      },
-      {
-       "at": "key::show",
-       "param": "env"
-      },
-      {
-       "at": "keys::selected_key_path",
-       "param": "env"
       }
      ]
     },

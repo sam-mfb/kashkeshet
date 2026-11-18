@@ -36,6 +36,9 @@ pub trait ServeConfig {
     ) -> Result<PathBuf, String>;
     /// Where `kkt key create` writes an access key with no `--path`.
     fn default_access_key(&self) -> Option<PathBuf>;
+    /// kkt's config folder under the config home, where key files are kept
+    /// by default; `None` when there is no config home.
+    fn config_dir(&self) -> Option<PathBuf>;
 }
 
 /// Paths made whole, as the operating system resolves them.
