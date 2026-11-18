@@ -7,18 +7,18 @@ use std::path::{Path, PathBuf};
 /// may read or write it.
 pub const ACCESS_KEY_FILE_MODE: u32 = 0o600;
 /// Where `kkt key create` writes a key, in the config directory.
-pub const ACCESS_KEY_FILE_NAME: &str = "access-key";
+pub(crate) const ACCESS_KEY_FILE_NAME: &str = "access-key";
 /// The operator login key, beside the access key.
-pub const WEB_KEY_FILE_NAME: &str = "web-key";
+pub(crate) const WEB_KEY_FILE_NAME: &str = "web-key";
 /// The admin agent's key for `/mcp-admin`, beside the access key. Only made
 /// when the operator asks; without it, `/mcp-admin` is off.
-pub const ADMIN_KEY_FILE_NAME: &str = "admin-key";
+pub(crate) const ADMIN_KEY_FILE_NAME: &str = "admin-key";
 /// Added to an admin key file's name for the file of its admin agent's name
 /// (`admin-key.name` beside `admin-key`): written with the key by `kkt key
 /// create --admin --name`, read with it by `kkt serve`. The file holds a
 /// hash of the key too, so the name belongs to that key alone. Without it,
 /// or for another key, the admin key may only read.
-pub const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
+pub(crate) const ADMIN_NAME_FILE_SUFFIX: &str = ".name";
 /// A Docker setup's host copy of the web key, beside the host copy of the
 /// access key.
 pub const WEB_KEY_COPY_FILE_NAME: &str = "docker-web-key";

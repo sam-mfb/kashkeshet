@@ -260,7 +260,7 @@ pub fn endpoint(bind: SocketAddr, given: Option<&str>) -> Result<String, String>
 }
 
 /// The name of the check that the server answered at all.
-pub const SERVER_CHECK: &str = "server";
+pub(crate) const SERVER_CHECK: &str = "server";
 
 /// Whether `checks` found the server not answering at all, as opposed to
 /// answering with a problem.
@@ -269,7 +269,7 @@ pub fn unreachable(checks: &[Check]) -> bool {
 }
 
 /// The name of the check that the server accepted the key.
-pub const KEY_CHECK: &str = "key accepted";
+pub(crate) const KEY_CHECK: &str = "key accepted";
 
 /// The most bytes of an MCP response a probe reads.
 pub const DOCTOR_MAX_RESPONSE_BYTES: usize = 64 * 1024;
