@@ -1,6 +1,6 @@
 [package]
 name = "kkt-containerized-service"
-description = "kkt's server installed as a containerized service, over kkt-container's general Projects"
+description = "kkt's server installed as a containerized service: its contract, and its implementation over a general Compose project"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -13,6 +13,10 @@ kkt-clock = { path = "../kkt-clock" }
 kkt-container = { path = "../kkt-container" }
 kkt-keys = { path = "../kkt-keys" }
 kkt-machine = { path = "../kkt-machine" }
+
+[features]
+# `testing`: `testing::Memory`, installations in memory, with `Run`.
+testing = []
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }

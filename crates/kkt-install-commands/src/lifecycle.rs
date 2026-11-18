@@ -455,13 +455,13 @@ mod tests {
         }
     }
 
-    impl kkt_container::ConfigReader for Untouched {
+    impl kkt_containerized_service::ConfigReader for Untouched {
         fn settings(
             &self,
             _: &str,
             _: &Path,
             _: Option<&Path>,
-        ) -> Result<kkt_container::ContainerConfig, String> {
+        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
             self.refused("container_configs.settings")
         }
     }
@@ -620,7 +620,7 @@ mod tests {
         }
     }
 
-    impl kkt_container::LoginLink for Untouched {
+    impl kkt_containerized_service::LoginLink for Untouched {
         fn show(&self, _: &str) {
             self.0.borrow_mut().push("login_link.show");
         }
@@ -770,7 +770,7 @@ mod tests {
         let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {
             panic!("uninstall tried an address")
         };
-        let container = kkt_container::testing::Memory::new(None, String::new());
+        let container = kkt_containerized_service::testing::Memory::new(None, String::new());
         let parts = InstallParts {
             container: &container,
             container_configs: &untouched,
@@ -818,6 +818,151 @@ mod tests {
             said.0.borrow().ends_with(&setup::uninstall_line(None)),
             "{}",
             said.0.borrow()
+        );
+    }
+
+    /// A server in Docker that setup installed but did not record, found
+    /// through the container's `existing`: shared over Tailscale, with the
+    /// access key's copy setup saves. Its address is the node's, and its
+    /// mode says so; without the key's copy it is refused, naming it.
+    #[test]
+    fn an_unrecorded_install_in_docker_is_found_through_the_container() {
+        let home = PathBuf::from("/home/k");
+        let env = Env {
+            home: Some(home.clone()),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let folder = setup::docker_folder(&env, Platform::Xdg).expect("a Docker folder");
+        let key_file = home
+            .join(".config")
+            .join("kkt")
+            .join(crate::record::DOCKER_KEY_FILE_NAME);
+        let container = kkt_containerized_service::testing::Memory::new(
+            Some(("kkt-1".into(), "tail1234.ts.net".into())),
+            String::new(),
+        );
+        let untouched = Untouched::default();
+        let shared = kkt_containerized_service::Inputs {
+            version: "0.4.0".into(),
+            project: "kkt".into(),
+            port: 7420,
+            allow_hosts: vec![],
+            sharing: Some(kkt_containerized_service::Sharing {
+                hostname: "kkt-1".into(),
+                auth_key: None,
+            }),
+        };
+        let copies = kkt_containerized_service::KeyCopies {
+            access: key_file.clone(),
+            web: home.join("web"),
+            admin: home.join("admin"),
+        };
+        futures::executor::block_on(kkt_containerized_service::Container::provision(
+            &container,
+            &NoClock,
+            &untouched,
+            &kkt_container::Folder(folder.clone()),
+            &shared,
+            &copies,
+        ))
+        .expect("installed");
+        let (serve, remote) = (Asked::default(), Tailscale::default());
+        let service = kkt_bare_service::testing::Memory::new();
+        let record = UnsharedRecord(RefCell::new(Vec::new()));
+        let said = Said::default();
+        let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {
+            panic!("finding an install tried an address")
+        };
+        let with_copy = kkt_keys::testing::Memory::new().with_file(key_file.clone(), "key\n");
+        let read = |container: &dyn kkt_containerized_service::Container,
+                    key_files: &dyn kkt_keys::KeyFiles| {
+            let parts = InstallParts {
+                container,
+                container_configs: &untouched,
+                service: &service,
+                try_bind: &try_bind,
+                remote: &remote,
+                clients: &untouched,
+                client_command: &untouched,
+                prober: &NoProbes,
+                import_lanes: &untouched,
+                connection: &untouched,
+                clock: std::sync::Arc::new(NoClock),
+                serve: &serve,
+                service_defaults: &untouched,
+                setup_files: &record,
+                key_files,
+                entropy: &kkt_entropy::testing::SeqEntropy::new(0),
+                database: &untouched,
+                backups: &untouched,
+                output: &said,
+                login_link: &untouched,
+                lines: &untouched,
+                config_file: &untouched,
+            };
+            read_unrecorded(&parts, &env, Platform::Xdg)
+        };
+        let found = read(&container, &with_copy)
+            .expect("found")
+            .expect("an install in Docker");
+        assert_eq!(found.url, "https://kkt-1.tail1234.ts.net/mcp");
+        assert_eq!(found.key_file, Some(key_file.clone()));
+        assert_eq!(
+            found.mode,
+            setup::Mode::Docker(setup::DockerSetup {
+                folder: folder.clone(),
+                tailscale: true,
+                hostname: Some("kkt-1".into()),
+                tailnet: Some("tail1234.ts.net".into()),
+            })
+        );
+        let (purpose, refused) =
+            read(&container, &untouched).expect_err("refused without the key's copy");
+        assert_eq!(purpose, setup::Purpose::Docker);
+        assert_eq!(
+            refused,
+            format!(
+                "Found a kkt server in Docker from {}, not recorded, but the copy of its access key setup saves, {}, is missing.",
+                folder.display(),
+                key_file.display()
+            )
+        );
+
+        // An install that is not shared: no node, and the address is the
+        // port it was given on this machine.
+        let local = kkt_containerized_service::testing::Memory::new(
+            Some(("kkt-1".into(), "tail1234.ts.net".into())),
+            String::new(),
+        );
+        let unshared = kkt_containerized_service::Inputs {
+            port: 7431,
+            sharing: None,
+            ..shared.clone()
+        };
+        futures::executor::block_on(kkt_containerized_service::Container::provision(
+            &local,
+            &NoClock,
+            &untouched,
+            &kkt_container::Folder(folder.clone()),
+            &unshared,
+            &copies,
+        ))
+        .expect("installed");
+        let found = read(&local, &with_copy)
+            .expect("found")
+            .expect("an install in Docker");
+        assert_eq!(found.url, "http://127.0.0.1:7431/mcp");
+        assert_eq!(found.key_file, Some(key_file.clone()));
+        assert_eq!(
+            found.mode,
+            setup::Mode::Docker(setup::DockerSetup {
+                folder: folder.clone(),
+                tailscale: false,
+                hostname: None,
+                tailnet: None,
+            })
         );
     }
 }

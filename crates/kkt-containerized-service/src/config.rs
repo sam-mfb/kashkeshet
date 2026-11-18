@@ -1,8 +1,9 @@
-//! Parsing the settings a container installation needs.
+//! The settings of the server's config file that the containerized
+//! service reads, and the reader the caller gives it.
 
 use std::path::Path;
 
-/// The settings of the container's config file that kkt-container uses.
+/// The settings of the server's config file the containerized service uses.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ContainerConfig {
     /// The name pack the file names, if it names one.
@@ -11,7 +12,8 @@ pub struct ContainerConfig {
     pub max_lane_chars: Option<usize>,
 }
 
-/// Parses a config file's text into the settings kkt-container uses.
+/// Parses a config file's text into the settings the containerized service
+/// uses.
 pub trait ConfigReader {
     /// The settings in a config file's `text`. `dir` is the directory the
     /// file is in, for relative paths; `home` is the home folder, for `~/`

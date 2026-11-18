@@ -321,19 +321,19 @@ fn serve_options(config: Config<LogLevel>) -> ServeOptions {
     }
 }
 
-/// Parses the kkt container's config file for kkt-container, as `kkt serve`
+/// Parses the kkt container's config file for kkt-containerized-service, as `kkt serve`
 /// in the container would: a setting `kkt serve` would refuse is refused.
 pub(crate) struct ContainerConfigs;
 
-impl kkt_container::ConfigReader for ContainerConfigs {
+impl kkt_containerized_service::ConfigReader for ContainerConfigs {
     fn settings(
         &self,
         text: &str,
         dir: &Path,
         home: Option<&Path>,
-    ) -> Result<kkt_container::ContainerConfig, String> {
+    ) -> Result<kkt_containerized_service::ContainerConfig, String> {
         let options = parse_config(text, dir, home).map_err(|e| e.to_string())?;
-        Ok(kkt_container::ContainerConfig {
+        Ok(kkt_containerized_service::ContainerConfig {
             name_pack: options.name_pack,
             max_lane_chars: options.max_lane_chars,
         })
@@ -756,7 +756,7 @@ mod tests {
 
     #[test]
     fn a_container_config_gives_its_name_pack_and_lane_limit() {
-        use kkt_container::ConfigReader;
+        use kkt_containerized_service::ConfigReader;
         let said = ContainerConfigs
             .settings(
                 "name_pack = \"garden\"\nmax_lane_chars = 300\ndb = \"~/kkt.db\"",

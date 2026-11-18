@@ -4,7 +4,8 @@
 //! file plays no part; the container never reads it.
 
 use kkt_api_agent::LaneSource;
-use kkt_container::{Arg, Carry, ConfigReader, Container, Folder, InServer};
+use kkt_container::Folder;
+use kkt_containerized_service::{Arg, Carry, ConfigReader, Container, InServer};
 use kkt_operator_commands::lanes::{LaneFuture, LaneImport, LaneServer};
 use kkt_operator_commands::{Output, Paths};
 use std::path::Path;
@@ -82,14 +83,16 @@ impl LaneServer for ContainerLanes<'_> {
             if lanes.retire_missing {
                 args.push(text("--retire-missing"));
             }
-            self.container.run_in_server(
-                &self.folder,
-                &InServer {
-                    args: &args,
-                    folder_prefix: LANES_IMPORT_FOLDER,
-                    carry: Carry::In(files),
-                },
-            )
+            self.container
+                .run_in_server(
+                    &self.folder,
+                    &InServer {
+                        args: &args,
+                        folder_prefix: LANES_IMPORT_FOLDER,
+                        carry: Carry::In(files),
+                    },
+                )
+                .map_err(String::from)
         })
     }
 
@@ -131,8 +134,8 @@ mod tests {
     use super::*;
     use futures::future::BoxFuture;
     use kkt_clock::{Clock, Time};
-    use kkt_container::testing::{Memory, Run};
-    use kkt_container::{Inputs, KeyCopies, LoginLink};
+    use kkt_containerized_service::testing::{Memory, Run};
+    use kkt_containerized_service::{Inputs, KeyCopies, LoginLink};
     use kkt_lane_files::{LaneFile, Read, Skip, Skipped};
     use std::cell::RefCell;
     use std::fmt::Arguments;

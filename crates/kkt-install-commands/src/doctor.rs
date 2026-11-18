@@ -98,7 +98,10 @@ pub async fn run<D: crate::ServiceDefaults>(
             // A missing or unreadable copy has its own line.
             let web_key_copy = match &web_key {
                 Some(path) if running && parts.key_files.is_file(path) => {
-                    let compared = parts.container.compare_web_key(&folder, path);
+                    let compared = parts
+                        .container
+                        .compare_web_key(&folder, path)
+                        .map_err(String::from);
                     Some(diagnostic_check(checks::docker_web_key_check(
                         compared, &folder,
                     )))
@@ -106,7 +109,7 @@ pub async fn run<D: crate::ServiceDefaults>(
                 _ => None,
             };
             diagnostics::ThisMachine::Docker {
-                kkt: diagnostic_check(checks::docker_check(state, &folder)),
+                kkt: diagnostic_check(checks::docker_check(state.map_err(String::from), &folder)),
                 tailscale_login: tailscale_login
                     .map(|login| diagnostic_check(checks::tailscale_login_check(&login, &folder))),
                 web_key_copy,

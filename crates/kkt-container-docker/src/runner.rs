@@ -114,7 +114,7 @@ mod tests {
     #[test]
     fn a_private_file_is_made_private_even_over_a_looser_one() {
         use std::os::unix::fs::PermissionsExt;
-        let dir = scratch::Dir::new("kkt-docker-host");
+        let dir = scratch::Dir::new("docker-host");
         let path = dir.join("key");
         std::fs::write(&path, "old").unwrap();
         std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o644)).unwrap();
@@ -152,7 +152,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn the_real_host_runs_a_command_in_the_folder_it_names() {
-        let dir = scratch::Dir::new("kkt-docker-cwd");
+        let dir = scratch::Dir::new("docker-cwd");
         let here = OsHost
             .run(&NativeCommand {
                 program: "pwd",

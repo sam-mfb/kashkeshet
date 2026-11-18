@@ -106,7 +106,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             .ok_or("set HOME to keep the access key")?
             .join(DOCKER_KEY_FILE_NAME);
         let tailscale_inputs = match tailscale {
-            Some(login) => Some(kkt_container::Sharing {
+            Some(login) => Some(kkt_containerized_service::Sharing {
                 hostname: login.hostname.clone(),
                 auth_key: match &login.auth_key_file {
                     Some(path) => Some(self.parts.container.sharing_key(path)?),
@@ -115,7 +115,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             }),
             None => None,
         };
-        let inputs = kkt_container::Inputs {
+        let inputs = kkt_containerized_service::Inputs {
             version: options.kkt_version.clone(),
             project: options.docker_project.clone(),
             port: options.docker_port,

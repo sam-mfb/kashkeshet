@@ -14,9 +14,9 @@
 //! transcript; that is within the rule (msg 4060).
 
 use kashkeshet::machine::sharing_node::TailscaleNode;
-use kkt_container::Container;
 use kkt_container_docker::Docker;
 use kkt_container_docker::testing::Scripted;
+use kkt_containerized_service::Container;
 use kkt_containerized_service::{Browser, Containerized, Tell};
 use kkt_keys::KeyFiles;
 use std::io;

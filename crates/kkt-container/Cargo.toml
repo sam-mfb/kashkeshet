@@ -1,6 +1,6 @@
 [package]
 name = "kkt-container"
-description = "The container installation contract, with a stand-in for tests"
+description = "A Compose project as a contract, with a stand-in in memory for tests"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -10,10 +10,3 @@ publish = false
 [features]
 testing = []
 
-[dependencies]
-futures.workspace = true
-kkt-clock = { path = "../kkt-clock" }
-
-[dev-dependencies]
-kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-tokio.workspace = true

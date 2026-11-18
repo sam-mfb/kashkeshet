@@ -1,6 +1,6 @@
 [package]
 name = "kkt-container-docker"
-description = "kkt-container's Projects over Docker Compose"
+description = "A Compose project's operations over Docker Compose"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

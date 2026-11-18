@@ -1280,11 +1280,6 @@ dependencies = [
 [[package]]
 name = "kkt-container"
 version = "0.10.0"
-dependencies = [
- "futures",
- "kkt-clock",
- "tokio",
-]
 
 [[package]]
 name = "kkt-container-docker"
@@ -1444,6 +1439,7 @@ dependencies = [
  "kkt-clock",
  "kkt-config-file",
  "kkt-container",
+ "kkt-containerized-service",
  "kkt-diagnostics",
  "kkt-entropy",
  "kkt-keys",
@@ -1734,6 +1730,7 @@ name = "kkt-setup"
 version = "0.10.0"
 dependencies = [
  "kkt-container",
+ "kkt-containerized-service",
  "kkt-entropy",
  "kkt-hash",
  "kkt-keys",
