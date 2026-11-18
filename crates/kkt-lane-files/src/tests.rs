@@ -201,7 +201,9 @@ fn a_markdown_file_with_a_lane_header_that_is_wrong_is_an_error_naming_it() {
         ("/work/lanes/notes.md", "# Notes"),
         ("/work/lanes/reviewer.md", "---\nname: reviewer\n"),
     ]);
-    let error = read_folder(&disk, &Memory::new(), Path::new("lanes")).expect_err("refused");
+    let error = read_folder(&disk, &Memory::new(), Path::new("lanes"))
+        .expect_err("refused")
+        .to_string();
     assert!(
         error.starts_with("/work/lanes/reviewer.md: the header has no closing ---"),
         "{error}"
@@ -210,8 +212,9 @@ fn a_markdown_file_with_a_lane_header_that_is_wrong_is_an_error_naming_it() {
 
 #[test]
 fn a_missing_folder_is_an_error_naming_it() {
-    let error =
-        read_folder(&FakeDisk::default(), &Memory::new(), Path::new("gone")).expect_err("refused");
+    let error = read_folder(&FakeDisk::default(), &Memory::new(), Path::new("gone"))
+        .expect_err("refused")
+        .to_string();
     assert!(error.contains("/work/gone"), "{error}");
 }
 
