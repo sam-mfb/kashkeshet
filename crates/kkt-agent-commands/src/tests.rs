@@ -177,7 +177,7 @@ impl Program for Kkt {
 
 struct Lines;
 impl kkt_watch::Report for Lines {
-    fn message(&mut self, _: &str) -> Result<(), String> {
+    fn message(&mut self, _: &str) -> Result<(), kkt_watch::ReportError> {
         unreachable!("no test watches")
     }
     fn note(&mut self, _: &str) {}

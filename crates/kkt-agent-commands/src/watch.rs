@@ -45,7 +45,8 @@ pub async fn run<C: ConnectionSource>(
         &mut *parts.report,
         &task.options,
     )
-    .await?;
+    .await
+    .map_err(|e| e.to_string())?;
     Ok(match outcome {
         kkt_watch::Outcome::Received => ExitCode::SUCCESS,
         kkt_watch::Outcome::TimedOut => ExitCode::from(WATCH_TIMED_OUT_EXIT),
