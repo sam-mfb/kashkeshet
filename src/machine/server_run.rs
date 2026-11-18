@@ -1,5 +1,5 @@
 //! The program's run-record values. Owners word their own settings;
-//! kkt-server orders these plain lines with its own settings' lines. The
+//! this program puts them, with kkt-server's, in the run record's order. The
 //! integration-test harness uses this same program mapping.
 
 use kkt_log_tracing::LogLevel;
@@ -71,8 +71,64 @@ impl RecordedSettings<'_> {
                 line("log_max_age_ms", max_age.as_millis()),
             ]);
         }
-        server.record_lines(lines)
+        in_record_order(server.record_lines(lines))
     }
+}
+
+/// The run record's order: each setting's lines come where its name is in
+/// this list, and a name the list does not know comes after every one it
+/// does, in the order given.
+const RECORD_ORDER: &[&str] = &[
+    "allow_any_bind",
+    "name_pack",
+    "max_response_bytes",
+    "default_limit",
+    "max_limit",
+    "max_body_bytes",
+    "max_channel_name_chars",
+    "max_purpose_chars",
+    "max_description_chars",
+    "max_note_chars",
+    "max_server_announcement_chars",
+    "max_memory_entry_chars",
+    "max_memory_chars",
+    "max_lane_chars",
+    "sends_per_minute",
+    "registrations_per_minute",
+    "max_agents",
+    "default_wait_ms",
+    "max_wait_ms",
+    "waiting_grace_ms",
+    "member_preview",
+    "purpose_preview_chars",
+    "web_session_lifetime_ms",
+    "web_page_messages",
+    "web_member_excerpt_chars",
+    "upgrade_backups_kept",
+    "log_level",
+    "dependency_log_level",
+    "allowed_origin",
+    "allowed_host",
+    "config_file",
+    "access_key_file",
+    "web_key_file",
+    "admin_key_file",
+    "admin_name",
+    "log_file",
+    "log_max_bytes",
+    "log_rotated_files",
+    "log_max_age_ms",
+];
+
+/// `lines` in [`RECORD_ORDER`]; lines of one name keep their order.
+fn in_record_order(mut lines: Vec<(String, String)>) -> Vec<(String, String)> {
+    lines.sort_by_key(|(name, _)| {
+        RECORD_ORDER
+            .iter()
+            .position(|known| *known == name)
+            .unwrap_or(RECORD_ORDER.len())
+    });
+    lines
 }
 
 fn line(name: &str, value: impl std::fmt::Display) -> (String, String) {
@@ -88,3 +144,6 @@ pub fn new_server_run(run: &ServerRun) -> kkt_rules::NewServerRun {
         instructions_sha256: run.instructions_sha256.clone(),
     }
 }
+
+#[cfg(test)]
+mod golden;

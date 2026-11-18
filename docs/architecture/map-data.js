@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "f41a1fe4",
+ "commit": "624d815a",
  "crates": [
   {
    "bins": [
@@ -15301,6 +15301,7 @@ window.KKT_GRAPH = {
      "kind": "struct",
      "methods": [
       "check",
+      "problems",
       "record_lines"
      ],
      "path": "ServerSettings"
@@ -25078,6 +25079,7 @@ window.KKT_GRAPH = {
     "AppConfig",
     "Parts",
     "ServerSettings",
+    "SettingError",
     "build"
    ],
    "kind": "normal",
@@ -27179,10 +27181,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "RunSettings",
-    "ServerRun"
-   ],
+   "test_items": [],
    "to": "kkt-provenance"
   },
   {
@@ -27321,27 +27320,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-api-sim"
-  },
-  {
-   "features": [],
-   "from": "kkt-server",
-   "items": [
-    "Settings"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-backup"
   },
   {
    "features": [
