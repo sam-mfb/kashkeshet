@@ -999,3 +999,100 @@ async fn a_newer_lane_is_noted_once_per_version_and_does_not_end_a_once_watch() 
     );
     assert_eq!(*place.saves.lock().unwrap(), vec![0, 5]);
 }
+
+/// The channel names given that pick no channel, or more than one, pinned
+/// exactly.
+#[test]
+fn a_channel_name_that_picks_none_or_several_says_so() {
+    let visible = [
+        Channel {
+            id: "ch_a".into(),
+            name: "talk".into(),
+        },
+        Channel {
+            id: "ch_b".into(),
+            name: "talk".into(),
+        },
+        Channel {
+            id: "ch_c".into(),
+            name: "dev".into(),
+        },
+    ];
+    assert_eq!(
+        filters::channels(None, &["nope".into()], &visible),
+        Err("no visible channel named \"nope\"".to_string())
+    );
+    assert_eq!(
+        filters::channels(None, &["talk".into()], &visible),
+        Err(
+            "several visible channels named \"talk\": ch_a, ch_b; use --channel with an ID"
+                .to_string()
+        )
+    );
+}
+
+/// A clock at the last time it can tell cannot reckon a call's grace.
+#[tokio::test]
+async fn a_clock_at_its_end_is_out_of_range() {
+    let clock =
+        FixedClock::new(Time::from_parts(262142, 12, 31, 23, 59, 59).expect("the last day"));
+    let server = FakeServer::new(&clock, vec![]);
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut FakeReport::default(),
+        &once(),
+    )
+    .await;
+    assert_eq!(outcome, Err("the clock is out of range".into()));
+}
+
+/// A place or a report that fails ends the watch with its own words.
+#[tokio::test]
+async fn a_failing_place_or_report_ends_the_watch_with_its_words() {
+    struct Unreadable;
+    impl Place for Unreadable {
+        fn load(&self) -> Result<Option<i64>, String> {
+            Err("could not read state file /s: denied".into())
+        }
+        fn save(&self, _: i64) -> Result<(), String> {
+            Ok(())
+        }
+    }
+    struct Closed;
+    impl Report for Closed {
+        fn message(&mut self, _: &str) -> Result<(), String> {
+            Err("could not print a message: Broken pipe".into())
+        }
+        fn note(&mut self, _: &str) {}
+    }
+    let clock = FixedClock::new(start());
+    let server = FakeServer::new(&clock, vec![]);
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&Unreadable),
+        &mut FakeReport::default(),
+        &once(),
+    )
+    .await;
+    assert_eq!(outcome, Err("could not read state file /s: denied".into()));
+
+    let server = FakeServer::new(&clock, vec![Ok(vec![message(1, "you")])]);
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut Closed,
+        &once(),
+    )
+    .await;
+    assert_eq!(
+        outcome,
+        Err("could not print a message: Broken pipe".into())
+    );
+}
