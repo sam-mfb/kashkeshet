@@ -85,7 +85,7 @@ impl Servers for Answering {
     fn agent(&self, _: Address, _: String) -> Box<dyn Watched> {
         unreachable!("no test watches")
     }
-    fn admin(&self, _: Address, _: Arc<dyn Clock>) -> Box<dyn Watched> {
+    fn admin(&self, _: Address) -> Box<dyn Watched> {
         unreachable!("no test watches")
     }
 }

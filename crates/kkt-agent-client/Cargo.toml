@@ -9,7 +9,6 @@ publish = false
 
 [dependencies]
 futures.workspace = true
-kkt-clock = { path = "../kkt-clock" }
 
 [features]
 # `testing`: `testing::Memory`, a stand-in server in memory.

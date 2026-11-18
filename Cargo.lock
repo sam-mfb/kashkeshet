@@ -1119,7 +1119,6 @@ name = "kkt-agent-client"
 version = "0.10.0"
 dependencies = [
  "futures",
- "kkt-clock",
 ]
 
 [[package]]
@@ -1128,7 +1127,6 @@ version = "0.10.0"
 dependencies = [
  "futures",
  "kkt-agent-client",
- "kkt-clock",
  "reqwest",
  "rmcp",
  "serde_json",
