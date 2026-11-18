@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "b7a95a7e",
+ "commit": "2d53259c",
  "crates": [
   {
    "bins": [
@@ -347,6 +347,11 @@ window.KKT_GRAPH = {
       "new"
      ],
      "path": "machine::connection::ConnectionReads"
+    },
+    {
+     "doc": "The MCP endpoint a client of the serve settings reaches: `given`, as kkt-deployment's address rule takes it, or with none given the server on `bind`.",
+     "kind": "fn",
+     "path": "machine::connection::serve_endpoint"
     },
     {
      "doc": "The database file: opening it with the core's tables, what opening it would upgrade, and copying it.",
@@ -5032,7 +5037,9 @@ window.KKT_GRAPH = {
     }
    ],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -6558,6 +6565,7 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "rusqlite",
+    "thiserror",
     "tokio"
    ]
   },
@@ -6690,9 +6698,31 @@ window.KKT_GRAPH = {
      "path": "UpgradePlan"
     },
     {
+     "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything, reading the name file beside it from `files`.",
+     "kind": "fn",
+     "path": "admin_name_line"
+    },
+    {
+     "doc": "The advice after the name file beside the admin key at `path` is written for the admin name `name`, or removed with no name: `written` is how that went.",
+     "kind": "fn",
+     "path": "admin_name_written"
+    },
+    {
      "doc": "How a client reaches the server: its endpoint and access key file, from the servers this machine's record names, or else from the serve settings.",
      "kind": "mod",
      "path": "connection"
+    },
+    {
+     "doc": "Why an address is not a server address a client may be given.",
+     "kind": "enum",
+     "path": "connection::AddressError",
+     "variants": [
+      "ControlCharacter",
+      "NotAbsolute",
+      "Credentials",
+      "Query",
+      "Fragment"
+     ]
     },
     {
      "doc": "",
@@ -6783,6 +6813,11 @@ window.KKT_GRAPH = {
      "path": "connection::serve_connection"
     },
     {
+     "doc": "`given` as a server address a client may be given: an absolute http:// or https:// address with a host, and no control character, user name, password, query or fragment, so no secret is kept in it.",
+     "kind": "fn",
+     "path": "connection::server_address"
+    },
+    {
      "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, and `kashkeshet` in the XDG data home (`Env::data_home`) elsewhere.",
      "kind": "fn",
      "path": "data_dir"
@@ -6840,6 +6875,17 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
+    {
+     "at": "admin_name_line",
+     "kind": "param",
+     "name": "files",
+     "traits": [
+      {
+       "crate": "kkt-keys",
+       "trait": "KeyFiles"
+      }
+     ]
+    },
     {
      "at": "connection::admin_connection",
      "kind": "param",
@@ -6939,7 +6985,9 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
-    "semver"
+    "semver",
+    "thiserror",
+    "url"
    ]
   },
   {
@@ -7249,11 +7297,6 @@ window.KKT_GRAPH = {
      "doc": "The doctor's line about whether the web key's host copy is the key of kkt in Docker in `folder`, or why it could not be compared.",
      "kind": "fn",
      "path": "docker_web_key_check"
-    },
-    {
-     "doc": "Validate an HTTP MCP endpoint without allowing secrets in its URL.",
-     "kind": "fn",
-     "path": "endpoint"
     },
     {
      "doc": "`Inspector::server` on this machine.",
@@ -7917,7 +7960,9 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -10763,6 +10808,16 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "What the name file beside an admin key says about that key.",
+     "kind": "enum",
+     "path": "AdminNameFile",
+     "variants": [
+      "Named",
+      "None",
+      "OtherKey"
+     ]
+    },
+    {
      "doc": "Private key files: the server's, and the client key copies setup writes.",
      "kind": "trait",
      "methods": [
@@ -10857,19 +10912,9 @@ window.KKT_GRAPH = {
      "path": "admin_key_path"
     },
     {
-     "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything: a Docker setup's host copy has no name beside it, as the name is kept in the container.",
-     "kind": "fn",
-     "path": "admin_name_line"
-    },
-    {
      "doc": "The admin agent's name, if the admin key has one, lives beside the admin key, in a file of its own: each key file has its own name file.",
      "kind": "fn",
      "path": "admin_name_path"
-    },
-    {
-     "doc": "The advice after the name file is written or removed.",
-     "kind": "fn",
-     "path": "admin_name_written"
     },
     {
      "doc": "The name in the name file `text` if it is tied to the admin key `key`; `None` if it is tied to another key, as when the key file was replaced without its name.",
@@ -10885,6 +10930,11 @@ window.KKT_GRAPH = {
      "doc": "Checks an access key, as read from `--access-key-file` without surrounding whitespace.",
      "kind": "fn",
      "path": "check_access_key"
+    },
+    {
+     "doc": "The name tied to the admin key `key`, kept in the file at `path`, from the name file beside it, which `read` reads (`None` when there is none).",
+     "kind": "fn",
+     "path": "read_admin_name"
     },
     {
      "doc": "What tests outside kkt-keys need: the shortest key, and `Memory`, key files in memory.",
@@ -10945,7 +10995,7 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [
     {
-     "at": "admin_name_line",
+     "at": "read_admin_name",
      "foreign": [
       "core::ops::function::FnOnce"
      ],
@@ -16422,11 +16472,6 @@ window.KKT_GRAPH = {
      "path": "admin_key_line"
     },
     {
-     "doc": "What to say, after `label`, about the name tied to the admin key `key` in the file at `path`, if anything.",
-     "kind": "fn",
-     "path": "admin_name_line"
-    },
-    {
      "doc": "Talking with the person running `kkt setup`.",
      "kind": "mod",
      "path": "ask"
@@ -16667,17 +16712,6 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
-    {
-     "at": "admin_name_line",
-     "kind": "param",
-     "name": "files",
-     "traits": [
-      {
-       "crate": "kkt-keys",
-       "trait": "KeyFiles"
-      }
-     ]
-    },
     {
      "at": "ask::Prompter::new",
      "kind": "param",
@@ -19408,6 +19442,7 @@ window.KKT_GRAPH = {
     "connection::ConnectionSource",
     "connection::RecordedServer",
     "connection::ServeConnection",
+    "connection::server_address",
     "default_db",
     "docker_folder"
    ],
@@ -19427,6 +19462,7 @@ window.KKT_GRAPH = {
       "connection::ConnectionOptions",
       "connection::RecordedServer",
       "connection::ServeConnection",
+      "connection::server_address",
       "default_db",
       "docker_folder"
      ],
@@ -19456,7 +19492,6 @@ window.KKT_GRAPH = {
     "Settings",
     "Status",
     "Unprobed",
-    "endpoint",
     "shell_word"
    ],
    "kind": "normal",
@@ -19482,7 +19517,6 @@ window.KKT_GRAPH = {
       "Settings",
       "Status",
       "Unprobed",
-      "endpoint",
       "shell_word"
      ],
      "role": "uses"
@@ -23009,7 +23043,12 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-deployment",
    "items": [
-    "AccessKey"
+    "ADMIN_KEY_COPY_FILE_NAME",
+    "AccessKey",
+    "AdminNameFile",
+    "KeyFiles",
+    "admin_name_path",
+    "read_admin_name"
    ],
    "kind": "normal",
    "optional": false,
@@ -23017,13 +23056,21 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "AccessKey"
+      "ADMIN_KEY_COPY_FILE_NAME",
+      "AccessKey",
+      "AdminNameFile",
+      "KeyFiles",
+      "admin_name_path",
+      "read_admin_name"
      ],
      "role": "uses"
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "bound_to",
+    "testing::Memory"
+   ],
    "to": "kkt-keys"
   },
   {
@@ -23048,6 +23095,61 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-machine"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-deployment",
+   "items": [
+    "ADMIN_KEY_COPY_FILE_NAME",
+    "bound_to",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "ADMIN_KEY_COPY_FILE_NAME",
+      "bound_to"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-keys"
+  },
+  {
+   "features": [],
+   "from": "kkt-deployment",
+   "items": [
+    "AdminName",
+    "MAX_ADMIN_NAME_CHARS"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminName",
+      "MAX_ADMIN_NAME_CHARS"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
   },
   {
    "features": [],
@@ -24276,6 +24378,8 @@ window.KKT_GRAPH = {
     "ServerVersion",
     "StatusThen",
     "UnrecordedDeployment",
+    "admin_name_line",
+    "admin_name_written",
     "connection",
     "connection::ConnectionOptions",
     "connection::ConnectionSource",
@@ -24284,6 +24388,7 @@ window.KKT_GRAPH = {
     "connection::client_connection",
     "connection::recorded_connection",
     "connection::serve_connection",
+    "connection::server_address",
     "docker_folder",
     "docker_url",
     "guard",
@@ -24306,6 +24411,8 @@ window.KKT_GRAPH = {
       "ServerVersion",
       "StatusThen",
       "UnrecordedDeployment",
+      "admin_name_line",
+      "admin_name_written",
       "connection",
       "connection::ConnectionOptions",
       "connection::ConnectionSource",
@@ -24314,6 +24421,7 @@ window.KKT_GRAPH = {
       "connection::client_connection",
       "connection::recorded_connection",
       "connection::serve_connection",
+      "connection::server_address",
       "docker_folder",
       "docker_url",
       "guard",
@@ -24412,7 +24520,8 @@ window.KKT_GRAPH = {
     "Answered",
     "Initialized",
     "KeyFile",
-    "Probing"
+    "Probing",
+    "testing::Memory"
    ],
    "to": "kkt-diagnostics"
   },
@@ -24616,7 +24725,6 @@ window.KKT_GRAPH = {
     "Unrecorded",
     "admin_key_collision",
     "admin_key_line",
-    "admin_name_line",
     "ask::Prompter",
     "client_key",
     "configured_name_pack_line",
@@ -24668,7 +24776,6 @@ window.KKT_GRAPH = {
       "Unrecorded",
       "admin_key_collision",
       "admin_key_line",
-      "admin_name_line",
       "client_key",
       "configured_name_pack_line",
       "docker_key_copies",
@@ -24765,6 +24872,42 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-containerized-service"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-install-commands",
+   "items": [
+    "Answered",
+    "Initialized",
+    "KeyFile",
+    "Prober",
+    "Probing",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Answered",
+      "Initialized",
+      "Probing"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-diagnostics"
   },
   {
    "features": [
@@ -26338,7 +26481,9 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-operator-commands",
    "items": [
-    "Deployment"
+    "Deployment",
+    "admin_name_line",
+    "admin_name_written"
    ],
    "kind": "normal",
    "optional": false,
@@ -26346,7 +26491,9 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Deployment"
+      "Deployment",
+      "admin_name_line",
+      "admin_name_written"
      ],
      "role": "uses"
     }
@@ -26530,7 +26677,6 @@ window.KKT_GRAPH = {
     "Unfinished",
     "Unrecorded",
     "admin_key_collision",
-    "admin_name_line",
     "create_asks_for_docker",
     "create_checks",
     "create_destination_check",
@@ -26559,7 +26705,6 @@ window.KKT_GRAPH = {
       "Unfinished",
       "Unrecorded",
       "admin_key_collision",
-      "admin_name_line",
       "create_asks_for_docker",
       "create_checks",
       "create_destination_check",
@@ -27962,8 +28107,6 @@ window.KKT_GRAPH = {
     "WEB_KEY_COPY_FILE_NAME",
     "access_key_file",
     "admin_key_path",
-    "admin_name_line",
-    "admin_name_written",
     "bound_to",
     "check_access_key",
     "web_key_path"
@@ -27981,8 +28124,6 @@ window.KKT_GRAPH = {
       "WEB_KEY_COPY_FILE_NAME",
       "access_key_file",
       "admin_key_path",
-      "admin_name_line",
-      "admin_name_written",
       "bound_to",
       "check_access_key",
       "web_key_path"
@@ -29929,10 +30070,6 @@ window.KKT_ASSEMBLY = {
      "passes_on": "the key files the program gave InstallParts",
      "to": [
       {
-       "at": "admin_name_line",
-       "param": "files"
-      },
-      {
        "at": "new_key_file",
        "param": "files"
       },
@@ -29942,6 +30079,23 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "write_key_file",
+       "param": "files"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-deployment",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "key_files"
+      }
+     ],
+     "note": "kkt setup, kkt service install, kkt upgrade, kkt status",
+     "passes_on": "the key files the program gave InstallParts",
+     "to": [
+      {
+       "at": "admin_name_line",
        "param": "files"
       }
      ]
@@ -30096,15 +30250,28 @@ window.KKT_ASSEMBLY = {
      "passes_on": "the key files the program gave OperatorParts",
      "to": [
       {
-       "at": "admin_name_line",
-       "param": "files"
-      },
-      {
        "at": "new_key_file",
        "param": "files"
       },
       {
        "at": "write_admin_name",
+       "param": "files"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-deployment",
+     "from": [
+      {
+       "at": "OperatorParts",
+       "param": "key_files"
+      }
+     ],
+     "note": "kkt key",
+     "passes_on": "the key files the program gave OperatorParts",
+     "to": [
+      {
+       "at": "admin_name_line",
        "param": "files"
       }
      ]

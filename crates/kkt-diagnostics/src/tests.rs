@@ -835,38 +835,3 @@ fn the_doctor_report_reads_as_it_always_has() {
         )
     );
 }
-
-#[test]
-fn an_endpoint_without_a_path_is_given_the_mcp_path() {
-    let bind: std::net::SocketAddr = "127.0.0.1:7420".parse().expect("bind");
-    assert_eq!(
-        endpoint(bind, None, "/mcp"),
-        Ok("http://127.0.0.1:7420/mcp".to_string())
-    );
-    assert_eq!(
-        endpoint(bind, Some("https://kkt.tail1234.ts.net"), "/mcp"),
-        Ok("https://kkt.tail1234.ts.net/mcp".to_string())
-    );
-    assert_eq!(
-        endpoint(bind, Some("https://kkt.tail1234.ts.net/"), "/mcp"),
-        Ok("https://kkt.tail1234.ts.net/mcp".to_string())
-    );
-    assert_eq!(
-        endpoint(bind, Some("http://h/prefix/mcp"), "/mcp"),
-        Ok("http://h/prefix/mcp".to_string())
-    );
-    let absolute = "URL must be an absolute http:// or https:// address".to_string();
-    assert_eq!(
-        endpoint(bind, Some("ftp://h/mcp"), "/mcp"),
-        Err(absolute.clone())
-    );
-    assert_eq!(endpoint(bind, Some("not a url"), "/mcp"), Err(absolute));
-    assert_eq!(
-        endpoint(bind, Some("http://h/\u{7}"), "/mcp"),
-        Err("URL contains a control character".to_string())
-    );
-    assert_eq!(
-        endpoint(bind, Some("http://u:p@h/mcp"), "/mcp"),
-        Err("put credentials in the key file, not in the URL; query strings and fragments are not supported".to_string())
-    );
-}

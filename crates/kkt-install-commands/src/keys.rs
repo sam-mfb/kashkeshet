@@ -9,8 +9,9 @@ use kkt_machine::Env;
 use kkt_setup as setup;
 use std::path::PathBuf;
 
+pub(crate) use kkt_deployment::admin_name_line;
 pub(crate) use kkt_setup::{
-    KeyKind, admin_key_collision, admin_name_line, new_key_file, write_admin_name, write_key_file,
+    KeyKind, admin_key_collision, new_key_file, write_admin_name, write_key_file,
 };
 
 /// The reads finding an operator key makes, on this machine.

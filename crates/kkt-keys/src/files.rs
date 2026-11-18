@@ -6,7 +6,6 @@
 //! steps, the same for every implementation.
 
 use crate::{AccessKey, KeyText, admin_name_path};
-use std::fmt;
 use std::io;
 use std::path::{Path, PathBuf};
 
@@ -139,24 +138,14 @@ pub struct SelectedKeys<'a> {
 }
 
 /// A key file that could not be read: its path and the system's reason.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[error("could not read {}: {error}", path.display())]
 pub struct ReadError {
     /// The file that could not be read.
     pub path: PathBuf,
     /// The system's reason, unchanged.
+    #[source]
     pub error: io::Error,
-}
-
-impl fmt::Display for ReadError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "could not read {}: {}", self.path.display(), self.error)
-    }
-}
-
-impl std::error::Error for ReadError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        Some(&self.error)
-    }
 }
 
 fn required<F: KeyFiles + ?Sized>(

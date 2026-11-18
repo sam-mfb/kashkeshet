@@ -652,7 +652,13 @@ mod flow {
                 _ => Ok(format!("connected {}", client.name())),
             }
         }
+        /// Refuses an address that is not http:// or https://, as the
+        /// program's steps do with kkt-deployment's rule, before any server
+        /// is asked.
         fn check_address(&self, url: &str) -> Result<(), String> {
+            if !(url.starts_with("http://") || url.starts_with("https://")) {
+                return Err("URL must be an absolute http:// or https:// address".into());
+            }
             let checked = format!("address {url}");
             let gone = self.flaky == Some(url) && self.checked().contains(&checked);
             self.checked.borrow_mut().push(checked);
@@ -3042,7 +3048,7 @@ mod flow {
             let steps = on(client_record());
             let error = switch(&to("kkt.example/mcp"), "0.8.0", &Script::default(), &steps)
                 .expect_err("url");
-            assert!(error.contains("starts with http://"), "{error}");
+            assert!(error.contains("must be an absolute http://"), "{error}");
             assert!(steps.done().is_empty());
         }
 
