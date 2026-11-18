@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "3d5d2b84",
+ "commit": "173946d5",
  "crates": [
   {
    "bins": [
@@ -120,12 +120,6 @@ window.KKT_GRAPH = {
      "trait": "LoginLink",
      "trait_crate": "kkt-container",
      "type": "terminal::browser_login::TerminalLink"
-    },
-    {
-     "crate": "kashkeshet",
-     "trait": "Browser",
-     "trait_crate": "kkt-container-docker",
-     "type": null
     },
     {
      "crate": "kashkeshet",
@@ -4842,10 +4836,6 @@ window.KKT_GRAPH = {
        "type": "testing::Memory"
       },
       {
-       "crate": "kkt-container-docker",
-       "type": "Docker"
-      },
-      {
        "crate": "kkt-containerized-service",
        "type": "Containerized"
       }
@@ -5258,27 +5248,9 @@ window.KKT_GRAPH = {
    "produces": [
     {
      "operations": [
-      "Container::existing"
-     ],
-     "value": "Existing"
-    },
-    {
-     "operations": [
       "Projects::file"
      ],
      "value": "FileState"
-    },
-    {
-     "operations": [
-      "Container::compare_web_key"
-     ],
-     "value": "KeyCopy"
-    },
-    {
-     "operations": [
-      "Container::provision"
-     ],
-     "value": "Provisioned"
     },
     {
      "operations": [
@@ -5292,12 +5264,6 @@ window.KKT_GRAPH = {
       "Projects::inspect"
      ],
      "value": "ServiceConfig"
-    },
-    {
-     "operations": [
-      "Container::status"
-     ],
-     "value": "State"
     }
    ],
    "released_program": false,
@@ -5321,43 +5287,18 @@ window.KKT_GRAPH = {
   {
    "bins": [],
    "builds": [],
-   "contracts": [
-    {
-     "implementors": [
-      {
-       "crate": "kashkeshet",
-       "type": null
-      }
-     ],
-     "trait": "Browser"
-    }
-   ],
-   "crate_doc": "kkt-container over Docker and Compose: `Docker` implements its `Container`, and its general `Projects` (in `projects`).",
+   "contracts": [],
+   "crate_doc": "kkt-container's general `Projects` over Docker Compose: `Docker` runs each operation as the `docker compose` command for it, in the project's folder (in `projects`).",
    "dev_only": false,
    "features": {
     "testing": [
+     "dep:kkt-clock",
      "kkt-clock/testing"
     ]
    },
    "foreign_implements": [],
-   "holders": [
-    {
-     "holds": [
-      {
-       "crate": "kkt-container-docker",
-       "trait": "Browser"
-      }
-     ],
-     "type": "Docker"
-    }
-   ],
+   "holders": [],
    "implements": [
-    {
-     "crate": "kkt-container-docker",
-     "trait": "Container",
-     "trait_crate": "kkt-container",
-     "type": "Docker"
-    },
     {
      "crate": "kkt-container-docker",
      "trait": "Projects",
@@ -5367,16 +5308,7 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
-     "doc": "The person's browser.",
-     "kind": "trait",
-     "methods": [
-      "open",
-      "open_failure"
-     ],
-     "path": "Browser"
-    },
-    {
-     "doc": "Docker and Compose implement the container contract directly.",
+     "doc": "Docker and Compose, implementing kkt-container's `Projects` directly.",
      "feature_methods": {
       "testing": [
        "scripted"
@@ -5430,18 +5362,11 @@ window.KKT_GRAPH = {
       "write"
      ],
      "path": "testing::Scripted"
-    },
-    {
-     "doc": "Writes `contents` to `path` on this machine as a private file, exactly as Docker's host writes a key copy and the settings file, for a test that compares it with another writer.",
-     "feature": "testing",
-     "kind": "fn",
-     "path": "testing::write_private_file"
     }
    ],
    "lib": "kkt_container_docker",
    "machine_work": {
     "src/runner.rs": [
-     "env::current_dir",
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
      "fs::create_dir_all",
@@ -5454,7 +5379,6 @@ window.KKT_GRAPH = {
      "process::Command::new",
      "process::Stdio",
      "process::Stdio::null",
-     "println!",
      "Path::exists",
      "Path::is_file"
     ]
@@ -5464,29 +5388,6 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
-    {
-     "at": "Docker::new",
-     "kind": "param",
-     "name": "browser",
-     "traits": [
-      {
-       "crate": "kkt-container-docker",
-       "trait": "Browser"
-      }
-     ]
-    },
-    {
-     "at": "Docker::scripted",
-     "feature": "testing",
-     "kind": "param",
-     "name": "browser",
-     "traits": [
-      {
-       "crate": "kkt-container-docker",
-       "trait": "Browser"
-      }
-     ]
-    },
     {
      "at": "testing::Scripted::new",
      "feature": "testing",
@@ -5500,9 +5401,7 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
-    "futures",
-    "serde_json",
-    "thiserror"
+    "serde_json"
    ]
   },
   {
@@ -16798,33 +16697,6 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "at": "docker_status_lines",
-     "kind": "param",
-     "name": "state",
-     "traits": [],
-     "values": [
-      "kkt-container::State"
-     ]
-    },
-    {
-     "at": "doctor_checks::docker_check",
-     "kind": "param",
-     "name": "state",
-     "traits": [],
-     "values": [
-      "kkt-container::State"
-     ]
-    },
-    {
-     "at": "doctor_checks::docker_web_key_check",
-     "kind": "param",
-     "name": "compared",
-     "traits": [],
-     "values": [
-      "kkt-container::KeyCopy"
-     ]
-    },
-    {
      "at": "find_here",
      "kind": "param",
      "name": "reads",
@@ -19458,19 +19330,12 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
-    "Browser",
     "Docker"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "adapts",
+   "role": "wires",
    "roles": [
-    {
-     "detail": [
-      "a type of its own implements Browser"
-     ],
-     "role": "adapts"
-    },
     {
      "detail": [
       "Docker"
@@ -19482,8 +19347,7 @@ window.KKT_GRAPH = {
    "test_items": [
     "testing",
     "testing::Reply",
-    "testing::Scripted",
-    "testing::write_private_file"
+    "testing::Scripted"
    ],
    "to": "kkt-container-docker"
   },
@@ -20788,12 +20652,10 @@ window.KKT_GRAPH = {
    ],
    "from": "kashkeshet",
    "items": [
-    "Browser",
     "Docker",
     "testing",
     "testing::Reply",
-    "testing::Scripted",
-    "testing::write_private_file"
+    "testing::Scripted"
    ],
    "kind": "dev",
    "optional": false,
@@ -20803,8 +20665,7 @@ window.KKT_GRAPH = {
      "detail": [
       "testing",
       "testing::Reply",
-      "testing::Scripted",
-      "testing::write_private_file"
+      "testing::Scripted"
      ],
      "role": "uses"
     },
@@ -22736,55 +22597,38 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-container-docker",
    "items": [
-    "Clock",
-    "Span"
+    "Span",
+    "testing::FixedClock"
    ],
-   "kind": "normal",
-   "optional": false,
+   "kind": "dev",
+   "optional": true,
    "role": "uses",
    "roles": [
     {
      "detail": [
-      "Clock",
-      "Span"
+      "Span",
+      "testing::FixedClock"
      ],
      "role": "uses"
     }
    ],
    "target": null,
-   "test_items": [
-    "Time",
-    "testing::FixedClock"
-   ],
+   "test_items": [],
    "to": "kkt-clock"
   },
   {
    "features": [],
    "from": "kkt-container-docker",
    "items": [
-    "Arg",
-    "Carry",
-    "ConfigReader",
-    "Container",
-    "Existing",
     "FileAction",
     "FileState",
-    "Folder",
-    "InServer",
-    "Inputs",
-    "KeyCopies",
-    "KeyCopy",
-    "Login",
-    "LoginLink",
     "Output",
     "Project",
     "ProjectError",
     "ProjectFile",
     "Projects",
-    "Provisioned",
     "Ran",
     "ServiceConfig",
-    "State",
     "User"
    ],
    "kind": "normal",
@@ -22793,34 +22637,20 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Docker implements Container",
       "Docker implements Projects"
      ],
      "role": "implements"
     },
     {
      "detail": [
-      "Arg",
-      "Carry",
-      "ConfigReader",
-      "Existing",
       "FileAction",
       "FileState",
-      "Folder",
-      "InServer",
-      "Inputs",
-      "KeyCopies",
-      "KeyCopy",
-      "Login",
-      "LoginLink",
       "Output",
       "Project",
       "ProjectError",
       "ProjectFile",
-      "Provisioned",
       "Ran",
       "ServiceConfig",
-      "State",
       "User"
      ],
      "role": "uses"
@@ -22828,65 +22658,9 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "ContainerConfig",
-    "Sharing"
+    "Folder"
    ],
    "to": "kkt-container"
-  },
-  {
-   "features": [],
-   "from": "kkt-container-docker",
-   "items": [
-    "Env",
-    "XDG_CONFIG_HOME_DEFAULT"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Env",
-      "XDG_CONFIG_HOME_DEFAULT"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-machine"
-  },
-  {
-   "features": [
-    "testing"
-   ],
-   "from": "kkt-container-docker",
-   "items": [
-    "Span",
-    "Time",
-    "testing::FixedClock"
-   ],
-   "kind": "dev",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Span",
-      "Time"
-     ],
-     "role": "uses"
-    },
-    {
-     "detail": [
-      "testing::FixedClock"
-     ],
-     "role": "wires"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-clock"
   },
   {
    "features": [],
@@ -23005,7 +22779,6 @@ window.KKT_GRAPH = {
     "ServiceConfig",
     "Sharing",
     "testing",
-    "testing::Memory",
     "testing::MemoryProjects",
     "testing::Request"
    ],
@@ -23125,7 +22898,6 @@ window.KKT_GRAPH = {
     "State",
     "User",
     "testing",
-    "testing::Memory",
     "testing::MemoryProjects",
     "testing::Request"
    ],
@@ -23154,7 +22926,6 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "testing::Memory",
       "testing::MemoryProjects"
      ],
      "role": "wires"
@@ -29663,12 +29434,12 @@ window.KKT_CONCERNS = {
    "layer": "operations"
   },
   "kkt-container-docker": {
-   "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out; and kkt-container's general `Projects`, each operation one `docker compose` command in the project's folder. It opens a sharing setup's login link through a `Browser` it declares.",
+   "concern": "Implements kkt-container's general `Projects` with Docker Compose: each operation one `docker compose` command in the project's folder, and the project's files. It knows nothing of what runs in the project.",
    "kind": "effect",
    "layer": "operations"
   },
   "kkt-containerized-service": {
-   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, setting the service up (its files, the Tailscale container's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`), starting and stopping it, its status and name pack, runs of the server's program in its container, reading its config home, backups, the web key's comparison, the admin key and upgrades, with the settings put back when an upgrade fails; it hands nothing to the fallback `Container` it still takes. What a sharing node's status answer says comes from the `SharingNode` it declares, and a login link opens in the `Browser` it declares.",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, setting the service up (its files, the Tailscale container's login, and the server's key copies on this machine, written through kkt-keys' `KeyFiles`), starting and stopping it, its status and name pack, runs of the server's program in its container, reading its config home, backups, the web key's comparison, the admin key and upgrades, with the settings put back when an upgrade fails. What a sharing node's status answer says comes from the `SharingNode` it declares, and a login link opens in the `Browser` it declares.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -30528,44 +30299,6 @@ window.KKT_ASSEMBLY = {
      "from": [
       {
        "at": "InstallParts",
-       "param": "container"
-      }
-     ],
-     "note": "kkt status, kkt doctor",
-     "produces": "kkt-container::State",
-     "to": [
-      {
-       "at": "docker_status_lines",
-       "param": "state"
-      },
-      {
-       "at": "doctor_checks::docker_check",
-       "param": "state"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-setup",
-     "from": [
-      {
-       "at": "InstallParts",
-       "param": "container"
-      }
-     ],
-     "note": "kkt doctor",
-     "produces": "kkt-container::KeyCopy",
-     "to": [
-      {
-       "at": "doctor_checks::docker_web_key_check",
-       "param": "compared"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-setup",
-     "from": [
-      {
-       "at": "InstallParts",
        "param": "key_files"
       }
      ],
@@ -31166,13 +30899,6 @@ window.KKT_ASSEMBLY = {
    "param": "sessions",
    "to": "kkt-server",
    "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
-  },
-  {
-   "at": "Docker::scripted",
-   "crate": "kashkeshet",
-   "param": "browser",
-   "to": "kkt-container-docker",
-   "why": "only the program's tests call it, over a scripted host (tests/container_install/); the program builds Docker with Docker::new"
   }
  ],
  "not_passed_on": [
@@ -31675,7 +31401,7 @@ window.KKT_ASSEMBLY = {
     {
      "crate": "kkt-install-commands",
      "impl": "kkt-containerized-service::Containerized",
-     "note": "kkt's containerized service, over Docker as the general Projects, injected into the install commands. It still takes a Docker as its fallback, and hands it nothing.",
+     "note": "kkt's containerized service, over Docker as the general Projects, injected into the install commands.",
      "to": [
       {
        "at": "InstallParts",
@@ -32502,23 +32228,6 @@ window.KKT_ASSEMBLY = {
       {
        "at": "connect::run",
        "param": "parts"
-      }
-     ]
-    },
-    {
-     "crate": "kkt-container-docker",
-     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener",
-     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-container-docker's Browser",
-     "suppliers": [
-      {
-       "crate": "kkt-browser",
-       "item": "SystemBrowser"
-      }
-     ],
-     "to": [
-      {
-       "at": "Docker::new",
-       "param": "browser"
       }
      ]
     },

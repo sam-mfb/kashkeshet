@@ -1,4 +1,4 @@
-//! Private native runner for the Docker wrapper.
+//! The private runner on this machine, for Docker.
 
 use std::io;
 use std::path::Path;
@@ -63,14 +63,6 @@ impl OsHost {
     fn write_file(&self, path: &Path, contents: &str, private: bool) -> io::Result<()> {
         write(path, contents, private)
     }
-
-    fn say(&self, line: &str) {
-        println!("{line}");
-    }
-
-    fn working_dir(&self) -> io::Result<std::path::PathBuf> {
-        std::env::current_dir()
-    }
 }
 
 /// The process for `command`: in its folder, without the variables it must
@@ -88,7 +80,7 @@ fn process(command: &NativeCommand<'_>) -> std::process::Command {
 }
 
 #[cfg(unix)]
-pub(crate) fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
+fn write(path: &Path, contents: &str, private: bool) -> io::Result<()> {
     use std::io::Write;
     use std::os::unix::fs::{OpenOptionsExt, PermissionsExt};
     let mode = PRIVATE_FILE_MODE;
@@ -107,7 +99,7 @@ pub(crate) fn write(path: &Path, contents: &str, private: bool) -> io::Result<()
 }
 
 #[cfg(not(unix))]
-pub(crate) fn write(path: &Path, contents: &str, _private: bool) -> io::Result<()> {
+fn write(path: &Path, contents: &str, _private: bool) -> io::Result<()> {
     std::fs::write(path, contents)
 }
 
@@ -204,14 +196,6 @@ impl super::Runner for OsHost {
 
     fn write_file(&self, path: &Path, contents: &str, private: bool) -> io::Result<()> {
         OsHost.write_file(path, contents, private)
-    }
-
-    fn say(&self, line: &str) {
-        OsHost.say(line)
-    }
-
-    fn working_dir(&self) -> io::Result<std::path::PathBuf> {
-        OsHost.working_dir()
     }
 }
 

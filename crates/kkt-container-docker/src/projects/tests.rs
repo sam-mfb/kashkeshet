@@ -2,7 +2,7 @@
 //! command line, the folder it runs in, the variables it runs without, and
 //! how each way of failing comes back.
 
-use super::super::{Browser, Command, Docker, Finished, Runner};
+use super::super::{Command, Docker, Finished, Runner};
 use kkt_container::{
     FileAction, FileState, Folder, Output, Project, ProjectError, ProjectFile, Projects,
     ServiceConfig, User,
@@ -88,23 +88,6 @@ impl Runner for Rc<Host> {
             .insert(path.to_path_buf(), (contents.into(), private));
         Ok(())
     }
-    fn say(&self, _line: &str) {
-        unreachable!("Projects says nothing to the person")
-    }
-    fn working_dir(&self) -> io::Result<PathBuf> {
-        unreachable!("Projects takes every path from its caller")
-    }
-}
-
-struct NoBrowser;
-
-impl Browser for NoBrowser {
-    fn open(&self, _url: &str) -> io::Result<()> {
-        unreachable!("Projects opens no link")
-    }
-    fn open_failure(&self) -> Option<String> {
-        None
-    }
 }
 
 fn exit(code: i32, stdout: &str, stderr: &str) -> Finished {
@@ -119,7 +102,6 @@ fn over(replies: Vec<io::Result<Finished>>) -> (Docker, Rc<Host>) {
     let host = Rc::new(Host::default());
     *host.replies.borrow_mut() = replies;
     let docker = Docker {
-        browser: Box::new(NoBrowser),
         host: Box::new(host.clone()),
     };
     (docker, host)
@@ -461,9 +443,8 @@ fn a_command_that_cannot_run_is_missing_and_one_that_fails_is_failed() {
         failed.to_string(),
         "`docker compose --project-directory /srv/app restart web` failed (exit 1: no such service: web)"
     );
-    // Worded exactly as the old Container code words a failed command.
-    let finished = exit(1, "", "no such service: web");
-    assert_eq!(failed.detail(), finished.detail());
+    // Worded as kkt has always worded a failed command: its error output.
+    assert_eq!(failed.detail(), "exit 1: no such service: web");
     let (docker, _host) = over(vec![Ok(Finished {
         code: None,
         stdout: "half".into(),
