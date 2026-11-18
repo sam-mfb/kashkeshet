@@ -60,17 +60,53 @@ impl ConnectionOptions {
     };
 }
 
+/// Why a [`ConnectionSource`] could not answer: the implementation's own
+/// error, passed on unread.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct SourceError(pub Box<dyn std::error::Error + Send + Sync>);
+
+/// Why how a client reaches the server could not be worked out: which
+/// question asked of the [`ConnectionSource`] failed, with its error.
+#[derive(Debug, thiserror::Error)]
+pub enum ConnectionError {
+    /// The setup record could not be read.
+    #[error(transparent)]
+    Record(SourceError),
+    /// The serve settings could not be read.
+    #[error(transparent)]
+    Serve(SourceError),
+    /// The default access key could not be made.
+    #[error(transparent)]
+    DefaultKey(SourceError),
+    /// The access key file is not one a server may use.
+    #[error(transparent)]
+    Key(SourceError),
+    /// A path could not be made absolute.
+    #[error(transparent)]
+    Path(SourceError),
+    /// The server address does not end in the MCP path, so the admin
+    /// endpoint's cannot be worked out.
+    #[error(
+        "the server address {url} does not end in {mcp_path}, so the admin endpoint's cannot be worked out; pass --url ending in {mcp_path}"
+    )]
+    NoAdminEndpoint { url: String, mcp_path: String },
+}
+
 /// Reads needed by connection selection, requested only in their original order.
 /// The program supplies settings and adapts its native providers.
 pub trait ConnectionSource {
     /// Context used to describe a key-setting refusal, opaque to setup.
     type KeySource;
     /// The servers this machine's setup record names, if it has one.
-    fn recorded(&self) -> Result<Option<RecordedServer>, String>;
-    fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<Self::KeySource>, String>;
-    fn make_default_key(&self, key: &AccessKey) -> Result<(), String>;
-    fn check_key(&self, path: &Path, source: &Self::KeySource) -> Result<(), String>;
-    fn absolute(&self, path: &Path) -> Result<PathBuf, String>;
+    fn recorded(&self) -> Result<Option<RecordedServer>, SourceError>;
+    fn serve(
+        &self,
+        flags: ConnectionOptions,
+    ) -> Result<ServeConnection<Self::KeySource>, SourceError>;
+    fn make_default_key(&self, key: &AccessKey) -> Result<(), SourceError>;
+    fn check_key(&self, path: &Path, source: &Self::KeySource) -> Result<(), SourceError>;
+    fn absolute(&self, path: &Path) -> Result<PathBuf, SourceError>;
 }
 
 /// The checked endpoint and access-key setting; source context is returned to its reader.
@@ -86,12 +122,12 @@ pub fn client_connection(
     source: &impl ConnectionSource,
     flags: ConnectionOptions,
     create: bool,
-) -> Result<Connection, String> {
+) -> Result<Connection, ConnectionError> {
     // Without --config, clients use the server `kkt setup` or `kkt switch`
     // recorded for them; --url and --key-file each replace only their own
     // part of it.
     if flags.config.is_none()
-        && let Some(record) = source.recorded()?
+        && let Some(record) = source.recorded().map_err(ConnectionError::Record)?
     {
         return recorded_connection(|path| source.absolute(path), record.for_clients(), flags);
     }
@@ -103,14 +139,14 @@ pub fn client_connection(
 pub fn admin_connection(
     source: &impl ConnectionSource,
     flags: ConnectionOptions,
-) -> Result<Connection, String> {
+) -> Result<Connection, ConnectionError> {
     // --key-file names the admin key; it must not replace the access key used
     // to select this machine's server.
     let flags = ConnectionOptions {
         key_file: None,
         ..flags
     };
-    match source.recorded()? {
+    match source.recorded().map_err(ConnectionError::Record)? {
         Some(record) if flags.config.is_none() => {
             recorded_connection(|path| source.absolute(path), record.own_server(), flags)
         }
@@ -120,24 +156,29 @@ pub fn admin_connection(
 
 /// The admin endpoint, from a client endpoint ending in `mcp_path`. The
 /// program supplies the transport's two path constants.
-pub fn admin_endpoint(url: &str, mcp_path: &str, admin_path: &str) -> Result<String, String> {
+pub fn admin_endpoint(
+    url: &str,
+    mcp_path: &str,
+    admin_path: &str,
+) -> Result<String, ConnectionError> {
     match url.strip_suffix(mcp_path) {
         Some(base) => Ok(format!("{base}{admin_path}")),
-        None => Err(format!(
-            "the server address {url} does not end in {mcp_path}, so the admin endpoint's cannot be worked out; pass --url ending in {mcp_path}"
-        )),
+        None => Err(ConnectionError::NoAdminEndpoint {
+            url: url.to_string(),
+            mcp_path: mcp_path.to_string(),
+        }),
     }
 }
 
 /// How clients reach the recorded `server`, with `--url` and `--key-file`
 /// each replacing only their own part of it.
 pub fn recorded_connection(
-    absolute: impl FnOnce(&Path) -> Result<PathBuf, String>,
+    absolute: impl FnOnce(&Path) -> Result<PathBuf, SourceError>,
     server: ServerAddress,
     flags: ConnectionOptions,
-) -> Result<Connection, String> {
+) -> Result<Connection, ConnectionError> {
     let key_file = match flags.key_file {
-        Some(path) => Some(absolute(&path)?),
+        Some(path) => Some(absolute(&path).map_err(ConnectionError::Path)?),
         None => server.key_file,
     };
     Ok(Connection {
@@ -151,22 +192,26 @@ pub fn serve_connection(
     source: &impl ConnectionSource,
     flags: ConnectionOptions,
     create: bool,
-) -> Result<Connection, String> {
+) -> Result<Connection, ConnectionError> {
     let ServeConnection {
         url,
         access_key,
         key_source,
-    } = source.serve(flags)?;
+    } = source.serve(flags).map_err(ConnectionError::Serve)?;
     if create {
-        source.make_default_key(&access_key)?;
+        source
+            .make_default_key(&access_key)
+            .map_err(ConnectionError::DefaultKey)?;
     }
     let key_file = match access_key {
         AccessKey::None => None,
         AccessKey::Default(path) | AccessKey::File(path) => {
             if create {
-                source.check_key(&path, &key_source)?;
+                source
+                    .check_key(&path, &key_source)
+                    .map_err(ConnectionError::Key)?;
             }
-            Some(source.absolute(&path)?)
+            Some(source.absolute(&path).map_err(ConnectionError::Path)?)
         }
     };
     Ok(Connection { url, key_file })
@@ -240,15 +285,15 @@ mod tests {
 
     impl ConnectionSource for Reads {
         type KeySource = ();
-        fn recorded(&self) -> Result<Option<RecordedServer>, String> {
+        fn recorded(&self) -> Result<Option<RecordedServer>, SourceError> {
             self.calls.borrow_mut().push("record");
             if self.bad_record {
-                Err("bad record".into())
+                Err(SourceError("bad record".into()))
             } else {
                 Ok(None)
             }
         }
-        fn serve(&self, _: ConnectionOptions) -> Result<ServeConnection<()>, String> {
+        fn serve(&self, _: ConnectionOptions) -> Result<ServeConnection<()>, SourceError> {
             self.calls.borrow_mut().push("serve");
             Ok(ServeConnection {
                 url: "http://server/mcp".into(),
@@ -256,15 +301,15 @@ mod tests {
                 key_source: (),
             })
         }
-        fn make_default_key(&self, _: &AccessKey) -> Result<(), String> {
+        fn make_default_key(&self, _: &AccessKey) -> Result<(), SourceError> {
             self.calls.borrow_mut().push("make key");
             Ok(())
         }
-        fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {
+        fn check_key(&self, _: &Path, _: &()) -> Result<(), SourceError> {
             self.calls.borrow_mut().push("check key");
-            Err("bad key".into())
+            Err(SourceError("bad key".into()))
         }
-        fn absolute(&self, path: &Path) -> Result<PathBuf, String> {
+        fn absolute(&self, path: &Path) -> Result<PathBuf, SourceError> {
             self.calls.borrow_mut().push("absolute");
             Ok(path.to_owned())
         }
@@ -280,10 +325,11 @@ mod tests {
             key_file: Some("override".into()),
             ..ConnectionOptions::NONE
         };
-        assert_eq!(
-            client_connection(&source, flags, true).map(|c| c.url),
-            Err("bad record".into())
-        );
+        let refused = client_connection(&source, flags, true)
+            .err()
+            .expect("bad record");
+        assert!(matches!(refused, ConnectionError::Record(_)), "{refused:?}");
+        assert_eq!(refused.to_string(), "bad record");
         assert_eq!(*source.calls.borrow(), ["record"]);
 
         source.calls.borrow_mut().clear();
@@ -291,10 +337,9 @@ mod tests {
             config: Some("config".into()),
             ..ConnectionOptions::NONE
         };
-        assert_eq!(
-            admin_connection(&source, flags).map(|c| c.url),
-            Err("bad record".into())
-        );
+        let refused = admin_connection(&source, flags).err().expect("bad record");
+        assert!(matches!(refused, ConnectionError::Record(_)), "{refused:?}");
+        assert_eq!(refused.to_string(), "bad record");
         assert_eq!(*source.calls.borrow(), ["record"]);
 
         source.calls.borrow_mut().clear();
@@ -302,10 +347,11 @@ mod tests {
             config: Some("config".into()),
             ..ConnectionOptions::NONE
         };
-        assert_eq!(
-            client_connection(&source, flags, true).map(|c| c.url),
-            Err("bad key".into())
-        );
+        let refused = client_connection(&source, flags, true)
+            .err()
+            .expect("bad key");
+        assert!(matches!(refused, ConnectionError::Key(_)), "{refused:?}");
+        assert_eq!(refused.to_string(), "bad key");
         assert_eq!(*source.calls.borrow(), ["serve", "make key", "check key"]);
     }
 
@@ -315,19 +361,19 @@ mod tests {
 
     impl ConnectionSource for Recorded {
         type KeySource = ();
-        fn recorded(&self) -> Result<Option<RecordedServer>, String> {
+        fn recorded(&self) -> Result<Option<RecordedServer>, SourceError> {
             Ok(self.0.clone())
         }
-        fn serve(&self, _: ConnectionOptions) -> Result<ServeConnection<()>, String> {
+        fn serve(&self, _: ConnectionOptions) -> Result<ServeConnection<()>, SourceError> {
             panic!("the serve settings were asked while a record was there")
         }
-        fn make_default_key(&self, _: &AccessKey) -> Result<(), String> {
+        fn make_default_key(&self, _: &AccessKey) -> Result<(), SourceError> {
             panic!("a key was made while a record was there")
         }
-        fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {
+        fn check_key(&self, _: &Path, _: &()) -> Result<(), SourceError> {
             panic!("a key was checked while a record was there")
         }
-        fn absolute(&self, path: &Path) -> Result<PathBuf, String> {
+        fn absolute(&self, path: &Path) -> Result<PathBuf, SourceError> {
             Ok(Path::new("/here").join(path))
         }
     }
@@ -408,11 +454,13 @@ mod tests {
     #[test]
     fn the_admin_endpoint_replaces_the_mcp_path() {
         assert_eq!(
-            admin_endpoint("https://kkt.tail1234.ts.net/mcp", "/mcp", "/mcp-admin"),
+            admin_endpoint("https://kkt.tail1234.ts.net/mcp", "/mcp", "/mcp-admin")
+                .map_err(|e| e.to_string()),
             Ok("https://kkt.tail1234.ts.net/mcp-admin".into())
         );
         assert_eq!(
-            admin_endpoint("http://127.0.0.1:7420/other", "/mcp", "/mcp-admin"),
+            admin_endpoint("http://127.0.0.1:7420/other", "/mcp", "/mcp-admin")
+                .map_err(|e| e.to_string()),
             Err("the server address http://127.0.0.1:7420/other does not end in /mcp, so the admin endpoint's cannot be worked out; pass --url ending in /mcp".into())
         );
     }
@@ -487,7 +535,7 @@ mod tests {
         struct Recorded;
         impl ConnectionSource for Recorded {
             type KeySource = ();
-            fn recorded(&self) -> Result<Option<RecordedServer>, String> {
+            fn recorded(&self) -> Result<Option<RecordedServer>, SourceError> {
                 Ok(Some(RecordedServer {
                     server: ServerAddress {
                         url: "http://h/mcp?q=1".into(),
@@ -496,21 +544,22 @@ mod tests {
                     switched_to: None,
                 }))
             }
-            fn serve(&self, _: ConnectionOptions) -> Result<ServeConnection<()>, String> {
+            fn serve(&self, _: ConnectionOptions) -> Result<ServeConnection<()>, SourceError> {
                 panic!("a recorded server is not read from the serve settings")
             }
-            fn make_default_key(&self, _: &AccessKey) -> Result<(), String> {
+            fn make_default_key(&self, _: &AccessKey) -> Result<(), SourceError> {
                 Ok(())
             }
-            fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {
+            fn check_key(&self, _: &Path, _: &()) -> Result<(), SourceError> {
                 Ok(())
             }
-            fn absolute(&self, path: &Path) -> Result<PathBuf, String> {
+            fn absolute(&self, path: &Path) -> Result<PathBuf, SourceError> {
                 Ok(path.to_owned())
             }
         }
         assert!(server_address("http://h/mcp?q=1", None).is_err());
-        let url = |c: Result<Connection, String>| c.map(|c| c.url);
+        let url =
+            |c: Result<Connection, ConnectionError>| c.map(|c| c.url).map_err(|e| e.to_string());
         assert_eq!(
             url(client_connection(&Recorded, ConnectionOptions::NONE, true)),
             Ok("http://h/mcp?q=1".to_string())

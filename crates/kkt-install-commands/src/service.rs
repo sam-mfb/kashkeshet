@@ -69,7 +69,8 @@ pub async fn run<D>(
                 plan.bind,
                 plan.config_file.as_deref(),
                 parts.try_bind,
-            )?;
+            )
+            .map_err(|e| e.to_string())?;
             if dry_run {
                 let actions = service
                     .dry_run(

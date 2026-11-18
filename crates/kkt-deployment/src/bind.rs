@@ -5,6 +5,41 @@
 use std::io;
 use std::net::SocketAddr;
 
+/// Why a service's server could not listen on its address, and where to
+/// set another: `config_file`, the config file that sets `bind`, if there
+/// is one.
+#[derive(Debug, thiserror::Error)]
+pub enum BindError {
+    /// Another program has the address.
+    #[error(
+        "{bind} is already in use, so the server could not listen there. Stop the program using it, or {}, then run `kkt service install` again.",
+        set_it(config_file.as_deref())
+    )]
+    InUse {
+        bind: SocketAddr,
+        config_file: Option<String>,
+    },
+    /// The server could not listen there for another reason.
+    #[error(
+        "the server could not listen on {bind}: {cause}. To fix it, {}, then run `kkt service install` again.",
+        set_it(config_file.as_deref())
+    )]
+    CannotListen {
+        bind: SocketAddr,
+        config_file: Option<String>,
+        #[source]
+        cause: io::Error,
+    },
+}
+
+/// Where to set another address.
+fn set_it(config_file: Option<&str>) -> String {
+    match config_file {
+        Some(file) => format!("set another address with `bind` in {file}"),
+        None => "set another address with `bind` in a config file".to_string(),
+    }
+}
+
 /// Refuses to install a service whose server could not listen on `bind`,
 /// such as an address another program has, before anything is written:
 /// installed, it would fail and be started again every few seconds.
@@ -18,27 +53,22 @@ pub fn check_bind(
     bind: SocketAddr,
     config_file: Option<&str>,
     try_bind: &dyn Fn(SocketAddr) -> io::Result<()>,
-) -> Result<(), String> {
+) -> Result<(), BindError> {
     if running {
         return Ok(());
     }
     let Err(e) = try_bind(bind) else {
         return Ok(());
     };
-    let set_it = match config_file {
-        Some(file) => format!("set another address with `bind` in {file}"),
-        None => "set another address with `bind` in a config file".to_string(),
-    };
+    let config_file = config_file.map(str::to_string);
     Err(if e.kind() == io::ErrorKind::AddrInUse {
-        format!(
-            "{bind} is already in use, so the server could not listen there. Stop the program \
-             using it, or {set_it}, then run `kkt service install` again."
-        )
+        BindError::InUse { bind, config_file }
     } else {
-        format!(
-            "the server could not listen on {bind}: {e}. To fix it, {set_it}, then run \
-             `kkt service install` again."
-        )
+        BindError::CannotListen {
+            bind,
+            config_file,
+            cause: e,
+        }
     })
 }
 
@@ -63,7 +93,8 @@ mod tests {
                 bind(),
                 Some("/home/sam/.config/kkt/config.toml"),
                 &in_use
-            ),
+            )
+            .map_err(|e| e.to_string()),
             Err(format!(
                 "{BIND} is already in use, so the server could not listen there. Stop the \
                  program using it, or set another address with `bind` in \
@@ -75,7 +106,10 @@ mod tests {
     /// A free address passes.
     #[test]
     fn a_free_address_passes() {
-        assert_eq!(check_bind(false, bind(), None, &|_| Ok(())), Ok(()));
+        assert_eq!(
+            check_bind(false, bind(), None, &|_| Ok(())).map_err(|e| e.to_string()),
+            Ok(())
+        );
     }
 
     /// The running kkt service holds its own address, and installing again
@@ -87,7 +121,10 @@ mod tests {
             tried.set(true);
             Ok(())
         };
-        assert_eq!(check_bind(true, bind(), None, &try_bind), Ok(()));
+        assert_eq!(
+            check_bind(true, bind(), None, &try_bind).map_err(|e| e.to_string()),
+            Ok(())
+        );
         assert!(!tried.get());
     }
 
@@ -97,7 +134,9 @@ mod tests {
     fn other_listen_failures_are_refused_with_the_reason() {
         let bind: SocketAddr = "192.0.2.1:7420".parse().expect("address");
         let unavailable = |_: SocketAddr| Err(io::Error::from(io::ErrorKind::AddrNotAvailable));
-        let err = check_bind(false, bind, None, &unavailable).expect_err("refused");
+        let err = check_bind(false, bind, None, &unavailable)
+            .expect_err("refused")
+            .to_string();
         assert!(
             err.starts_with("the server could not listen on 192.0.2.1:7420: "),
             "{err}"
@@ -118,7 +157,7 @@ mod tests {
         let in_use = |_: SocketAddr| Err(io::Error::new(io::ErrorKind::AddrInUse, "in use"));
         let other = |_: SocketAddr| Err(io::Error::other("no such address"));
         assert_eq!(
-            check_bind(false, bind(), None, &in_use),
+            check_bind(false, bind(), None, &in_use).map_err(|e| e.to_string()),
             Err(
                 "127.0.0.1:7420 is already in use, so the server could not listen there. \
                  Stop the program using it, or set another address with `bind` in a config \
@@ -132,7 +171,8 @@ mod tests {
                 bind(),
                 Some("/home/me/.config/kkt/config.toml"),
                 &other
-            ),
+            )
+            .map_err(|e| e.to_string()),
             Err(
                 "the server could not listen on 127.0.0.1:7420: no such address. To fix it, \
                  set another address with `bind` in /home/me/.config/kkt/config.toml, then \

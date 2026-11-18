@@ -799,23 +799,43 @@ mod tests {
 
     impl ConnectionSource for Untouched {
         type KeySource = ();
-        fn recorded(&self) -> Result<Option<kkt_deployment::connection::RecordedServer>, String> {
+        fn recorded(
+            &self,
+        ) -> Result<
+            Option<kkt_deployment::connection::RecordedServer>,
+            kkt_deployment::connection::SourceError,
+        > {
             self.refused("connection.record")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
         fn serve(
             &self,
             _: kkt_deployment::connection::ConnectionOptions,
-        ) -> Result<kkt_deployment::connection::ServeConnection<()>, String> {
+        ) -> Result<
+            kkt_deployment::connection::ServeConnection<()>,
+            kkt_deployment::connection::SourceError,
+        > {
             self.refused("connection.serve")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
-        fn make_default_key(&self, _: &kkt_keys::AccessKey) -> Result<(), String> {
+        fn make_default_key(
+            &self,
+            _: &kkt_keys::AccessKey,
+        ) -> Result<(), kkt_deployment::connection::SourceError> {
             self.refused("connection.make_default_key")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
-        fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {
+        fn check_key(
+            &self,
+            _: &Path,
+            _: &(),
+        ) -> Result<(), kkt_deployment::connection::SourceError> {
             self.refused("connection.check_key")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
-        fn absolute(&self, _: &Path) -> Result<PathBuf, String> {
+        fn absolute(&self, _: &Path) -> Result<PathBuf, kkt_deployment::connection::SourceError> {
             self.refused("connection.absolute")
+                .map_err(|said| kkt_deployment::connection::SourceError(said.into()))
         }
     }
 

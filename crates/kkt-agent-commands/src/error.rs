@@ -1,5 +1,6 @@
 //! Why an agent command failed, worded for the person who ran it.
 
+use kkt_deployment::connection::ConnectionError;
 use kkt_llm_agent_config::ClientConfigError;
 use kkt_names::NameError;
 use kkt_watch::WatchError;
@@ -35,11 +36,9 @@ pub enum AgentCommandError {
     /// A handle or lane name breaks its rules.
     #[error(transparent)]
     Name(NameError),
-    /// Where the server is could not be worked out. The text is
-    /// kkt-deployment's, which still says why in words; it is typed with
-    /// kkt-deployment.
-    #[error("{0}")]
-    Connection(String),
+    /// Where the server is, or its admin endpoint, could not be worked out.
+    #[error(transparent)]
+    Connection(ConnectionError),
     /// The watch stopped without its outcome.
     #[error(transparent)]
     Watch(WatchError),

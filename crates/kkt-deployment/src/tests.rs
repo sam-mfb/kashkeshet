@@ -152,7 +152,9 @@ fn serve_runs_with_no_record_or_when_told_to_ignore_it() {
 #[test]
 fn with_the_service_set_up_serve_waits_for_it_to_stop() {
     let r = recorded(Deployment::Service { tailscale: false });
-    let error = guard(Some(&r), Some(true), false).expect_err("running");
+    let error = guard(Some(&r), Some(true), false)
+        .expect_err("running")
+        .to_string();
     assert!(error.contains("kkt status"), "{error}");
     assert!(error.contains("--ignore-setup"), "{error}");
     assert_eq!(guard(Some(&r), Some(false), false), Ok(()));
@@ -162,12 +164,16 @@ fn with_the_service_set_up_serve_waits_for_it_to_stop() {
 
 #[test]
 fn docker_and_client_machines_say_where_the_server_is() {
-    let error = guard(Some(&recorded(docker())), Some(false), false).expect_err("docker");
+    let error = guard(Some(&recorded(docker())), Some(false), false)
+        .expect_err("docker")
+        .to_string();
     assert!(
         error.contains("Docker, from /home/sam/.local/share/kashkeshet/docker"),
         "{error}"
     );
-    let error = guard(Some(&recorded(Deployment::Client)), None, false).expect_err("client");
+    let error = guard(Some(&recorded(Deployment::Client)), None, false)
+        .expect_err("client")
+        .to_string();
     assert!(
         error.contains("client of the kkt server at https://kkt.tail1234.ts.net/mcp"),
         "{error}"
@@ -180,7 +186,7 @@ fn docker_and_client_machines_say_where_the_server_is() {
 fn the_serve_guard_refusals_are_pinned() {
     let service = recorded(Deployment::Service { tailscale: false });
     assert_eq!(
-        guard(Some(&service), Some(true), false),
+        guard(Some(&service), Some(true), false).map_err(|e| e.to_string()),
         Err(
             "kkt already runs on this machine as a service (see `kkt status`); stop it with \
              `kkt service stop`, or pass --ignore-setup to start another server"
@@ -188,14 +194,14 @@ fn the_serve_guard_refusals_are_pinned() {
         )
     );
     assert_eq!(
-        guard(Some(&recorded(docker())), None, false),
+        guard(Some(&recorded(docker())), None, false).map_err(|e| e.to_string()),
         Err("this machine runs kkt in Docker, from \
              /home/sam/.local/share/kashkeshet/docker (see `kkt status`); pass \
              --ignore-setup to start another server"
             .to_string())
     );
     assert_eq!(
-        guard(Some(&recorded(Deployment::Client)), None, false),
+        guard(Some(&recorded(Deployment::Client)), None, false).map_err(|e| e.to_string()),
         Err("this machine is set up as a client of the kkt server at \
              https://kkt.tail1234.ts.net/mcp; run `kkt setup` to change that, or pass \
              --ignore-setup to start a server anyway"

@@ -20,10 +20,18 @@ struct NoRecord {
 
 impl ConnectionSource for NoRecord {
     type KeySource = ();
-    fn recorded(&self) -> Result<Option<kkt_deployment::connection::RecordedServer>, String> {
+    fn recorded(
+        &self,
+    ) -> Result<
+        Option<kkt_deployment::connection::RecordedServer>,
+        kkt_deployment::connection::SourceError,
+    > {
         Ok(None)
     }
-    fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<()>, String> {
+    fn serve(
+        &self,
+        flags: ConnectionOptions,
+    ) -> Result<ServeConnection<()>, kkt_deployment::connection::SourceError> {
         Ok(ServeConnection {
             url: flags
                 .url
@@ -35,13 +43,16 @@ impl ConnectionSource for NoRecord {
             key_source: (),
         })
     }
-    fn make_default_key(&self, _: &AccessKey) -> Result<(), String> {
+    fn make_default_key(
+        &self,
+        _: &AccessKey,
+    ) -> Result<(), kkt_deployment::connection::SourceError> {
         Ok(())
     }
-    fn check_key(&self, _: &Path, _: &()) -> Result<(), String> {
+    fn check_key(&self, _: &Path, _: &()) -> Result<(), kkt_deployment::connection::SourceError> {
         Ok(())
     }
-    fn absolute(&self, path: &Path) -> Result<PathBuf, String> {
+    fn absolute(&self, path: &Path) -> Result<PathBuf, kkt_deployment::connection::SourceError> {
         Ok(path.to_path_buf())
     }
 }
