@@ -8,7 +8,6 @@ use super::{
     Address, Avatars, Channel, Failure, Message, Reclaimed, Registered, Servers, Waited, Watched,
 };
 use futures::future::BoxFuture;
-use kkt_clock::Clock;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -79,7 +78,7 @@ impl Servers for Memory {
             token: Some(token),
         })
     }
-    fn admin(&self, _: Address, _: Arc<dyn Clock>) -> Box<dyn Watched> {
+    fn admin(&self, _: Address) -> Box<dyn Watched> {
         Box::new(Watch {
             server: self.clone(),
             token: None,
@@ -192,6 +191,10 @@ impl Watched for Watch {
     ) -> BoxFuture<'a, Result<Waited, Failure>> {
         Box::pin(async { Ok(Waited::default()) })
     }
+    /// Nothing ever comes, so a wait answers at once and is not asked again.
+    fn polls(&self) -> bool {
+        false
+    }
 }
 
 #[cfg(test)]
@@ -283,16 +286,7 @@ mod tests {
     #[test]
     fn a_watch_of_it_finds_nothing_new() {
         let server = Memory::new();
-        struct NoClock;
-        impl Clock for NoClock {
-            fn now(&self) -> kkt_clock::Time {
-                unreachable!("the stand-in keeps no time")
-            }
-            fn sleep_until(&self, _: kkt_clock::Time) -> BoxFuture<'_, ()> {
-                unreachable!("the stand-in keeps no time")
-            }
-        }
-        let watch = server.admin(at(), Arc::new(NoClock));
+        let watch = server.admin(at());
         assert_eq!(block_on(watch.handle()), Ok(ADMIN_HANDLE.to_string()));
         assert_eq!(block_on(watch.latest_id()), Ok(0));
         assert_eq!(

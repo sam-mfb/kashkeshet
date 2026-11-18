@@ -4,9 +4,7 @@
 //! `testing::Memory` as a stand-in.
 
 use futures::future::BoxFuture;
-use kkt_clock::Clock;
 use std::fmt;
-use std::sync::Arc;
 use std::time::Duration;
 
 /// A server, as a client reaches it: its MCP endpoint and the key it is
@@ -26,9 +24,9 @@ pub trait Servers {
     fn avatars(&self, at: Address) -> Box<dyn Avatars>;
     /// The agent endpoint at `at`, watched as the agent `token` names.
     fn agent(&self, at: Address, token: String) -> Box<dyn Watched>;
-    /// The admin endpoint at `at`, watched with the key it is reached with;
-    /// its waits are timed by `clock`.
-    fn admin(&self, at: Address, clock: Arc<dyn Clock>) -> Box<dyn Watched>;
+    /// The admin endpoint at `at`, watched with the key it is reached with.
+    /// It answers at once ([`Watched::polls`]).
+    fn admin(&self, at: Address) -> Box<dyn Watched>;
 }
 
 /// What a client asks of a server for an avatar.
@@ -72,6 +70,10 @@ pub trait Watched: Send + Sync {
         channels: Option<&'a [String]>,
         wait: Duration,
     ) -> BoxFuture<'a, Result<Waited, Failure>>;
+    /// Whether [`Watched::wait`] answers at once with what is there, not
+    /// waiting on the server: a watcher then asks again, at its own pace,
+    /// until something comes or its wait is over.
+    fn polls(&self) -> bool;
 }
 
 /// Why a call to the server failed.
