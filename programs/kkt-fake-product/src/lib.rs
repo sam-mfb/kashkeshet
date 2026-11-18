@@ -18,7 +18,6 @@ use kkt_api_agent::Api;
 use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId};
 use kkt_clock::Clock;
 use kkt_entropy::Entropy;
-use kkt_events::Events;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_names::AdminName;
@@ -180,8 +179,6 @@ pub struct Settings {
     pub web: kkt_web::Settings,
     /// How the MCP endpoints' event streams keep in touch with clients.
     pub mcp: kkt_mcp::Settings,
-    /// How many notices the events bus keeps for a slow subscriber.
-    pub events: kkt_events::Settings,
 }
 
 impl Settings {
@@ -191,7 +188,6 @@ impl Settings {
         fmt: kkt_mcp::result_format::Settings::DEFAULT,
         web: kkt_web::Settings::DEFAULT,
         mcp: kkt_mcp::Settings::DEFAULT,
-        events: kkt_events::Settings::DEFAULT,
     };
 }
 
@@ -224,7 +220,7 @@ impl Product {
             Startup {
                 db,
                 swarm: SwarmId::main(),
-                events: Events::new(settings.events).until_stopped(shutdown.clone()),
+                shutdown: shutdown.clone(),
                 clock: clock.clone(),
                 entropy: entropy.clone(),
                 settings: settings.rules,

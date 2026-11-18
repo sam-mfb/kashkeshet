@@ -35,7 +35,6 @@ use crate::{DefaultWording, OperatorWording, Rules, Settings, Startup};
 use kkt_clock::Clock;
 use kkt_db::testing::{FastPlace, FaultyBackend};
 use kkt_entropy::Entropy;
-use kkt_events::Events;
 use std::fmt::Debug;
 
 pub use super::reads::{Probes, every_store_read};
@@ -48,11 +47,11 @@ pub mod scenarios {
 
 /// What a test's rules are made from: the rules' startup without the
 /// database. [`Memory::new`] fills in the rest as a server in key mode
-/// would: the one swarm, a new events bus, the default settings and
-/// wording.
+/// would: the one swarm, a shutdown signal that never stops, the default
+/// settings and wording.
 pub struct Memory {
     pub swarm: SwarmId,
-    pub events: Events,
+    pub shutdown: kkt_shutdown::Shutdown,
     pub clock: Arc<dyn Clock>,
     pub entropy: Arc<dyn Entropy>,
     pub settings: Settings,
@@ -64,7 +63,7 @@ impl Memory {
     pub fn new(clock: Arc<dyn Clock>, entropy: Arc<dyn Entropy>) -> Memory {
         Memory {
             swarm: SwarmId::main(),
-            events: Events::new(kkt_events::Settings::DEFAULT),
+            shutdown: kkt_shutdown::Shutdown::new(),
             clock,
             entropy,
             settings: Settings::DEFAULT,
@@ -94,7 +93,7 @@ pub async fn rules_on(db: Db, memory: Memory) -> Result<Rules, StoreError> {
         Startup {
             db,
             swarm: memory.swarm,
-            events: memory.events,
+            shutdown: memory.shutdown,
             clock: memory.clock,
             entropy: memory.entropy,
             settings: memory.settings,

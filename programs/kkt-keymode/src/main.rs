@@ -25,7 +25,6 @@ use kkt_clock_system::SystemClock;
 use kkt_config_file::files as config_files;
 use kkt_db_sqlite::{Options, SqlitePlace};
 use kkt_entropy_os::OsEntropy;
-use kkt_events::Events;
 use kkt_identity_keymode::KeyMode;
 use kkt_keys::AccessKey;
 use kkt_keys::{KeyFiles as _, KeyText, SelectedKeys};
@@ -178,7 +177,7 @@ async fn run(args: &[String]) -> Result<(), String> {
             db,
             // Each call acts in the swarm its caller is in; key mode has one.
             swarm: SwarmId::main(),
-            events: Events::new(kkt_events::Settings::DEFAULT).until_stopped(shutdown.clone()),
+            shutdown: shutdown.clone(),
             clock: clock.clone(),
             entropy: entropy.clone(),
             settings: rules,

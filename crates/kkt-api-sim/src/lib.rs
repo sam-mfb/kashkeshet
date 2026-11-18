@@ -16,16 +16,17 @@
 #![cfg(any(test, feature = "testing"))]
 
 mod api;
+mod feed;
 mod records;
 
+use feed::{Feed, SwarmFeed};
 use futures::future::BoxFuture;
 use kkt_api_agent::{Audit, Limits, Operator, Permission, Permissions, SwarmId};
+use kkt_api_operator::{
+    AgentHidden, ChannelCreated, ChannelHidden, ChannelMembers, Joined, Left, NewAgent, Notice,
+};
 use kkt_clock::{self as clock, Clock, Span, Time};
 use kkt_entropy::Entropy;
-use kkt_events::{
-    AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent, NewChannel,
-    NewMessage, SwarmEvents,
-};
 use kkt_names::{self as names, CHANNEL_RANDOM_LEN, MAX_LANE_NAME_CHARS};
 use kkt_shutdown::Shutdown;
 use kkt_web::{Access, Admit, Gate, Session, SignIn, Viewer};
@@ -357,10 +358,10 @@ pub struct Preview {
     settings: PreviewSettings,
     /// How far back a new world's messages go.
     history: Span,
-    /// The bus every swarm's notices go on.
-    bus: Events,
+    /// The feed every swarm's notices go on.
+    bus: Feed,
     /// This world's swarm's notices.
-    events: SwarmEvents,
+    events: SwarmFeed,
     world: Arc<Mutex<World>>,
     /// Each swarm's world, in the order they were made, the preview's own
     /// first.
@@ -386,7 +387,7 @@ pub enum Happening {
 enum Out {
     Message(Message),
     Agent(NewAgent),
-    Channel(NewChannel),
+    Channel(ChannelCreated),
     Joined(Joined),
     Left(Left),
     ChannelHidden(ChannelHidden),
@@ -443,7 +444,7 @@ impl Preview {
             entropy.as_ref(),
             &settings,
         )));
-        let bus = Events::new(kkt_events::Settings::DEFAULT).until_stopped(shutdown.clone());
+        let bus = Feed::new(shutdown.clone());
         Ok(Preview {
             clock,
             entropy,
@@ -528,12 +529,11 @@ impl Preview {
         let happening = if e.below(PREVIEW_NEW_CHANNEL_ONE_IN) == 0 {
             let id = world.add_channel(now, e);
             if let Some(c) = world.channels.iter().find(|c| c.channel.id == id) {
-                out.push(Out::Channel(NewChannel {
+                out.push(Out::Channel(ChannelCreated {
                     id: id.clone(),
                     name: c.channel.name.clone(),
                     open: c.channel.open,
                     created_by: c.channel.created_by.clone(),
-                    created_at: c.channel.created_at.clone(),
                     member_count: c.members.len() as i64,
                 }));
             }
@@ -597,18 +597,18 @@ impl Preview {
         for item in out {
             match item {
                 Out::Message(m) => self.publish_message(m),
-                Out::Agent(a) => self.events.publish_agent(a),
-                Out::Channel(c) => self.events.publish_channel(c),
-                Out::Joined(j) => self.events.publish_joined(j),
-                Out::Left(l) => self.events.publish_left(l),
-                Out::ChannelHidden(h) => self.events.publish_channel_hidden(h),
-                Out::AgentHidden(h) => self.events.publish_agent_hidden(h),
+                Out::Agent(a) => self.events.publish(Notice::Agent(a)),
+                Out::Channel(c) => self.events.publish(Notice::Channel(c)),
+                Out::Joined(j) => self.events.publish(Notice::Joined(j)),
+                Out::Left(l) => self.events.publish(Notice::Left(l)),
+                Out::ChannelHidden(h) => self.events.publish(Notice::ChannelHidden(h)),
+                Out::AgentHidden(h) => self.events.publish(Notice::AgentHidden(h)),
             }
         }
     }
 
     fn publish_message(&self, m: Message) {
-        self.events.publish(NewMessage {
+        self.events.publish(Notice::Message(kkt_api_agent::Message {
             id: m.id,
             channel_id: m.channel_id,
             channel_name: m.channel_name,
@@ -616,7 +616,7 @@ impl Preview {
             body: m.body,
             created_at: m.created_at,
             run_id: m.run_id,
-        });
+        }));
     }
 
     /// The start of the last `window`, as a stored time. Fails if `window`
@@ -697,14 +697,13 @@ impl Preview {
             members,
         );
         let result = result.map(|(channel, notice)| {
-            self.events.publish_channel(NewChannel {
+            self.events.publish(Notice::Channel(ChannelCreated {
                 id: channel.id.clone(),
                 name: channel.name,
                 open: channel.open,
                 created_by: channel.created_by,
-                created_at: channel.created_at,
                 member_count: channel.member_count,
-            });
+            }));
             self.publish_message(notice);
             channel.id
         });

@@ -6,13 +6,13 @@
 //! language is narrow on purpose: it holds what kkt's stores need, in its
 //! own terms. A backend, such as kkt-db-sqlite,
 //! implements [`Backend`], [`BackendConnection`] and [`Evolve`] for one
-//! database and must pass [`testing::conformance`]; a store never learns
-//! which backend it has.
+//! database and must pass [`testing::conformance`]; a store sees only the
+//! contract.
 //!
 //! [`search`] says what a search asks for and finds. kkt-db applies
 //! kkt-search's words, matching and excerpts in [`Connection`], the same
 //! for every backend: a backend is handed the words it indexes and the
-//! terms it matches, and never splits text itself.
+//! terms it matches.
 //!
 //! A store is given a [`Backend`] and calls [`BackendExt`]'s typed
 //! methods on it. [`BackendExt::read`] runs a closure over a connection

@@ -1,18 +1,14 @@
 //! The admin endpoint's MCP server, at `/mcp-admin`: the tools an admin
-//! agent sees, separate from the agents' tools in `lib.rs`. Only callers
-//! with the admin key reach it (`kkt-server` puts the admin key check from
-//! `kkt-admission` in front of it), so the tools take no token.
-//! Each parses its parameters, calls `rules` and formats the result.
+//! agent sees, separate from the agents' tools in `lib.rs`. A caller is
+//! admitted before it reaches them, so the tools take no token. Each parses
+//! its parameters, calls `rules` and formats the result.
 //!
 //! Every tool acts as the [`Operator`] that [`Identify::operator`] makes of
-//! the call, in the swarm it names; in key mode, the operator the admin key
-//! makes (kkt-identity-keymode's `KeyMode::admin_operator`): one that may
-//! read, and change too when the key has a name, recorded and
-//! announced under that name. `rules` check those permissions; this
-//! endpoint words their refusals for an admin agent (`word`). Issuing
-//! recovery codes and rotating keys have no tool: they stay with the human.
-//! There is no waiting: `kkt watch --admin` waits from a shell by calling
-//! `new_messages`.
+//! the call, in the swarm it names, with that operator's permissions and
+//! audit record. `rules` check those permissions; this endpoint words their
+//! refusals for an admin agent (`word`). Issuing recovery codes and
+//! rotating keys have no tool: they stay with the human. Every tool answers
+//! at once; `new_messages` gives what is new after an ID.
 
 use crate::format_choice::{FormatChoice, chosen};
 use crate::mcp_tools::{self, with_limits, with_text};

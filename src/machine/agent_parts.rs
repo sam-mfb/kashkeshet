@@ -7,7 +7,7 @@ use crate::commands::watch::WatchOutput;
 use crate::machine::client_config::{ClaudeCommand, ClientHost};
 use crate::machine::connection::ConnectionReads;
 use crate::machine::credentials::CredentialFiles;
-use crate::machine::operate::NativeOperate;
+use crate::machine::native::NativeParts;
 use crate::machine::settings::ServeArgs;
 use kkt_agent_commands::{AdminKey, AgentParts, KeyText, KeyUnread, Output, Program};
 use kkt_clock_system::SystemClock;
@@ -54,8 +54,7 @@ impl AdminKey for AdminKeyHere {
     fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, String> {
         // The operator's key finder answers, over the operator's parts on
         // this machine: kkt-agent-commands depends on no other assembly.
-        let native =
-            NativeOperate::new(&self.env, self.platform).with_service_args(self.serve_args);
+        let native = NativeParts::new(&self.env, self.platform).with_service_args(self.serve_args);
         let setup_lanes = native.setup_lanes();
         let install = native.install_parts(&setup_lanes);
         let installed =

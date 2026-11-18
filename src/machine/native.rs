@@ -1,8 +1,8 @@
 //! The install's and the operator's commands' parts on this machine: the
 //! program's native providers and its serving settings, adapted to each.
-//! `main.rs` builds one `NativeOperate` and gives each command its parts:
-//! the install's commands [`NativeOperate::install_parts`], and the
-//! operator's commands [`NativeOperate::operator_parts`], with what is
+//! `main.rs` builds one `NativeParts` and gives each command its parts:
+//! the install's commands [`NativeParts::install_parts`], and the
+//! operator's commands [`NativeParts::operator_parts`], with what is
 //! installed here read through the install's parts. It also picks the
 //! server whose lanes `kkt lanes` and `kkt setup --lanes` act on: the local
 //! database's or the container's, from what is installed here.
@@ -23,7 +23,7 @@ use std::sync::Arc;
 /// The operator's parts on this machine, from the implementations the
 /// program chooses. `D` is whether the parts can ask what an installed
 /// service runs with (`with_service_args`), or `()` if not.
-pub struct NativeOperate<'a, D = ()> {
+pub struct NativeParts<'a, D = ()> {
     serve: ServeReads<'a>,
     connection: ConnectionReads<'a>,
     service_defaults: D,
@@ -35,7 +35,7 @@ pub struct NativeOperate<'a, D = ()> {
     container: Containerized,
 }
 
-impl<'a> NativeOperate<'a> {
+impl<'a> NativeParts<'a> {
     /// The parts for `env` and `platform`, without the service capability.
     pub fn new(env: &'a Env, platform: Platform) -> Self {
         Self {
@@ -51,13 +51,13 @@ impl<'a> NativeOperate<'a> {
 
     /// The same parts, able to ask what an installed service runs with, by
     /// reading its arguments as `kkt serve`'s command line (`serve_args`).
-    pub fn with_service_args(self, serve_args: ServeArgs) -> NativeOperate<'a, ServiceArgs<'a>> {
+    pub fn with_service_args(self, serve_args: ServeArgs) -> NativeParts<'a, ServiceArgs<'a>> {
         let service_defaults = ServiceArgs {
             env: self.serve.env,
             platform: self.serve.platform,
             serve_args,
         };
-        NativeOperate {
+        NativeParts {
             serve: self.serve,
             connection: self.connection,
             service_defaults,
@@ -69,7 +69,7 @@ impl<'a> NativeOperate<'a> {
     }
 }
 
-impl<'a, D> NativeOperate<'a, D> {
+impl<'a, D> NativeParts<'a, D> {
     /// The parts, as the install's commands take them, with `import_lanes`
     /// for the lanes `kkt setup --lanes` imports ([`Self::setup_lanes`]).
     pub fn install_parts<'b>(
@@ -216,7 +216,7 @@ impl kkt_containerized_service::Tell for TerminalTell {
 /// The server `kkt lanes` acts on: as kkt-setup's `lanes_on` says, from
 /// this machine's setup record.
 pub struct HereLanes<'n, 'a, D> {
-    native: &'n NativeOperate<'a, D>,
+    native: &'n NativeParts<'a, D>,
     installed: &'n dyn kkt_setup::InstalledHere,
 }
 
@@ -233,7 +233,7 @@ impl<D> LaneServers for HereLanes<'_, '_, D> {
 }
 
 /// The install's lane import, adapted to the operator's lane helpers.
-pub struct SetupLanes<'n, 'a, D>(&'n NativeOperate<'a, D>);
+pub struct SetupLanes<'n, 'a, D>(&'n NativeParts<'a, D>);
 
 /// Lanes go to a server on this machine only.
 const LANES_ON_THE_SERVER: &str = "lanes are imported on the server's machine";

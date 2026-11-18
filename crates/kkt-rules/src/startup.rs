@@ -7,7 +7,6 @@ use crate::{Deps, OperatorWording, Rules, Settings};
 use kkt_api_agent::SwarmId;
 use kkt_clock::{self as clock, Clock};
 use kkt_entropy::Entropy;
-use kkt_events::Events;
 use std::sync::Arc;
 
 /// What produced a server run, as [`start`] records it.
@@ -28,8 +27,10 @@ pub struct Startup {
     pub db: Db,
     /// The swarm the rules act in, until [`Rules::in_swarm`] says another.
     pub swarm: SwarmId,
-    /// The server's one bus, which every swarm's notices go through.
-    pub events: Events,
+    /// The server's shutdown signal. When it stops, every subscription to
+    /// the rules' notices ends. The rules build their notice bus from it and
+    /// `settings.event_buffer`.
+    pub shutdown: kkt_shutdown::Shutdown,
     pub clock: Arc<dyn Clock>,
     pub entropy: Arc<dyn Entropy>,
     /// What the rules enforce and fill in.
@@ -56,7 +57,7 @@ pub async fn start(run: NewServerRun, startup: Startup) -> StoreResult<Rules> {
     Ok(Rules::new(Deps {
         db: startup.db,
         swarm: startup.swarm,
-        events: startup.events,
+        shutdown: startup.shutdown,
         clock: startup.clock,
         entropy: startup.entropy,
         run_id,
@@ -84,7 +85,7 @@ mod tests {
         Startup {
             db,
             swarm: SwarmId::main(),
-            events: Events::new(kkt_events::Settings::DEFAULT),
+            shutdown: kkt_shutdown::Shutdown::new(),
             clock,
             entropy: Arc::new(SeqEntropy::new(1)),
             settings: Settings::DEFAULT,

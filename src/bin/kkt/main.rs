@@ -11,7 +11,7 @@ mod cli;
 use kashkeshet::commands::serve;
 use kashkeshet::machine::agent_parts::agent_parts;
 use kashkeshet::machine::connection::ConnectionOptions;
-use kashkeshet::machine::operate::NativeOperate;
+use kashkeshet::machine::native::NativeParts;
 use kashkeshet::machine::settings::LOG_OWN_TARGETS;
 use kashkeshet::machine::settings::ServeArgs;
 use kashkeshet::machine::settings::ServeOptions;
@@ -165,12 +165,12 @@ async fn run(
     serve_args: ServeArgs,
     task: Task,
 ) -> Result<std::process::ExitCode, String> {
-    // The two assemblies' parts, built once, here. Neither reads anything
+    // The three assemblies' parts, built once, here. None reads anything
     // until a command asks.
-    let native = NativeOperate::new(env, platform).with_service_args(serve_args);
+    let native = NativeParts::new(env, platform).with_service_args(serve_args);
     let setup_lanes = native.setup_lanes();
-    let operate = native.install_parts(&setup_lanes);
-    let installed = InstallReads::new(&operate, env, platform);
+    let install = native.install_parts(&setup_lanes);
+    let installed = InstallReads::new(&install, env, platform);
     let lane_servers = native.lane_servers(&installed);
     let operator = native.operator_parts(&installed, &lane_servers);
     let mut agents = agent_parts(env, platform, serve_args);
@@ -183,9 +183,9 @@ async fn run(
             if !ignore_setup {
                 kkt_install_commands::record::check_setup(
                     env,
-                    operate.setup_files,
-                    operate.service,
-                    operate.output,
+                    install.setup_files,
+                    install.service,
+                    install.output,
                 )?;
             }
             serve::run(env, platform, config, options).await
@@ -213,18 +213,18 @@ async fn run(
         Task::Lanes { action, db, config } => {
             kkt_operator_commands::lanes::run(&operator, action, db, config).await
         }
-        Task::Service(action) => kkt_install_commands::service::run(&operate, action).await,
+        Task::Service(action) => kkt_install_commands::service::run(&install, action).await,
         Task::Backup { folder, db, config } => {
-            kkt_install_commands::lifecycle::backup(&operate, env, folder.as_deref(), db, config)
+            kkt_install_commands::lifecycle::backup(&install, env, folder.as_deref(), db, config)
         }
-        Task::Status => kkt_install_commands::lifecycle::status(&operate, env, platform).await,
+        Task::Status => kkt_install_commands::lifecycle::status(&install, env, platform).await,
         Task::Upgrade { allow_downgrade } => {
-            kkt_install_commands::lifecycle::upgrade(&operate, env, platform, allow_downgrade).await
+            kkt_install_commands::lifecycle::upgrade(&install, env, platform, allow_downgrade).await
         }
         Task::Uninstall => {
-            kkt_install_commands::lifecycle::uninstall(&operate, env, platform).await
+            kkt_install_commands::lifecycle::uninstall(&install, env, platform).await
         }
-        Task::Switch(how) => kkt_install_commands::setup::run_switch(&operate, env, how).await,
+        Task::Switch(how) => kkt_install_commands::setup::run_switch(&install, env, how).await,
         Task::KeyHeader { key_file, json } => {
             kkt_operator_commands::key::header(&operator, env, key_file, json)
         }
@@ -238,10 +238,10 @@ async fn run(
             write,
         } => connect::run(&agents, env, &client, connection, client_config, write),
         Task::Doctor(connection) => {
-            kkt_install_commands::doctor::run(&operate, env, platform, connection).await
+            kkt_install_commands::doctor::run(&install, env, platform, connection).await
         }
         Task::Setup { answers, options } => {
-            kkt_install_commands::setup::run(env, platform, &operate, answers, options).await
+            kkt_install_commands::setup::run(env, platform, &install, answers, options).await
         }
         Task::Register {
             token_file,
