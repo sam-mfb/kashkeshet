@@ -277,4 +277,241 @@ mod tests {
         );
         assert_eq!(files.file(&names), None);
     }
+
+    /// A machine for the refusals' pin: nothing installed, the serve
+    /// config's access key file and default key as given, key files and
+    /// paths that refuse as given, and no database.
+    struct Machine {
+        configured: Option<PathBuf>,
+        default_key: Option<PathBuf>,
+        paths_refuse: bool,
+        entropy: kkt_entropy::testing::SeqEntropy,
+    }
+
+    impl crate::ServeConfig for Machine {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, String> {
+            Ok(crate::Config {
+                db: None,
+                max_lane_chars: 100,
+            })
+        }
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+            Ok(self.configured.clone())
+        }
+        fn database(&self, given: Option<PathBuf>, _: Option<PathBuf>) -> Result<PathBuf, String> {
+            Ok(given.unwrap_or_else(|| PathBuf::from("/db/kkt.db")))
+        }
+        fn default_access_key(&self) -> Option<PathBuf> {
+            self.default_key.clone()
+        }
+        fn config_dir(&self) -> Option<PathBuf> {
+            Some(PathBuf::from("/k"))
+        }
+    }
+
+    impl crate::InstalledHere for Machine {
+        fn recorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String> {
+            Ok(None)
+        }
+        fn unfinished(&self) -> Result<Option<kkt_deployment::UnfinishedSetup>, String> {
+            Ok(None)
+        }
+        fn unrecorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String> {
+            Ok(None)
+        }
+    }
+
+    impl crate::Paths for Machine {
+        fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
+            if self.paths_refuse {
+                return Err(std::io::Error::other("refused"));
+            }
+            Ok(path.to_path_buf())
+        }
+        fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+            self.absolute(path)
+        }
+    }
+
+    impl crate::Databases for Machine {
+        fn exists(&self, _: &Path) -> bool {
+            false
+        }
+        fn open(&self, _: &Path) -> Result<kkt_rules::Db, String> {
+            unreachable!("there is no database")
+        }
+    }
+
+    impl crate::lanes::LaneServers for Machine {
+        fn here(
+            &self,
+            _: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<Box<dyn crate::lanes::LaneServer + '_>, String> {
+            unreachable!("no lanes here")
+        }
+    }
+
+    impl kkt_lane_files::Disk for Machine {
+        fn file_names(&self, _: &Path) -> std::io::Result<Vec<String>> {
+            unreachable!("no lanes here")
+        }
+        fn read(&self, _: &Path) -> std::io::Result<String> {
+            unreachable!("no lanes here")
+        }
+        fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
+            unreachable!("no lanes here")
+        }
+        fn write(&self, _: &Path, _: &str) -> std::io::Result<()> {
+            unreachable!("no lanes here")
+        }
+        fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
+            unreachable!("no lanes here")
+        }
+    }
+
+    impl kkt_lane_files::LaneCommit for Machine {
+        fn commit(&self, _: &Path) -> std::io::Result<Option<String>> {
+            unreachable!("no lanes here")
+        }
+    }
+
+    impl crate::Output for Machine {
+        fn output(&self, _: std::fmt::Arguments<'_>) {}
+        fn errors(&self, _: std::fmt::Arguments<'_>) {}
+    }
+
+    fn parts<'a>(machine: &'a Machine, key_files: &'a Memory) -> OperatorParts<'a> {
+        OperatorParts {
+            installed: machine,
+            serve: machine,
+            paths: machine,
+            key_files,
+            entropy: &machine.entropy,
+            lane_servers: machine,
+            lanes: machine,
+            lane_commit: machine,
+            database: machine,
+            clock: std::sync::Arc::new(kkt_clock::testing::FixedClock::new(
+                kkt_clock::Time::from_parts(2026, 11, 18, 12, 0, 0).expect("a time"),
+            )),
+            output: machine,
+        }
+    }
+
+    /// The refusals `kkt key` and `kkt agent` word themselves, word for
+    /// word.
+    #[test]
+    fn the_key_and_agent_refusals_are_pinned() {
+        let machine = |configured: Option<&str>, default_key: Option<&str>, paths_refuse| Machine {
+            configured: configured.map(PathBuf::from),
+            default_key: default_key.map(PathBuf::from),
+            paths_refuse,
+            entropy: kkt_entropy::testing::SeqEntropy::new(0),
+        };
+        let access = Some("/k/access-key");
+        let said = |result: Result<(), String>| result.map_err(|e| e.to_string());
+
+        let here = machine(access, None, false);
+        let files = Memory::new().failing("/k/refused");
+        assert_eq!(
+            said(header(
+                &parts(&here, &files),
+                Some("/k/missing".into()),
+                false
+            )),
+            Err("could not read key file /k/missing: no such file".to_string())
+        );
+        assert_eq!(
+            show(
+                &parts(&here, &files),
+                Some("/k/refused".into()),
+                KeyKind::Access
+            )
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
+            Err("could not read key file /k/refused: refused".to_string())
+        );
+
+        let keys_off = machine(None, None, false);
+        assert_eq!(
+            said(header(&parts(&keys_off, &Memory::new()), None, false)),
+            Err("keys are disabled in the serve config".to_string())
+        );
+        // An access key in the admin key's place leaves no admin key.
+        let collides = machine(Some("/k/admin-key"), None, false);
+        assert_eq!(
+            crate::keys::selected_key_path(&parts(&collides, &Memory::new()), None, KeyKind::Admin)
+                .map_err(|e| e.to_string()),
+            Err("there is no admin key".to_string())
+        );
+
+        let new_admin = |at: &str| NewKey {
+            kind: KeyKind::Admin,
+            path: Some(at.into()),
+            name: None,
+        };
+        let refusing = Memory::new()
+            .with_dir("/k")
+            .with_file("/k/access-key", "k\n")
+            .failing("/k/refused");
+        assert_eq!(
+            said(create(
+                &parts(&here, &refusing),
+                new_admin("/k/refused"),
+                false,
+                false
+            )),
+            Err("could not tell whether the key file /k/refused is there: refused".to_string())
+        );
+        let both_there = Memory::new()
+            .with_dir("/k")
+            .with_file("/k/access-key", "k\n")
+            .with_file("/k/admin", "old\n");
+        let unresolved = machine(access, None, true);
+        assert_eq!(
+            said(create(
+                &parts(&unresolved, &both_there),
+                new_admin("/k/admin"),
+                true,
+                false
+            )),
+            Err("could not resolve key file /k/admin: refused".to_string())
+        );
+        let one_there = Memory::new()
+            .with_dir("/k")
+            .with_file("/k/access-key", "k\n");
+        assert_eq!(
+            said(create(
+                &parts(&unresolved, &one_there),
+                new_admin("/k/admin"),
+                false,
+                false
+            )),
+            Err("could not resolve key file /k/admin: refused".to_string())
+        );
+
+        let homeless = machine(access, None, false);
+        let new_access = NewKey {
+            kind: KeyKind::Access,
+            path: None,
+            name: None,
+        };
+        assert_eq!(
+            said(create(
+                &parts(&homeless, &Memory::new()),
+                new_access,
+                false,
+                false
+            )),
+            Err("set HOME or pass --path".to_string())
+        );
+
+        assert_eq!(
+            crate::lanes::existing_db(&parts(&here, &Memory::new()).lane_parts(), None, None)
+                .map(|_| ())
+                .map_err(|e| e.to_string()),
+            Err("no database at /db/kkt.db; pass --db with the server's database file".to_string())
+        );
+    }
 }
