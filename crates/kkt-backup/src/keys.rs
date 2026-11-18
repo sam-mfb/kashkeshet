@@ -3,12 +3,13 @@
 //! name. A backup copies what is there and makes nothing. The caller says
 //! whether each file exists, and copies the files decided here.
 
+use crate::InspectError;
 use kkt_keys::{admin_key_path, admin_name_path, web_key_path};
 use std::path::{Path, PathBuf};
 
 /// Whether a file is there, as the caller found when it looked, or the
 /// error inspecting it.
-pub type FileThere = Result<bool, String>;
+pub type FileThere = std::io::Result<bool>;
 
 /// Where the access key may be, from the serve config and the defaults.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -51,7 +52,7 @@ pub struct BackupKeys {
 pub fn backup_keys(
     from: AccessKeyFrom<'_>,
     found: &mut dyn FnMut(&Path) -> FileThere,
-) -> Result<BackupKeys, String> {
+) -> Result<BackupKeys, InspectError> {
     let access_key = match (from.configured, from.no_access_key) {
         (Some(path), _) => Some(path.to_path_buf()),
         (None, Some(true)) => None,
@@ -75,14 +76,14 @@ pub fn backup_keys(
 fn present(
     candidate: Option<PathBuf>,
     found: &mut dyn FnMut(&Path) -> FileThere,
-) -> Result<Option<PathBuf>, String> {
+) -> Result<Option<PathBuf>, InspectError> {
     let Some(path) = candidate else {
         return Ok(None);
     };
     match found(&path) {
         Ok(true) => Ok(Some(path)),
         Ok(false) => Ok(None),
-        Err(e) => Err(format!("could not inspect {}: {e}", path.display())),
+        Err(cause) => Err(InspectError { path, cause }),
     }
 }
 
@@ -91,14 +92,15 @@ mod tests {
     use super::*;
     use std::collections::BTreeMap;
 
-    /// The files a test machine has, and the paths `found` was asked about.
+    /// The files a test machine has (each there or not, or the reason it
+    /// could not be inspected), and the paths `found` was asked about.
     struct Machine {
-        files: BTreeMap<PathBuf, FileThere>,
+        files: BTreeMap<PathBuf, Result<bool, String>>,
         asked: Vec<PathBuf>,
     }
 
     impl Machine {
-        fn with(files: &[(&str, FileThere)]) -> Machine {
+        fn with(files: &[(&str, Result<bool, String>)]) -> Machine {
             Machine {
                 files: files
                     .iter()
@@ -111,8 +113,13 @@ mod tests {
         fn keys(&mut self, from: AccessKeyFrom<'_>) -> Result<BackupKeys, String> {
             backup_keys(from, &mut |path| {
                 self.asked.push(path.to_path_buf());
-                self.files.get(path).cloned().unwrap_or(Ok(false))
+                match self.files.get(path) {
+                    Some(Ok(there)) => Ok(*there),
+                    Some(Err(reason)) => Err(std::io::Error::other(reason.clone())),
+                    None => Ok(false),
+                }
             })
+            .map_err(|e| e.to_string())
         }
 
         fn asked(&self) -> Vec<&str> {

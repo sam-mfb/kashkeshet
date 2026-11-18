@@ -533,7 +533,7 @@ fn write_whole(path: &Path, text: &str) -> Result<(), String> {
 
 /// Backups on the machine's disk, the database copied with SQLite's online
 /// backup.
-type CopyDatabase = fn(&Path, &Path) -> Result<(), String>;
+type CopyDatabase = fn(&Path, &Path) -> Result<(), kkt_backup_os::CopyError>;
 static BACKUPS: kkt_backup_os::OsBackups<CopyDatabase> =
     kkt_backup_os::OsBackups::new(super::database::copy);
 

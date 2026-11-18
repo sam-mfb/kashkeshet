@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "2bec79c8",
+ "commit": "842eb877",
  "crates": [
   {
    "bins": [
@@ -3717,6 +3717,20 @@ window.KKT_GRAPH = {
      "path": "AccessKeyFrom"
     },
     {
+     "doc": "Why `Backups` could not write or prune.",
+     "kind": "enum",
+     "methods": [
+      "file"
+     ],
+     "path": "BackupError",
+     "variants": [
+      "Exists",
+      "File",
+      "Database",
+      "NotRemoved"
+     ]
+    },
+    {
      "doc": "The key files a backup holds.",
      "fields": [
       "access_key",
@@ -3734,6 +3748,16 @@ window.KKT_GRAPH = {
      "variants": [
       "Docker",
       "Local"
+     ]
+    },
+    {
+     "doc": "Why `backup_of` has no backup to make.",
+     "kind": "enum",
+     "path": "BackupOfError",
+     "variants": [
+      "DockerTakesNoLocalOptions",
+      "OnAClient",
+      "NoFolder"
      ]
     },
     {
@@ -3764,6 +3788,20 @@ window.KKT_GRAPH = {
      "path": "DATABASE_FILE"
     },
     {
+     "doc": "What a backup did to a file or folder when it failed.",
+     "kind": "enum",
+     "path": "FileAction",
+     "variants": [
+      "Create",
+      "Rename",
+      "Copy",
+      "Read",
+      "Write",
+      "List",
+      "Remove"
+     ]
+    },
+    {
      "doc": "One source file and its name and privacy within a backup.",
      "fields": [
       "source",
@@ -3777,6 +3815,24 @@ window.KKT_GRAPH = {
      "doc": "Whether a file is there, as the caller found when it looked, or the error inspecting it.",
      "kind": "type",
      "path": "FileThere"
+    },
+    {
+     "doc": "Why the folder backups go in is not known.",
+     "kind": "enum",
+     "path": "FolderError",
+     "variants": [
+      "NotInFolder",
+      "NoHome"
+     ]
+    },
+    {
+     "doc": "A key file a backup needs could not be inspected.",
+     "fields": [
+      "path",
+      "cause"
+     ],
+     "kind": "struct",
+     "path": "InspectError"
     },
     {
      "doc": "An immutable backup layout.",
@@ -3924,6 +3980,16 @@ window.KKT_GRAPH = {
      "values": [
       "kkt-clock::Time"
      ]
+    },
+    {
+     "at": "testing::Memory::failing",
+     "feature": "testing",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "error",
+     "traits": []
     }
    ],
    "testing_third_party": [],
@@ -3950,7 +4016,12 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
-     "doc": "Backups in folders on this machine's disk, the database copied by `copy_database(from, to)`.",
+     "doc": "Why the database copy failed.",
+     "kind": "type",
+     "path": "CopyError"
+    },
+    {
+     "doc": "Backups in folders on this machine's disk, the database copied by `copy_database(from, to)`, which says why when it fails.",
      "kind": "struct",
      "methods": [
       "new"
@@ -19171,12 +19242,19 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "CopyError",
     "OsBackups"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
+    {
+     "detail": [
+      "CopyError"
+     ],
+     "role": "uses"
+    },
     {
      "detail": [
       "OsBackups"
@@ -22146,8 +22224,10 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-backup-os",
    "items": [
+    "BackupError",
     "Backups",
     "DATABASE_FILE",
+    "FileAction",
     "Layout",
     "old_names"
    ],
@@ -22163,7 +22243,9 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "BackupError",
       "DATABASE_FILE",
+      "FileAction",
       "Layout",
       "old_names"
      ],
@@ -24325,6 +24407,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "BackupError",
+    "FileAction",
     "Layout"
    ],
    "to": "kkt-backup"
