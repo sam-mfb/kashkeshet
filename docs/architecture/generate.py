@@ -1285,7 +1285,12 @@ def own_slot_candidates(crates, assembly):
     # What another crate gives it; what it puts into its own slots is not.
     from_outside = {(w["crate"], t["at"], t["param"]) for injector, flow in flows for w in flow.get("wiring", [])
                     if w["crate"] != injector for t in w["to"]}
-    owner = lambda at: at.split("::")[0]
+    def owner(at):
+        """The item a slot is on: a type's constructor and fields are the
+        type (`lanes::LocalLanes::new` is on `lanes::LocalLanes`); a function
+        is itself (`lanes::run`)."""
+        parts = at.split("::")
+        return "::".join(parts[:-1]) if len(parts) > 1 and parts[-2][:1].isupper() else at
 
     def takes(slot):
         return {f"{t['crate']}::{t['trait']}" for t in slot["traits"]}

@@ -562,6 +562,18 @@ class OwnSlots(unittest.TestCase):
         # Parts is the same item as Parts::new; testing slots are left out.
         self.assertEqual(self.found(self.GIVEN), [("AdmissionGate::new", "identify")])
 
+    def test_two_functions_of_one_module_are_two_items(self):
+        lanes = [{"crate": "kkt-lanes", "trait": "Lanes"}]
+        crates = [{"name": "kkt-ops", "bins": [], "slots": [
+            {"at": "lanes::run", "name": "lanes", "traits": lanes},
+            {"at": "lanes::LocalLanes::new", "name": "lanes", "traits": lanes},
+            {"at": "lanes::LocalLanes", "name": "lanes", "traits": lanes}]}]
+        given = {"programs": {"kkt": {"steps": [], "wiring": [
+            {"impl": "kkt-lanes-os::OsLanes", "crate": "kkt-ops", "to": [{"at": "lanes::run", "param": "lanes"}]}]}}}
+        # The type's constructor and its field are one item, and not the function's.
+        self.assertEqual([(c["at"], c["param"]) for c in generate.own_slot_candidates(crates, given)],
+                         [("lanes::LocalLanes::new", "lanes"), ("lanes::LocalLanes", "lanes")])
+
     def test_nothing_given_finds_nothing_and_a_filled_slot_is_not_found_again(self):
         self.assertEqual(self.found({"programs": {"kkt": {"steps": [], "wiring": []}}}), [])
         passed = dict(self.GIVEN, injectors={"kkt-server": {"wiring": [
