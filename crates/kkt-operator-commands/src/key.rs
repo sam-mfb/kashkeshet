@@ -7,10 +7,11 @@ use crate::keys::{
     KeyKind, admin_key_collision, local_operator_key, optional_key_path, runs_in_docker,
     selected_key_path,
 };
+use kkt_deployment::{admin_name_line, admin_name_written};
 use kkt_llm_agent_config as clients;
 use kkt_machine::Env;
 use kkt_setup as setup;
-use kkt_setup::{admin_name_line, new_key_file, write_admin_name};
+use kkt_setup::{new_key_file, write_admin_name};
 use std::path::{Path, PathBuf};
 
 pub fn header(
@@ -139,7 +140,11 @@ pub fn create(
                 "Wrote a new admin key to {}. Restart the server to use it: /mcp-admin then takes only this key. Read it with `kkt key show --admin`.\n",
                 path.display()
             ));
-            parts.output.output(format_args!("{}\n", write_admin_name(parts.key_files, &path, &key, name.as_ref())?));
+            parts.output.output(format_args!("{}\n", admin_name_written(
+                    &path,
+                    name.as_ref().map(ToString::to_string).as_deref(),
+                    write_admin_name(parts.key_files, &path, &key, name.as_ref()),
+                )?));
         }
         KeyKind::Access => {}
     }

@@ -5,42 +5,21 @@
 use kkt_names::AdminName;
 use std::path::Path;
 
-/// What to say, after `label`, about the name tied to the admin key `key`
-/// in the file at `path`, if anything.
-pub fn admin_name_line(
-    files: &dyn kkt_keys::KeyFiles,
-    path: &Path,
-    key: &str,
-    label: &str,
-) -> Result<Option<String>, String> {
-    let docker_host_copy =
-        path.file_name() == Some(std::ffi::OsStr::new(kkt_keys::ADMIN_KEY_COPY_FILE_NAME));
-    kkt_keys::admin_name_line(path, key, label, docker_host_copy, |names| {
-        files.read_optional(names).map_err(|e| {
-            format!(
-                "invalid setting: the admin name could not be read from {}: {e}",
-                names.display()
-            )
-        })
-    })
-}
-
 /// Ties `name` to the new admin key `key`, just written to the file at
 /// `path`, in the name file beside it. The name file holds a hash of the
 /// key, so a name never passes to another key: one left from an earlier key
-/// names nothing. With no name, such a file is removed. Returns what to tell
-/// the person.
+/// names nothing. With no name, such a file is removed. Returns how the
+/// write went; the caller words it.
 pub fn write_admin_name(
     files: &dyn kkt_keys::KeyFiles,
     path: &Path,
     key: &str,
     name: Option<&AdminName>,
-) -> Result<String, String> {
+) -> Result<(), String> {
     let bound = name.map(|name| kkt_keys::bound_to(name, key));
-    let written = files
+    files
         .write_admin_name(path, bound.as_deref())
-        .map_err(|e| e.to_string());
-    kkt_keys::admin_name_written(path, name, written)
+        .map_err(|e| e.to_string())
 }
 
 /// Makes a new random key and writes it to `path`, creating its folder if

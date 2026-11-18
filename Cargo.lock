@@ -1326,6 +1326,7 @@ version = "0.10.0"
 dependencies = [
  "kkt-keys",
  "kkt-machine",
+ "kkt-names",
  "semver",
  "thiserror",
  "url",

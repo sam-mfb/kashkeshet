@@ -1,4 +1,5 @@
-//! The name tied to an admin key: its bound file text and operator advice.
+//! The name tied to an admin key: its bound file text, and what the name
+//! file beside a key says of it.
 use kkt_names::AdminName;
 use std::path::{Path, PathBuf};
 
@@ -40,32 +41,8 @@ fn key_hash(key: &str) -> String {
         .collect()
 }
 
-/// What to say, after `label`, about the name tied to the admin key `key`
-/// in the file at `path`, if anything: a Docker setup's host copy has no
-/// name beside it, as the name is kept in the container.
-pub fn admin_name_line(
-    path: &Path,
-    key: &str,
-    label: &str,
-    docker_host_copy: bool,
-    read: impl FnOnce(&Path) -> Result<Option<String>, String>,
-) -> Result<Option<String>, String> {
-    if docker_host_copy {
-        return Ok(None);
-    }
-    let make = "`kkt key create --admin --force --name <name>` makes a named one";
-    Ok(Some(match read_admin_name(path, key, read)? {
-        AdminNameFile::Named(name) => format!("{label}: {name}"),
-        AdminNameFile::None => format!("{label}: none, so the key may only read; {make}"),
-        AdminNameFile::OtherKey(names) => format!(
-            "{label}: none, so the key may only read: {} names a different key; {make}",
-            names.display()
-        ),
-    }))
-}
-
 /// What the name file beside an admin key says about that key.
-enum AdminNameFile {
+pub enum AdminNameFile {
     /// The admin agent's name, tied to this key.
     Named(AdminName),
     /// There is no name file: the key may only read.
@@ -76,8 +53,8 @@ enum AdminNameFile {
 }
 
 /// The name tied to the admin key `key`, kept in the file at `path`, from
-/// the name file beside it.
-fn read_admin_name(
+/// the name file beside it, which `read` reads (`None` when there is none).
+pub fn read_admin_name(
     path: &Path,
     key: &str,
     read: impl FnOnce(&Path) -> Result<Option<String>, String>,
@@ -93,30 +70,6 @@ fn read_admin_name(
             )),
         },
         None => Ok(AdminNameFile::None),
-    }
-}
-
-/// The advice after the name file is written or removed.
-pub fn admin_name_written(
-    path: &Path,
-    name: Option<&AdminName>,
-    written: Result<(), String>,
-) -> Result<String, String> {
-    let names = crate::admin_name_path(path);
-    let unnamed = "It has no name, so it may only read. To let it make changes, make it again with --force --name <name>.";
-    match (name, written) {
-        (Some(name), Ok(())) => Ok(format!(
-            "Its admin agent is named {name}: its changes are announced as \"operator (via {name})\"."
-        )),
-        (Some(_), Err(e)) => Err(format!(
-            "the key was written, but its name could not be: could not write {}: {e}. {unnamed}",
-            names.display()
-        )),
-        (None, Ok(())) => Ok(unnamed.into()),
-        (None, Err(e)) => Ok(format!(
-            "{unnamed} The name file of an earlier key, {}, could not be removed ({e}); it does not name this key.",
-            names.display()
-        )),
     }
 }
 
@@ -163,14 +116,5 @@ mod tests {
         let text = bound_to(&AdminName::new("abc", 9).unwrap(), "key");
         assert!(bound_in(&text, "key", 9).is_ok());
         assert!(bound_in(&text, "key", 8).is_err());
-    }
-    #[test]
-    fn a_docker_host_copy_never_reads_an_adjacent_name_file() {
-        assert_eq!(
-            admin_name_line(Path::new("copy"), "key", "Admin name", true, |_| panic!(
-                "no name beside the host copy"
-            )),
-            Ok(None)
-        );
     }
 }

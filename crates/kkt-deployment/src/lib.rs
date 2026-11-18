@@ -12,12 +12,14 @@
 
 pub mod connection;
 mod guard;
+mod keys;
 mod lifecycle;
 #[cfg(test)]
 mod tests;
 mod upgrade;
 
 pub use guard::guard;
+pub use keys::{admin_name_line, admin_name_written};
 pub use lifecycle::{
     Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
     status_looks_for_unrecorded, upgrade_plan,
