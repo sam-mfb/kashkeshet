@@ -201,7 +201,9 @@ fn a_markdown_file_with_a_lane_header_that_is_wrong_is_an_error_naming_it() {
         ("/work/lanes/notes.md", "# Notes"),
         ("/work/lanes/reviewer.md", "---\nname: reviewer\n"),
     ]);
-    let error = read_folder(&disk, &Memory::new(), Path::new("lanes")).expect_err("refused");
+    let error = read_folder(&disk, &Memory::new(), Path::new("lanes"))
+        .expect_err("refused")
+        .to_string();
     assert!(
         error.starts_with("/work/lanes/reviewer.md: the header has no closing ---"),
         "{error}"
@@ -210,7 +212,171 @@ fn a_markdown_file_with_a_lane_header_that_is_wrong_is_an_error_naming_it() {
 
 #[test]
 fn a_missing_folder_is_an_error_naming_it() {
-    let error =
-        read_folder(&FakeDisk::default(), &Memory::new(), Path::new("gone")).expect_err("refused");
+    let error = read_folder(&FakeDisk::default(), &Memory::new(), Path::new("gone"))
+        .expect_err("refused")
+        .to_string();
     assert!(error.contains("/work/gone"), "{error}");
+}
+
+/// A disk on which one step fails, with "refused", and every other step
+/// works as `FakeDisk` does.
+struct FailingDisk {
+    fails: &'static str,
+    disk: FakeDisk,
+}
+
+impl FailingDisk {
+    fn refused(&self, step: &str) -> io::Result<()> {
+        if self.fails == step {
+            return Err(io::Error::other("refused"));
+        }
+        Ok(())
+    }
+}
+
+impl Disk for FailingDisk {
+    fn file_names(&self, folder: &Path) -> io::Result<Vec<String>> {
+        self.refused("file_names")?;
+        self.disk.file_names(folder)
+    }
+    fn read(&self, path: &Path) -> io::Result<String> {
+        self.refused("read")?;
+        self.disk.read(path)
+    }
+    fn create_dir_all(&self, path: &Path) -> io::Result<()> {
+        self.refused("create_dir_all")?;
+        self.disk.create_dir_all(path)
+    }
+    fn write(&self, path: &Path, contents: &str) -> io::Result<()> {
+        self.refused("write")?;
+        self.disk.write(path, contents)
+    }
+    fn absolute(&self, path: &Path) -> io::Result<PathBuf> {
+        self.refused("absolute")?;
+        self.disk.absolute(path)
+    }
+}
+
+/// Git that cannot be asked.
+struct NoGit;
+
+impl LaneCommit for NoGit {
+    fn commit(&self, _: &Path) -> io::Result<Option<String>> {
+        Err(io::Error::other("refused"))
+    }
+}
+
+/// Every refusal of a lane file, and of reading or writing a folder, word
+/// for word.
+#[test]
+fn every_refusal_is_pinned() {
+    let lane_file = |contents: &str| parse("reviewer", contents).map_err(|e| e.to_string());
+    for (contents, refusal) in [
+        (
+            "# no header",
+            "it must start with a --- line, then name: and description: lines, then ---",
+        ),
+        (
+            "---\nname reviewer\n---\n",
+            "header line \"name reviewer\" is not `name: ...` or `description: ...`",
+        ),
+        (
+            "---\nowner: me\n---\n",
+            "the header has \"owner\"; it takes only name and description",
+        ),
+        (
+            "---\nname: reviewer\nname: reviewer\n---\n",
+            "the header gives name twice",
+        ),
+        (
+            "---\ndescription: d\ndescription: d\n---\n",
+            "the header gives description twice",
+        ),
+        (
+            "---\nname: reviewer\n",
+            "the header has no closing --- line",
+        ),
+        ("---\ndescription: d\n---\n", "the header has no name: line"),
+        (
+            "---\nname: other\ndescription: d\n---\n",
+            "the header names the lane \"other\", but the file is reviewer.md; they must match",
+        ),
+        (
+            "---\nname: reviewer\n---\n",
+            "the header has no description: line",
+        ),
+    ] {
+        assert_eq!(
+            lane_file(contents),
+            Err(refusal.to_string()),
+            "{contents:?}"
+        );
+    }
+
+    let lanes = || {
+        FakeDisk::with(&[
+            ("/work/lanes/reviewer.md", "---\nname: reviewer\n"),
+            ("/work/lanes/notes.txt", ""),
+        ])
+    };
+    let read = |fails: &'static str, commits: &dyn LaneCommit| {
+        read_folder(
+            &FailingDisk {
+                fails,
+                disk: lanes(),
+            },
+            commits,
+            Path::new("lanes"),
+        )
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+    };
+    assert_eq!(
+        read("absolute", &Memory::new()),
+        Err("could not find lanes: refused".to_string())
+    );
+    assert_eq!(
+        read("file_names", &Memory::new()),
+        Err("could not read the folder /work/lanes: refused".to_string())
+    );
+    assert_eq!(
+        read("read", &Memory::new()),
+        Err("could not read /work/lanes/reviewer.md: refused".to_string())
+    );
+    assert_eq!(
+        read("", &Memory::new()),
+        Err("/work/lanes/reviewer.md: the header has no closing --- line".to_string())
+    );
+    let notes = FakeDisk::with(&[("/work/lanes/notes.md", "# Notes")]);
+    assert_eq!(
+        read_folder(&notes, &NoGit, Path::new("lanes"))
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
+        Err("could not ask git about /work/lanes: refused".to_string())
+    );
+
+    let write = |fails: &'static str| {
+        write_folder(
+            &FailingDisk {
+                fails,
+                disk: FakeDisk::default(),
+            },
+            Path::new("out"),
+            &[lane("reviewer")],
+        )
+        .map(|_| ())
+        .map_err(|e| e.to_string())
+    };
+    assert_eq!(
+        write("absolute"),
+        Err("could not find out: refused".to_string())
+    );
+    assert_eq!(
+        write("create_dir_all"),
+        Err("could not create /work/out: refused".to_string())
+    );
+    assert_eq!(
+        write("write"),
+        Err("could not write /work/out/reviewer.md: refused".to_string())
+    );
 }

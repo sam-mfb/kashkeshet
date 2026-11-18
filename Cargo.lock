@@ -1515,6 +1515,9 @@ dependencies = [
 [[package]]
 name = "kkt-lane-files"
 version = "0.10.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "kkt-listen"
