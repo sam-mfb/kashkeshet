@@ -1,7 +1,7 @@
 //! `kkt watch`: waits for new messages from a shell, as an agent or through
 //! the admin endpoint, printing one line for each.
 
-use crate::{AgentParts, client};
+use crate::{AgentCommandError, AgentParts, client};
 use kkt_deployment::connection::{ConnectionOptions, ConnectionSource};
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -24,11 +24,14 @@ pub struct WatchTask {
 pub async fn run<C: ConnectionSource>(
     parts: &mut AgentParts<C>,
     task: WatchTask,
-) -> Result<ExitCode, String> {
+) -> Result<ExitCode, AgentCommandError> {
     let server = if task.admin {
         parts.servers.admin(client::admin(parts, task.connection)?)
     } else {
-        let token = parts.credentials.token(task.token_file.as_deref())?;
+        let token = parts
+            .credentials
+            .token(task.token_file.as_deref())
+            .map_err(AgentCommandError::Credentials)?;
         parts
             .servers
             .agent(client::agent(parts, task.connection)?, token)
@@ -36,7 +39,8 @@ pub async fn run<C: ConnectionSource>(
     let place = task
         .state_file
         .map(|path| parts.credentials.claim_state(path))
-        .transpose()?;
+        .transpose()
+        .map_err(AgentCommandError::Credentials)?;
     let outcome = kkt_watch::run(
         &*server,
         &*parts.clock,
@@ -46,7 +50,7 @@ pub async fn run<C: ConnectionSource>(
         &task.options,
     )
     .await
-    .map_err(|e| e.to_string())?;
+    .map_err(AgentCommandError::Watch)?;
     Ok(match outcome {
         kkt_watch::Outcome::Received => ExitCode::SUCCESS,
         kkt_watch::Outcome::TimedOut => ExitCode::from(WATCH_TIMED_OUT_EXIT),

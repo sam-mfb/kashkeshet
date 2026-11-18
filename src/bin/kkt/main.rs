@@ -238,7 +238,8 @@ async fn run(
             connection,
             client_config,
             write,
-        } => connect::run(&agents, env, &client, connection, client_config, write),
+        } => connect::run(&agents, env, &client, connection, client_config, write)
+            .map_err(|e| e.to_string()),
         Task::Doctor(connection) => {
             kkt_install_commands::doctor::run(&install, env, platform, connection).await
         }
@@ -252,29 +253,32 @@ async fn run(
             handle,
             lane,
             connection,
-        } => {
-            agent_commands::register(
-                &agents,
-                connection,
-                token_file,
-                recovery_file,
-                agent_commands::NewAvatar {
-                    handle: handle.as_deref(),
-                    lane: lane.as_deref(),
-                    description,
-                },
-            )
-            .await
-        }
+        } => agent_commands::register(
+            &agents,
+            connection,
+            token_file,
+            recovery_file,
+            agent_commands::NewAvatar {
+                handle: handle.as_deref(),
+                lane: lane.as_deref(),
+                description,
+            },
+        )
+        .await
+        .map_err(|e| e.to_string()),
         Task::Reclaim {
             handle,
             recovery_file,
             token_file,
             connection,
-        } => agent_commands::reclaim(&agents, connection, &handle, recovery_file, token_file).await,
+        } => agent_commands::reclaim(&agents, connection, &handle, recovery_file, token_file)
+            .await
+            .map_err(|e| e.to_string()),
         // The only command with an exit code of its own.
         Task::Watch(task) => {
-            return agent_commands::watch::run(&mut agents, task).await;
+            return agent_commands::watch::run(&mut agents, task)
+                .await
+                .map_err(|e| e.to_string());
         }
     };
     done.map(|()| std::process::ExitCode::SUCCESS)

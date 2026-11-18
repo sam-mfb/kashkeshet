@@ -48,7 +48,7 @@ impl ConnectionSource for NoRecord {
 
 struct AdminAt(PathBuf);
 impl AdminKey for AdminAt {
-    fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, String> {
+    fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, AdminKeyError> {
         Ok(given.unwrap_or_else(|| self.0.clone()))
     }
 }
@@ -113,19 +113,19 @@ impl Avatars for Answer {
 
 struct Files(Rc<RefCell<Seen>>);
 impl Credentials for Files {
-    fn reserve(&self, path: PathBuf) -> Result<Box<dyn CredentialSlot>, String> {
+    fn reserve(&self, path: PathBuf) -> Result<Box<dyn CredentialSlot>, CredentialsError> {
         Ok(Box::new(Slot(path, self.0.clone())))
     }
-    fn token(&self, _: Option<&Path>) -> Result<String, String> {
+    fn token(&self, _: Option<&Path>) -> Result<String, CredentialsError> {
         Ok("recovery".into())
     }
-    fn claim_state(&self, _: PathBuf) -> Result<Box<dyn kkt_watch::Place>, String> {
+    fn claim_state(&self, _: PathBuf) -> Result<Box<dyn kkt_watch::Place>, CredentialsError> {
         unreachable!("no test watches")
     }
 }
 struct Slot(PathBuf, Rc<RefCell<Seen>>);
 impl CredentialSlot for Slot {
-    fn save(&mut self, secret: &str) -> Result<(), String> {
+    fn save(&mut self, secret: &str) -> Result<(), CredentialsError> {
         self.1
             .borrow_mut()
             .saved
@@ -170,7 +170,7 @@ impl kkt_llm_agent_config::Host for NoClients {
 
 struct Kkt;
 impl Program for Kkt {
-    fn kkt_path(&self) -> Result<PathBuf, String> {
+    fn kkt_path(&self) -> Result<PathBuf, ProgramError> {
         Ok("/usr/bin/kkt".into())
     }
 }
@@ -311,7 +311,8 @@ fn an_unreadable_access_key_is_named_before_any_file_is_made() {
         None,
         new_avatar(None),
     ))
-    .expect_err("no key");
+    .expect_err("no key")
+    .to_string();
     assert_eq!(
         err,
         "could not read key file /cfg/key: No such file or directory (os error 2)"
@@ -330,7 +331,8 @@ fn a_refused_lane_is_said_and_no_credential_is_saved() {
         None,
         new_avatar(Some("gone")),
     ))
-    .expect_err("refused");
+    .expect_err("refused")
+    .to_string();
     assert_eq!(
         err,
         "the server refused the lane: the lane gone is retired, so it can no longer be taken."
@@ -348,7 +350,8 @@ fn a_lost_server_is_said_without_its_details() {
         None,
         new_avatar(None),
     ))
-    .expect_err("lost");
+    .expect_err("lost")
+    .to_string();
     assert_eq!(err, "could not reach the server or read its reply");
 }
 
@@ -367,7 +370,8 @@ fn a_bad_handle_is_refused_before_the_server_is_asked() {
         None,
         asked,
     ))
-    .expect_err("bad handle");
+    .expect_err("bad handle")
+    .to_string();
     assert!(seen.borrow().addresses.is_empty());
 }
 
@@ -383,7 +387,7 @@ fn the_admin_endpoint_is_reached_with_the_admin_key_not_the_access_key() {
         ..ConnectionOptions::NONE
     };
     assert_eq!(
-        client::admin(&parts, flags),
+        client::admin(&parts, flags).map_err(|e| e.to_string()),
         Ok(Address {
             url: "http://example.test:7420/mcp-admin".into(),
             key: Some("admin".into()),
@@ -400,7 +404,7 @@ fn a_missing_admin_key_says_how_to_make_one() {
         ..ConnectionOptions::NONE
     };
     assert_eq!(
-        client::admin(&parts, flags),
+        client::admin(&parts, flags).map_err(|e| e.to_string()),
         Err("there is no admin key at /elsewhere/admin; \
              `kkt key create --admin` makes one on the server"
             .into())
@@ -480,6 +484,7 @@ fn every_agent_command_message_says_what_it_always_said() {
             new_avatar(None),
         ))
         .expect_err("refused")
+        .to_string()
     };
     assert_eq!(
         register_with(avatar_refused),
@@ -498,7 +503,7 @@ fn every_agent_command_message_says_what_it_always_said() {
         "/me/recovery".into(),
         "/me/token".into(),
     ));
-    assert_eq!(reclaimed, Ok(()));
+    assert_eq!(reclaimed.map_err(|e| e.to_string()), Ok(()));
     let (given, _) = parts(None, &[], avatar_refused);
     assert_eq!(
         block_on(reclaim(
@@ -507,7 +512,8 @@ fn every_agent_command_message_says_what_it_always_said() {
             "amber-falcon",
             "/me/recovery".into(),
             "/me/token".into(),
-        )),
+        ))
+        .map_err(|e| e.to_string()),
         Err("the server refused the avatar request (handle_taken)".into())
     );
 
@@ -518,7 +524,7 @@ fn every_agent_command_message_says_what_it_always_said() {
         ..ConnectionOptions::NONE
     };
     assert_eq!(
-        client::admin(&given, flags),
+        client::admin(&given, flags).map_err(|e| e.to_string()),
         Err("could not read key file /elsewhere/admin: Permission denied (os error 13)".into())
     );
 
@@ -530,14 +536,16 @@ fn every_agent_command_message_says_what_it_always_said() {
         xdg_data_home: None,
     };
     assert_eq!(
-        connect::run(&given, &env, "cursor", ConnectionOptions::NONE, None, false,),
+        connect::run(&given, &env, "cursor", ConnectionOptions::NONE, None, false)
+            .map_err(|e| e.to_string()),
         Err("unknown client".into())
     );
 
     assert_eq!(
         credential_file_check(Path::new("/me/token"), "'/me/token'", 501, 0o600, 502)
             .err()
-            .expect("another user's"),
+            .expect("another user's")
+            .to_string(),
         String::from(
             "credential file /me/token is owned by another user (uid 501); ask its owner or an administrator to run chown 502 '/me/token', then chmod 600 '/me/token'"
         )

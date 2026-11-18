@@ -52,7 +52,7 @@ struct AdminKeyHere {
 }
 
 impl AdminKey for AdminKeyHere {
-    fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, String> {
+    fn path(&self, given: Option<PathBuf>) -> Result<PathBuf, kkt_agent_commands::AdminKeyError> {
         // The operator's key finder answers, over the operator's parts on
         // this machine: kkt-agent-commands depends on no other assembly.
         let native = NativeParts::new(&self.env, self.platform).with_service_args(self.serve_args);
@@ -67,6 +67,7 @@ impl AdminKey for AdminKeyHere {
             given,
             kkt_operator_commands::keys::KeyKind::Admin,
         )
+        .map_err(|said| kkt_agent_commands::AdminKeyError(said.into()))
     }
 }
 
@@ -85,8 +86,8 @@ impl KeyText for KeyFiles {
 struct ThisProgram;
 
 impl Program for ThisProgram {
-    fn kkt_path(&self) -> Result<PathBuf, String> {
-        crate::process::kkt_path()
+    fn kkt_path(&self) -> Result<PathBuf, kkt_agent_commands::ProgramError> {
+        crate::process::kkt_path().map_err(|said| kkt_agent_commands::ProgramError(said.into()))
     }
 }
 

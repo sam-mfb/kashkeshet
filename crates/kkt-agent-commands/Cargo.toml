@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+thiserror.workspace = true
 kkt-agent-client = { path = "../kkt-agent-client" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-clock = { path = "../kkt-clock" }
