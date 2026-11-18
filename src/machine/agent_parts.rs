@@ -64,7 +64,6 @@ impl AdminKey for AdminKeyHere {
         let lane_servers = native.lane_servers(&installed);
         kkt_operator_commands::keys::selected_key_path(
             &native.operator_parts(&installed, &lane_servers),
-            &self.env,
             given,
             kkt_operator_commands::keys::KeyKind::Admin,
         )

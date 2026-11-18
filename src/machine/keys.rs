@@ -154,7 +154,6 @@ mod tests {
         let lane_servers = native.lane_servers(&installed);
         kkt_operator_commands::keys::optional_key_path(
             &native.operator_parts(&installed, &lane_servers),
-            env,
             path,
             kind,
         )
@@ -171,7 +170,6 @@ mod tests {
         let setup_lanes = native.setup_lanes();
         kkt_install_commands::keys::local_operator_key(
             &native.install_parts(&setup_lanes),
-            env,
             unfinished,
             unrecorded,
             kind,

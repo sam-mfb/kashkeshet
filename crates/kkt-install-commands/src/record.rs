@@ -32,10 +32,8 @@ fn unrecorded_docker<D>(
     env: &Env,
     platform: Platform,
 ) -> Result<Option<setup::Unrecorded>, String> {
-    let (Ok(folder), Some(config_dir)) = (
-        docker_folder(env, platform),
-        kkt_config_file::config_dir(env.config_home().as_deref()),
-    ) else {
+    let (Ok(folder), Some(config_dir)) = (docker_folder(env, platform), parts.serve.config_dir())
+    else {
         return Ok(None);
     };
     let found = |what: String| {
@@ -145,13 +143,13 @@ impl<'a, 'p, C: ConnectionSource, D> InstallReads<'a, 'p, C, D> {
 impl<C: ConnectionSource, D: crate::ServiceDefaults> InstallReads<'_, '_, C, D> {
     /// This machine's setup record, if `kkt setup` wrote one.
     pub fn record(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.env, self.parts.setup_files)
+        read_setup(self.parts.serve, self.parts.setup_files)
     }
     /// The note of a setup not finished, if the install it noted is still
     /// here.
     pub fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
         read_unfinished(
-            self.env,
+            self.parts.serve,
             self.parts.setup_files,
             self.parts.container,
             self.parts.service,
@@ -169,12 +167,12 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> InstallReads<'_, '_, C, D> 
 /// one and the install is still there: the managed Docker folder's settings
 /// file, or the installed service.
 pub fn read_unfinished(
-    env: &Env,
+    serve: &dyn crate::ServeFacts,
     files: &dyn SetupFiles,
     container: &dyn kkt_containerized_service::ServiceContainer,
     service: &dyn kkt_bare_service::Service,
 ) -> Result<Option<setup::Unfinished>, String> {
-    let Some(config_dir) = kkt_config_file::config_dir(env.config_home().as_deref()) else {
+    let Some(config_dir) = serve.config_dir() else {
         return Ok(None);
     };
     let Some(unfinished) = files.read_unfinished(&config_dir)? else {
@@ -211,8 +209,11 @@ pub fn unfinished_mode(
 }
 
 /// This machine's setup record, if `kkt setup` wrote one.
-pub fn read_setup(env: &Env, files: &dyn SetupFiles) -> Result<Option<setup::Record>, String> {
-    let Some(config_dir) = kkt_config_file::config_dir(env.config_home().as_deref()) else {
+pub fn read_setup(
+    serve: &dyn crate::ServeFacts,
+    files: &dyn SetupFiles,
+) -> Result<Option<setup::Record>, String> {
+    let Some(config_dir) = serve.config_dir() else {
         return Ok(None);
     };
     files.read_record(&config_dir)
@@ -220,12 +221,12 @@ pub fn read_setup(env: &Env, files: &dyn SetupFiles) -> Result<Option<setup::Rec
 
 /// Refuses to start a server on a machine `kkt setup` set up otherwise.
 pub fn check_setup(
-    env: &Env,
+    serve: &dyn crate::ServeFacts,
     files: &dyn SetupFiles,
     service: &dyn kkt_bare_service::Service,
     output: &dyn Output,
 ) -> Result<(), String> {
-    let record = read_setup(env, files)?;
+    let record = read_setup(serve, files)?;
     let service_running = match record.as_ref().map(|r| &r.mode) {
         Some(setup::Mode::Service { .. }) => {
             let state = service.ready().and_then(|()| service.state());
@@ -272,11 +273,12 @@ pub(crate) fn why_state_unknown(error: &ServiceError) -> String {
 /// Resolve lifecycle commands through the setup record. An unrecorded
 /// machine still supports the original local-database backup command.
 pub fn write_setup_record(
-    env: &Env,
+    serve: &dyn crate::ServeFacts,
     files: &dyn SetupFiles,
     record: &setup::Record,
 ) -> Result<(), String> {
-    let config_dir = kkt_config_file::config_dir(env.config_home().as_deref())
+    let config_dir = serve
+        .config_dir()
         .ok_or("set HOME to keep the setup record")?;
     files.write_record(&config_dir, record)
 }
@@ -290,8 +292,15 @@ pub fn recorded_setup<D: crate::ServiceDefaults>(
     platform: Platform,
 ) -> Result<setup::Record, String> {
     setup::recorded_setup(
-        read_setup(env, parts.setup_files)?,
-        || read_unfinished(env, parts.setup_files, parts.container, parts.service),
+        read_setup(parts.serve, parts.setup_files)?,
+        || {
+            read_unfinished(
+                parts.serve,
+                parts.setup_files,
+                parts.container,
+                parts.service,
+            )
+        },
         || read_unrecorded(parts, env, platform),
     )
     .map_err(|e| e.to_string())
