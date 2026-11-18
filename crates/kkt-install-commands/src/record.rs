@@ -246,6 +246,7 @@ pub fn check_setup(
         service_running,
         false,
     )
+    .map_err(|e| e.to_string())
 }
 
 /// The warning `kkt serve` gives when it cannot tell whether the kkt

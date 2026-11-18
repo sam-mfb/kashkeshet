@@ -22,8 +22,8 @@ mod service_plan;
 mod tests;
 mod upgrade;
 
-pub use bind::check_bind;
-pub use guard::guard;
+pub use bind::{BindError, check_bind};
+pub use guard::{GuardError, guard};
 pub use keys::{
     Here, KeyKind, KeyPlace, KeysOff, RecordedServerRead, ServeConfigReads, ServerKeys,
     UnfinishedSetup, UnrecordedReads, admin_key_collision, admin_name_line, admin_name_written,

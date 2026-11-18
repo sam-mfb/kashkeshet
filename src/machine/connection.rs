@@ -23,7 +23,7 @@ pub fn serve_endpoint(
 #[cfg(test)]
 use kkt_deployment::connection::Connection;
 pub use kkt_deployment::connection::ConnectionOptions;
-use kkt_deployment::connection::{ConnectionSource, RecordedServer, ServeConnection};
+use kkt_deployment::connection::{ConnectionSource, RecordedServer, ServeConnection, SourceError};
 use kkt_keys::AccessKey;
 use kkt_machine::{Env, Platform};
 use std::path::Path;
@@ -44,14 +44,15 @@ impl<'a> ConnectionReads<'a> {
 impl ConnectionSource for ConnectionReads<'_> {
     type KeySource = Sources;
 
-    fn recorded(&self) -> Result<Option<RecordedServer>, String> {
+    fn recorded(&self) -> Result<Option<RecordedServer>, SourceError> {
         Ok(
-            kkt_install_commands::record::read_setup(self.env, &NativeSetupFiles)?
+            kkt_install_commands::record::read_setup(self.env, &NativeSetupFiles)
+                .map_err(source_error)?
                 .map(|record| kkt_install_commands::deployment::recorded_server(&record)),
         )
     }
 
-    fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<Sources>, String> {
+    fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<Sources>, SourceError> {
         let key_override = flags.key_file.is_some();
         let (settings, sources) = serve_settings_and_sources(
             self.env,
@@ -62,8 +63,10 @@ impl ConnectionSource for ConnectionReads<'_> {
                 no_access_key: key_override.then_some(false),
                 ..ServeOptions::NONE
             },
-        )?;
-        let url = serve_endpoint(settings.bind, flags.url.as_deref(), kkt_mcp::MCP_PATH)?;
+        )
+        .map_err(source_error)?;
+        let url = serve_endpoint(settings.bind, flags.url.as_deref(), kkt_mcp::MCP_PATH)
+            .map_err(source_error)?;
         Ok(ServeConnection {
             url,
             access_key: settings.access_key,
@@ -71,19 +74,25 @@ impl ConnectionSource for ConnectionReads<'_> {
         })
     }
 
-    fn make_default_key(&self, key: &AccessKey) -> Result<(), String> {
-        make_default_key(key, "access")
+    fn make_default_key(&self, key: &AccessKey) -> Result<(), SourceError> {
+        make_default_key(key, "access").map_err(source_error)
     }
 
-    fn check_key(&self, path: &Path, source: &Sources) -> Result<(), String> {
-        read_key(path, source).map(|_| ())
+    fn check_key(&self, path: &Path, source: &Sources) -> Result<(), SourceError> {
+        read_key(path, source).map(|_| ()).map_err(source_error)
     }
 
-    fn absolute(&self, path: &Path) -> Result<std::path::PathBuf, String> {
+    fn absolute(&self, path: &Path) -> Result<std::path::PathBuf, SourceError> {
         kkt_files::Files
             .absolute(path)
-            .map_err(|e| format!("could not resolve key path: {e}"))
+            .map_err(|e| source_error(format!("could not resolve key path: {e}")))
     }
+}
+
+/// This program's reads still say why in words: kkt-deployment's contract
+/// carries them as they are.
+fn source_error(said: String) -> SourceError {
+    SourceError(said.into())
 }
 
 /// How clients reach the server `kkt serve` would run with these settings,
@@ -97,6 +106,7 @@ fn serve_connection(
     create: bool,
 ) -> Result<Connection, String> {
     kkt_deployment::connection::serve_connection(&ConnectionReads { env, platform }, flags, create)
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

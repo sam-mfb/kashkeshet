@@ -34,8 +34,10 @@ pub async fn run<D: crate::ServiceDefaults>(
             |path| parts.connection.absolute(path),
             crate::deployment::recorded_server(record).for_clients(),
             flags,
-        )?,
-        _ => connection::client_connection(parts.connection, flags, false)?,
+        )
+        .map_err(|e| e.to_string())?,
+        _ => connection::client_connection(parts.connection, flags, false)
+            .map_err(|e| e.to_string())?,
     };
     let inspector = diagnostics::Inspector::new(parts.prober);
     let server = diagnostics::ServerLines::inspect(
