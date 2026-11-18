@@ -109,7 +109,9 @@ pub async fn status<D: ServiceDefaults>(
             .key_files
             .read(&path)
             .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
-        if let Some(line) = admin_name_line(parts.key_files, &path, &key, "Admin name")? {
+        if let Some(line) = admin_name_line(parts.key_files, &path, &key, "Admin name")
+            .map_err(|e| e.to_string())?
+        {
             parts.output.output(format_args!("{line}\n"));
         }
     }
@@ -199,7 +201,8 @@ pub async fn upgrade<D: ServiceDefaults>(
                 .map_err(|e| e.to_string())?;
             local_backup(parts, &folder, None, None)?;
             if let Some(key) = &service.new_web_key {
-                new_key_file(parts.key_files, parts.entropy, key, false)?;
+                new_key_file(parts.key_files, parts.entropy, key, false)
+                    .map_err(|e| e.to_string())?;
                 parts.output.output(format_args!(
                     "Created a new web key at {}. Read it with `kkt key show --web`.\n",
                     key.display()

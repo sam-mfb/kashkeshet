@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "2a55ce4e",
+ "commit": "34a07a3e",
  "crates": [
   {
    "bins": [
@@ -6727,12 +6727,31 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
+     "doc": "The admin key's place is the access key's file.",
+     "kind": "struct",
+     "path": "AdminKeyCollision"
+    },
+    {
+     "doc": "The admin key's name file could not be used: kkt-keys says what is wrong with it, after the setting it is.",
+     "kind": "struct",
+     "path": "AdminNameLineError"
+    },
+    {
      "doc": "Why a service's server could not listen on its address, and where to set another: `config_file`, the config file that sets `bind`, if there is one.",
      "kind": "enum",
      "path": "BindError",
      "variants": [
       "InUse",
       "CannotListen"
+     ]
+    },
+    {
+     "doc": "What `kkt key create` refuses before it writes anything.",
+     "kind": "enum",
+     "path": "CreateRefusal",
+     "variants": [
+      "InDocker",
+      "NameWithoutAdmin"
      ]
     },
     {
@@ -6756,6 +6775,17 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "DeploymentEndpoint"
+    },
+    {
+     "doc": "Why a key could not be found: which read failed, or why where it is could not be said.",
+     "kind": "enum",
+     "path": "FindKeyError",
+     "variants": [
+      "Record",
+      "Config",
+      "Unfinished",
+      "Place"
+     ]
     },
     {
      "doc": "Why `kkt serve` may not start here: where this machine's server really is.",
@@ -6808,6 +6838,22 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "Why where a key is could not be said.",
+     "kind": "enum",
+     "path": "KeyPlaceError",
+     "variants": [
+      "KeysOffInConfig",
+      "OnServer",
+      "KeysOffForSetup",
+      "NoHome"
+     ]
+    },
+    {
+     "doc": "Why one of the reads a key finder makes failed: the reader's own error, passed on unread.",
+     "kind": "struct",
+     "path": "KeyReadError"
+    },
+    {
      "doc": "What a key is when the serve config turns keys off.",
      "kind": "enum",
      "path": "KeysOff",
@@ -6815,6 +6861,15 @@ window.KKT_GRAPH = {
       "NoKey",
       "Refuse"
      ]
+    },
+    {
+     "doc": "The admin key was written, but its name file could not be.",
+     "fields": [
+      "names",
+      "cause"
+     ],
+     "kind": "struct",
+     "path": "NameNotWritten"
     },
     {
      "doc": "The plan for the service, before its arguments are written out.",
@@ -23526,7 +23581,9 @@ window.KKT_GRAPH = {
    "items": [
     "ADMIN_KEY_COPY_FILE_NAME",
     "AccessKey",
+    "AdminNameError",
     "AdminNameFile",
+    "KeyFileError",
     "KeyFiles",
     "NEW_KEY_ALPHABET",
     "NEW_KEY_CHARS",
@@ -23545,7 +23602,9 @@ window.KKT_GRAPH = {
      "detail": [
       "ADMIN_KEY_COPY_FILE_NAME",
       "AccessKey",
+      "AdminNameError",
       "AdminNameFile",
+      "KeyFileError",
       "KeyFiles",
       "NEW_KEY_ALPHABET",
       "NEW_KEY_CHARS",
@@ -24863,6 +24922,7 @@ window.KKT_GRAPH = {
     "Deployment",
     "DeploymentEndpoint",
     "KeyKind",
+    "KeyReadError",
     "Plan",
     "RecordedDeployment",
     "RecordedServerRead",
@@ -24917,6 +24977,7 @@ window.KKT_GRAPH = {
       "Deployment",
       "DeploymentEndpoint",
       "KeyKind",
+      "KeyReadError",
       "Plan",
       "RecordedDeployment",
       "Replace",
@@ -26997,6 +27058,7 @@ window.KKT_GRAPH = {
    "items": [
     "Deployment",
     "KeyKind",
+    "KeyReadError",
     "RecordedServerRead",
     "ServeConfigReads",
     "ServerKeys",
@@ -27029,6 +27091,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Deployment",
       "KeyKind",
+      "KeyReadError",
       "ServerKeys",
       "UnfinishedSetup",
       "admin_key_collision",

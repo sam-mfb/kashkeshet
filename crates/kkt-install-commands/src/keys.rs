@@ -17,16 +17,20 @@ pub(crate) use kkt_deployment::{KeyKind, admin_key_collision, new_key_file};
 struct EnvReads<'a, 'p, C: ConnectionSource, D>(&'a InstallParts<'p, C, D>);
 
 impl<C: ConnectionSource, D> RecordedServerRead for EnvReads<'_, '_, C, D> {
-    fn recorded(&self) -> Result<Option<ServerKeys>, String> {
-        Ok(read_setup(self.0.serve, self.0.setup_files)?
+    fn recorded(&self) -> Result<Option<ServerKeys>, kkt_deployment::KeyReadError> {
+        Ok(read_setup(self.0.serve, self.0.setup_files)
+            .map_err(|said| kkt_deployment::KeyReadError(said.into()))?
             .as_ref()
             .map(server_keys))
     }
 }
 
 impl<C: ConnectionSource, D> ServeConfigReads for EnvReads<'_, '_, C, D> {
-    fn configured_access(&self) -> Result<Option<PathBuf>, String> {
-        self.0.serve.configured_access_key()
+    fn configured_access(&self) -> Result<Option<PathBuf>, kkt_deployment::KeyReadError> {
+        self.0
+            .serve
+            .configured_access_key()
+            .map_err(|said| kkt_deployment::KeyReadError(said.into()))
     }
     fn config_dir(&self) -> Option<PathBuf> {
         self.0.serve.config_dir()
@@ -58,4 +62,5 @@ pub fn local_operator_key<D>(
         unrecorded.map(found_server_keys).as_ref(),
         kind,
     )
+    .map_err(|e| e.to_string())
 }
