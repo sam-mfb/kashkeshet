@@ -52,7 +52,12 @@ impl Admin for Rules {
         cursor: Option<String>,
     ) -> Answer<'a, Page<AgentInfo>> {
         Box::pin(Rules::admin_list_agents(
-            self, operator, query, lane, limit, cursor,
+            self,
+            operator,
+            query,
+            lane,
+            self.page_size(limit),
+            cursor,
         ))
     }
 
@@ -64,7 +69,11 @@ impl Admin for Rules {
         cursor: Option<String>,
     ) -> Answer<'a, Page<AdminChannel>> {
         Box::pin(Rules::admin_list_channels(
-            self, operator, query, limit, cursor,
+            self,
+            operator,
+            query,
+            self.page_size(limit),
+            cursor,
         ))
     }
 
@@ -76,7 +85,11 @@ impl Admin for Rules {
         cursor: Option<String>,
     ) -> Answer<'a, Members> {
         Box::pin(Rules::admin_list_members(
-            self, operator, channel_id, limit, cursor,
+            self,
+            operator,
+            channel_id,
+            self.page_size(limit),
+            cursor,
         ))
     }
 
@@ -88,7 +101,11 @@ impl Admin for Rules {
         cursor: Option<String>,
     ) -> Answer<'a, MemoryList> {
         Box::pin(Rules::admin_list_memories(
-            self, operator, handle, limit, cursor,
+            self,
+            operator,
+            handle,
+            self.page_size(limit),
+            cursor,
         ))
     }
 
@@ -108,7 +125,7 @@ impl Admin for Rules {
             operator,
             after_id,
             channel_ids,
-            limit,
+            self.page_size(limit),
         ))
     }
 
@@ -121,6 +138,10 @@ impl Admin for Rules {
     }
 
     fn admin_read<'a>(&'a self, operator: &'a Operator, q: ReadQuery) -> Answer<'a, MessagePage> {
+        let q = ReadQuery {
+            limit: self.page_size(q.limit),
+            ..q
+        };
         Box::pin(Rules::admin_read(self, operator, q))
     }
 
