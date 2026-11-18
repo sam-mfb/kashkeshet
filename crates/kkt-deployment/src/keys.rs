@@ -37,12 +37,7 @@ pub fn admin_name_line(
 ) -> Result<Option<String>, String> {
     let docker_host_copy = path.file_name() == Some(OsStr::new(ADMIN_KEY_COPY_FILE_NAME));
     name_line(path, key, label, docker_host_copy, |names| {
-        files.read_optional(names).map_err(|e| {
-            format!(
-                "invalid setting: the admin name could not be read from {}: {e}",
-                names.display()
-            )
-        })
+        files.read_optional(names)
     })
 }
 
@@ -52,13 +47,16 @@ fn name_line(
     key: &str,
     label: &str,
     docker_host_copy: bool,
-    read: impl FnOnce(&Path) -> Result<Option<String>, String>,
+    read: impl FnOnce(&Path) -> std::io::Result<Option<String>>,
 ) -> Result<Option<String>, String> {
     if docker_host_copy {
         return Ok(None);
     }
     let make = "`kkt key create --admin --force --name <name>` makes a named one";
-    Ok(Some(match read_admin_name(path, key, read)? {
+    // The name file's error says what is wrong with it; this says what was
+    // being read.
+    let named = read_admin_name(path, key, read).map_err(|e| format!("invalid setting: {e}"))?;
+    Ok(Some(match named {
         AdminNameFile::Named(name) => format!("{label}: {name}"),
         AdminNameFile::None => format!("{label}: none, so the key may only read; {make}"),
         AdminNameFile::OtherKey(names) => format!(
@@ -165,6 +163,28 @@ mod tests {
         // A Docker setup's host copy keeps no name beside it.
         let copy = Path::new("/k").join(kkt_keys::ADMIN_KEY_COPY_FILE_NAME);
         assert_eq!(admin_name_line(&named, &copy, KEY, "Admin name"), Ok(None));
+    }
+
+    /// A name file that cannot be read, or holds no key's hash, keeps the
+    /// "invalid setting: " the person always saw, pinned exactly.
+    #[test]
+    fn a_bad_or_unreadable_name_file_says_what_it_always_said() {
+        let path = Path::new("/k/admin-key");
+        let unreadable = Memory::new().with_dir("/k").failing("/k/admin-key.name");
+        assert_eq!(
+            admin_name_line(&unreadable, path, KEY, "admin name"),
+            Err(
+                "invalid setting: the admin name could not be read from /k/admin-key.name: refused"
+                    .to_string()
+            )
+        );
+        let unhashed = Memory::new()
+            .with_dir("/k")
+            .with_file("/k/admin-key.name", "admin-sentinel\n");
+        assert_eq!(
+            admin_name_line(&unhashed, path, KEY, "admin name"),
+            Err("invalid setting: admin name in /k/admin-key.name: its second line must be `key-sha256: ` and a hash of the admin key".to_string())
+        );
     }
 
     #[test]

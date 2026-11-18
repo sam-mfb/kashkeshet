@@ -13,8 +13,10 @@ mod place;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
-pub use admin_name::{AdminNameFile, bound_in, bound_to, read_admin_name};
-pub use files::{KeyFiles, ReadError, SelectedKeys};
+pub use admin_name::{
+    AdminNameError, AdminNameFile, NameFileError, bound_in, bound_to, read_admin_name,
+};
+pub use files::{KeyFileAction, KeyFileError, KeyFiles, ReadError, SelectedKeys};
 pub use place::{
     ACCESS_KEY_FILE_MODE, ADMIN_KEY_COPY_FILE_NAME, NO_ADMIN_KEY_EXIT, WEB_KEY_COPY_FILE_NAME,
     access_key_file, admin_key_path, admin_name_path, web_key_path,

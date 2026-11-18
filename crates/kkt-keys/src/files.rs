@@ -9,6 +9,63 @@ use crate::{AccessKey, KeyText, admin_name_path};
 use std::io;
 use std::path::{Path, PathBuf};
 
+/// What was being done to a key file or its folder when it failed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeyFileAction {
+    /// Making the folder.
+    Create,
+    /// Moving a staged key into place.
+    Move,
+    /// Writing the key.
+    Write,
+    /// Making the file readable only by its owner.
+    Restrict,
+}
+
+/// Why a key file could not be written, worded for the person.
+#[derive(Debug, thiserror::Error)]
+pub enum KeyFileError {
+    /// A file is already there, and replacing it was not asked for.
+    #[error("{} already exists; pass --force to replace it", path.display())]
+    Exists { path: PathBuf },
+    /// A step on the file or its folder failed.
+    #[error("{}", file_sentence(*action, path, cause))]
+    File {
+        action: KeyFileAction,
+        path: PathBuf,
+        #[source]
+        cause: io::Error,
+    },
+    /// Whether the file is there could not be told.
+    #[error("could not tell whether {} is there: {cause}", path.display())]
+    Unknown {
+        path: PathBuf,
+        #[source]
+        cause: io::Error,
+    },
+}
+
+impl KeyFileError {
+    /// `action` on `path` failed with `cause`.
+    pub fn file(action: KeyFileAction, path: impl Into<PathBuf>, cause: io::Error) -> Self {
+        KeyFileError::File {
+            action,
+            path: path.into(),
+            cause,
+        }
+    }
+}
+
+fn file_sentence(action: KeyFileAction, path: &Path, cause: &io::Error) -> String {
+    let path = path.display();
+    match action {
+        KeyFileAction::Create => format!("could not create {path}: {cause}"),
+        KeyFileAction::Move => format!("could not move the key to {path}: {cause}"),
+        KeyFileAction::Write => format!("could not write {path}: {cause}"),
+        KeyFileAction::Restrict => format!("could not restrict {path}: {cause}"),
+    }
+}
+
 /// Private key files: the server's, and the client key copies setup
 /// writes. Every path given is one of those files or the folder that holds
 /// them; the plain file tests and steps (`try_exists`, `is_file`,
@@ -24,15 +81,15 @@ pub trait KeyFiles {
     /// when the file cannot be looked at.
     fn mode(&self, path: &Path) -> io::Result<Option<u32>>;
     /// Makes the folder `dir` and its parents.
-    fn create_dir_all(&self, dir: &Path) -> Result<(), String>;
+    fn create_dir_all(&self, dir: &Path) -> Result<(), KeyFileError>;
     /// Moves a staged key file to `path`.
-    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String>;
+    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), KeyFileError>;
     /// Removes one file.
     fn remove(&self, path: &Path) -> io::Result<()>;
     /// Writes `key` to `path`, readable and writable only by its owner
     /// ([`ACCESS_KEY_FILE_MODE`](crate::ACCESS_KEY_FILE_MODE)). Refuses to
     /// replace an existing file unless `force`.
-    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String>;
+    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), KeyFileError>;
     /// Writes the name file beside the admin key at `admin_key`
     /// ([`admin_name_path`]) with `bound`, text already bound to the key;
     /// with `None`, removes that name file, and a missing one is fine.
@@ -94,7 +151,7 @@ pub trait KeyFiles {
         path: &Path,
         force: bool,
         generate: &mut dyn FnMut() -> String,
-    ) -> Result<String, String> {
+    ) -> Result<String, KeyFileError> {
         if let Some(dir) = path.parent().filter(|d| !d.as_os_str().is_empty()) {
             self.create_dir_all(dir)?;
         }
@@ -111,13 +168,16 @@ pub trait KeyFiles {
         &self,
         access: &AccessKey,
         generate: &mut dyn FnMut() -> String,
-    ) -> Result<Option<PathBuf>, String> {
+    ) -> Result<Option<PathBuf>, KeyFileError> {
         let AccessKey::Default(path) = access else {
             return Ok(None);
         };
         let there = self
             .try_exists(path)
-            .map_err(|e| format!("could not tell whether {} is there: {e}", path.display()))?;
+            .map_err(|cause| KeyFileError::Unknown {
+                path: path.clone(),
+                cause,
+            })?;
         if there {
             return Ok(None);
         }

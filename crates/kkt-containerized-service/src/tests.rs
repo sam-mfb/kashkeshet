@@ -857,16 +857,16 @@ impl kkt_keys::KeyFiles for KeysIn {
     fn mode(&self, path: &Path) -> io::Result<Option<u32>> {
         self.0.mode(path)
     }
-    fn create_dir_all(&self, dir: &Path) -> Result<(), String> {
+    fn create_dir_all(&self, dir: &Path) -> Result<(), kkt_keys::KeyFileError> {
         self.0.create_dir_all(dir)
     }
-    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), String> {
+    fn keep_staged(&self, staged: &Path, path: &Path) -> Result<(), kkt_keys::KeyFileError> {
         self.0.keep_staged(staged, path)
     }
     fn remove(&self, path: &Path) -> io::Result<()> {
         self.0.remove(path)
     }
-    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), String> {
+    fn write_key(&self, path: &Path, key: &str, force: bool) -> Result<(), kkt_keys::KeyFileError> {
         self.0.write_key(path, key, force)
     }
     fn write_admin_name(&self, admin_key: &Path, bound: Option<&str>) -> io::Result<()> {

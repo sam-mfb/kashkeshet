@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "55686e64",
+ "commit": "2a55ce4e",
  "crates": [
   {
    "bins": [
@@ -11284,6 +11284,15 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "Why the name file beside an admin key could not be used.",
+     "kind": "enum",
+     "path": "AdminNameError",
+     "variants": [
+      "Unreadable",
+      "Invalid"
+     ]
+    },
+    {
      "doc": "What the name file beside an admin key says about that key.",
      "kind": "enum",
      "path": "AdminNameFile",
@@ -11291,6 +11300,30 @@ window.KKT_GRAPH = {
       "Named",
       "None",
       "OtherKey"
+     ]
+    },
+    {
+     "doc": "What was being done to a key file or its folder when it failed.",
+     "kind": "enum",
+     "path": "KeyFileAction",
+     "variants": [
+      "Create",
+      "Move",
+      "Write",
+      "Restrict"
+     ]
+    },
+    {
+     "doc": "Why a key file could not be written, worded for the person.",
+     "kind": "enum",
+     "methods": [
+      "file"
+     ],
+     "path": "KeyFileError",
+     "variants": [
+      "Exists",
+      "File",
+      "Unknown"
      ]
     },
     {
@@ -11340,6 +11373,16 @@ window.KKT_GRAPH = {
      "doc": "The exit code of `kkt key show --admin` when the server has no admin key, so a caller, such as setup asking kkt in a container, can tell that from a failure.",
      "kind": "const",
      "path": "NO_ADMIN_KEY_EXIT"
+    },
+    {
+     "doc": "What is wrong with the text of an admin name file.",
+     "kind": "enum",
+     "path": "NameFileError",
+     "variants": [
+      "Name",
+      "NoKeyHash",
+      "Extra"
+     ]
     },
     {
      "doc": "A key file that could not be read: its path and the system's reason.",
@@ -20132,6 +20175,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "KeyFileAction",
+    "KeyFileError",
     "WEB_KEY_COPY_FILE_NAME",
     "bound_to"
    ],
@@ -23032,6 +23077,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "ACCESS_KEY_FILE_MODE",
+    "KeyFileError",
     "testing::Memory"
    ],
    "to": "kkt-keys"
@@ -23149,6 +23195,7 @@ window.KKT_GRAPH = {
    "from": "kkt-containerized-service",
    "items": [
     "ACCESS_KEY_FILE_MODE",
+    "KeyFileError",
     "KeyFiles",
     "testing::Memory"
    ],
@@ -23158,7 +23205,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "ACCESS_KEY_FILE_MODE"
+      "ACCESS_KEY_FILE_MODE",
+      "KeyFileError"
      ],
      "role": "uses"
     },
@@ -25073,6 +25121,8 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "AccessKey",
+    "KeyFileAction",
+    "KeyFileError",
     "testing::Memory"
    ],
    "to": "kkt-keys"
@@ -25407,6 +25457,8 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "AccessKey",
+    "KeyFileAction",
+    "KeyFileError",
     "KeyFiles",
     "testing::Memory"
    ],
@@ -25416,7 +25468,9 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "AccessKey"
+      "AccessKey",
+      "KeyFileAction",
+      "KeyFileError"
      ],
      "role": "uses"
     },
@@ -26071,7 +26125,8 @@ window.KKT_GRAPH = {
    "from": "kkt-keys",
    "items": [
     "AdminName",
-    "MAX_ADMIN_NAME_CHARS"
+    "MAX_ADMIN_NAME_CHARS",
+    "NameError"
    ],
    "kind": "normal",
    "optional": false,
@@ -26080,7 +26135,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AdminName",
-      "MAX_ADMIN_NAME_CHARS"
+      "MAX_ADMIN_NAME_CHARS",
+      "NameError"
      ],
      "role": "uses"
     }
@@ -26118,6 +26174,8 @@ window.KKT_GRAPH = {
    "from": "kkt-keys-os",
    "items": [
     "ACCESS_KEY_FILE_MODE",
+    "KeyFileAction",
+    "KeyFileError",
     "KeyFiles",
     "admin_name_path"
    ],
@@ -26134,6 +26192,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ACCESS_KEY_FILE_MODE",
+      "KeyFileAction",
+      "KeyFileError",
       "admin_name_path"
      ],
      "role": "uses"
