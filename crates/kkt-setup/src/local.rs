@@ -3,12 +3,12 @@ use kkt_machine::{Env, Platform};
 use std::path::PathBuf;
 const DOCKER_FOLDER: &str = "docker";
 
-/// The MCP endpoint of kkt in Docker, published on the host's `port`, or
-/// served over Tailscale as `node`, `(hostname, tailnet)`.
-pub fn docker_url(port: u16, node: Option<&(String, String)>) -> String {
+/// The MCP endpoint of kkt in Docker, at `mcp_path`: published on the
+/// host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.
+pub fn docker_url(port: u16, node: Option<&(String, String)>, mcp_path: &str) -> String {
     match node {
-        Some((hostname, tailnet)) => format!("https://{hostname}.{tailnet}/mcp"),
-        None => format!("http://127.0.0.1:{port}/mcp"),
+        Some((hostname, tailnet)) => format!("https://{hostname}.{tailnet}{mcp_path}"),
+        None => format!("http://127.0.0.1:{port}{mcp_path}"),
     }
 }
 

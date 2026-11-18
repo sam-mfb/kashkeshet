@@ -32,7 +32,14 @@ pub async fn run<D: crate::ServiceDefaults>(
     // Steps are synchronous; doctor's checks are async, so they block on
     // this runtime from inside, which needs a runtime of many threads.
     tokio::task::block_in_place(|| {
-        setup::run(&answers, Build::CURRENT.version, &ask, &steps).map(|_| ())
+        setup::run(
+            &answers,
+            Build::CURRENT.version,
+            parts.mcp_path,
+            &ask,
+            &steps,
+        )
+        .map(|_| ())
     })
 }
 

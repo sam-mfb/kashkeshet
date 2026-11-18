@@ -203,6 +203,7 @@ fn parts(
             key: access.map(PathBuf::from),
         },
         admin_key: Box::new(AdminAt("/cfg/admin-key".into())),
+        mcp_path: "/mcp",
         admin_path: "/mcp-admin",
         servers: Box::new(Answering {
             seen: seen.clone(),

@@ -233,10 +233,12 @@ pub fn shell_word(text: &str) -> String {
     format!("'{}'", text.replace('\'', "'\\''"))
 }
 
-/// Validate an HTTP MCP endpoint without allowing secrets in its URL. A bare
-/// origin means /mcp; a supplied path is left intact for forwarding setups.
-pub fn endpoint(bind: SocketAddr, given: Option<&str>) -> Result<String, String> {
-    let default = format!("http://{bind}/mcp");
+/// Validate an HTTP MCP endpoint without allowing secrets in its URL. With
+/// none given, the server on `bind`; a bare origin means `mcp_path`, the
+/// path the server's MCP endpoint is at; a supplied path is left intact for
+/// forwarding setups.
+pub fn endpoint(bind: SocketAddr, given: Option<&str>, mcp_path: &str) -> Result<String, String> {
+    let default = format!("http://{bind}{mcp_path}");
     let text = given.unwrap_or(&default);
     if text.chars().any(char::is_control) {
         return Err("URL contains a control character".into());
@@ -254,7 +256,7 @@ pub fn endpoint(bind: SocketAddr, given: Option<&str>) -> Result<String, String>
         return Err("put credentials in the key file, not in the URL; query strings and fragments are not supported".into());
     }
     if url.path() == "/" {
-        url.set_path("/mcp");
+        url.set_path(mcp_path);
     }
     Ok(url.to_string())
 }

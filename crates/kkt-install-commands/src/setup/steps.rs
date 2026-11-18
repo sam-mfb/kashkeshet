@@ -132,7 +132,11 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 &setup::docker_key_copies(&key_file),
             ))
             .map_err(|e| e.to_string())?;
-        let url = docker_url(options.docker_port, provisioned.node.as_ref());
+        let url = docker_url(
+            options.docker_port,
+            provisioned.node.as_ref(),
+            self.parts.mcp_path,
+        );
         let (hostname, tailnet) = provisioned.node.unzip();
         Ok((
             setup::Installed {

@@ -87,24 +87,16 @@ const SETUP_UNKNOWN_VERSION: &str = "unknown";
 const DB_FILE_NAME: &str = "kashkeshet.db";
 /// The per-user data directory on macOS, under the home directory.
 const MACOS_DATA_DIR: &str = "Library/Application Support/kashkeshet";
-/// The per-user data directory elsewhere, under `$XDG_DATA_HOME`.
+/// The per-user data directory elsewhere, under the XDG data home.
 const XDG_DATA_DIR: &str = "kashkeshet";
-/// `$XDG_DATA_HOME` when it is not set, under the home directory.
-const XDG_DATA_HOME_DEFAULT: &str = ".local/share";
 
 /// The per-user data directory: `~/Library/Application Support/kashkeshet`
-/// on macOS, `$XDG_DATA_HOME/kashkeshet` (or `~/.local/share/kashkeshet`)
+/// on macOS, and `kashkeshet` in the XDG data home ([`Env::data_home`])
 /// elsewhere. The database and the managed Docker folder go here.
 pub fn data_dir(env: &Env, platform: Platform) -> Option<PathBuf> {
     match platform {
         Platform::MacOs => Some(env.home.as_ref()?.join(MACOS_DATA_DIR)),
-        Platform::Xdg => {
-            let base = match env.absolute_xdg_data_home() {
-                Some(dir) => dir.to_path_buf(),
-                None => env.home.as_ref()?.join(XDG_DATA_HOME_DEFAULT),
-            };
-            Some(base.join(XDG_DATA_DIR))
-        }
+        Platform::Xdg => Some(env.data_home()?.join(XDG_DATA_DIR)),
     }
 }
 

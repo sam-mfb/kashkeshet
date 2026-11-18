@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "20da5c83",
+ "commit": "86091240",
  "crates": [
   {
    "bins": [
@@ -1577,6 +1577,7 @@ window.KKT_GRAPH = {
      "fields": [
       "connection",
       "admin_key",
+      "mcp_path",
       "admin_path",
       "servers",
       "credentials",
@@ -7855,7 +7856,8 @@ window.KKT_GRAPH = {
       "entropy",
       "database",
       "backups",
-      "output"
+      "output",
+      "mcp_path"
      ],
      "kind": "struct",
      "path": "InstallParts"
@@ -11233,6 +11235,7 @@ window.KKT_GRAPH = {
       "absolute_xdg_config_home",
       "absolute_xdg_data_home",
       "config_home",
+      "data_home",
       "named"
      ],
      "path": "Env"
@@ -11376,6 +11379,11 @@ window.KKT_GRAPH = {
      "doc": "The path of the admin agents' MCP endpoint.",
      "kind": "const",
      "path": "MCP_ADMIN_PATH"
+    },
+    {
+     "doc": "The path of the agents' MCP endpoint.",
+     "kind": "const",
+     "path": "MCP_PATH"
     },
     {
      "doc": "How the MCP endpoints' event streams keep in touch with their clients.",
@@ -15874,7 +15882,7 @@ window.KKT_GRAPH = {
      "path": "connection::admin_connection"
     },
     {
-     "doc": "The admin endpoint, from a client endpoint ending in /mcp.",
+     "doc": "The admin endpoint, from a client endpoint ending in `mcp_path`.",
      "kind": "fn",
      "path": "connection::admin_endpoint"
     },
@@ -15909,7 +15917,7 @@ window.KKT_GRAPH = {
      "path": "create_destination_check"
     },
     {
-     "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, `$XDG_DATA_HOME/kashkeshet` (or `~/.local/share/kashkeshet`) elsewhere.",
+     "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, and `kashkeshet` in the XDG data home (`Env::data_home`) elsewhere.",
      "kind": "fn",
      "path": "data_dir"
     },
@@ -15934,7 +15942,7 @@ window.KKT_GRAPH = {
      "path": "docker_status_lines"
     },
     {
-     "doc": "The MCP endpoint of kkt in Docker, published on the host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.",
+     "doc": "The MCP endpoint of kkt in Docker, at `mcp_path`: published on the host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.",
      "kind": "fn",
      "path": "docker_url"
     },
@@ -16186,7 +16194,7 @@ window.KKT_GRAPH = {
      "path": "unrecorded_here"
     },
     {
-     "doc": "The installed kkt service with no record: shared over Tailscale as the node `shared` names (its DNS name), else reached at `url`, with the access key in `key_file`.",
+     "doc": "The installed kkt service with no record: shared over Tailscale as the node `shared` names (its DNS name), at `mcp_path`, else reached at `url`, with the access key in `key_file`.",
      "kind": "fn",
      "path": "unrecorded_service"
     },
@@ -19608,6 +19616,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "MCP_ADMIN_PATH",
+    "MCP_PATH",
     "Settings",
     "result_format::Settings"
    ],
@@ -19618,6 +19627,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "MCP_ADMIN_PATH",
+      "MCP_PATH",
       "Settings",
       "result_format::Settings"
      ],
