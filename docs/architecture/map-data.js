@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "83794822",
+ "commit": "04859962",
  "crates": [
   {
    "bins": [
@@ -2152,6 +2152,34 @@ window.KKT_GRAPH = {
    "implements": [],
    "items": [
     {
+     "doc": "Why a credential or state file could not be used.",
+     "kind": "enum",
+     "path": "AgentFileError",
+     "variants": [
+      "Credential",
+      "NotPrivate",
+      "Refused",
+      "NoToken",
+      "EmptyToken",
+      "StateInUse",
+      "NotClaimed",
+      "State",
+      "NotAnId"
+     ]
+    },
+    {
+     "doc": "What was being done to a credential file when it failed.",
+     "kind": "enum",
+     "path": "CredentialAction",
+     "variants": [
+      "Create",
+      "Save",
+      "Inspect",
+      "Open",
+      "Read"
+     ]
+    },
+    {
      "doc": "The caller's rule over the path and named file/caller facts.",
      "kind": "type",
      "path": "CredentialCheck"
@@ -2176,6 +2204,15 @@ window.KKT_GRAPH = {
      "path": "CredentialFileFacts"
     },
     {
+     "doc": "Why a state file's lock could not be taken, other than another holder.",
+     "kind": "enum",
+     "path": "LockError",
+     "variants": [
+      "Open",
+      "Lock"
+     ]
+    },
+    {
      "doc": "Why a `FileLock` was not taken.",
      "kind": "enum",
      "path": "LockRefused",
@@ -2193,6 +2230,15 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "PrivateMode"
+    },
+    {
+     "doc": "What was being done to a state file when it failed.",
+     "kind": "enum",
+     "path": "StateAction",
+     "variants": [
+      "Read",
+      "Write"
+     ]
     },
     {
      "doc": "`kkt watch --state-file`: the highest message ID seen, as text.",
@@ -2244,7 +2290,8 @@ window.KKT_GRAPH = {
    "slots": [],
    "testing_third_party": [],
    "third_party": [
-    "libc"
+    "libc",
+    "thiserror"
    ]
   },
   {
