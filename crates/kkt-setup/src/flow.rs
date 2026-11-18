@@ -271,9 +271,14 @@ const KEY: Question = Question {
 /// A folder of lanes, given with `--lanes`, is checked with the other
 /// answers and imported last, once the setup is recorded. Setup does not
 /// ask about lanes.
+///
+/// `version` is the running kkt's, written into the record, and `mcp_path`
+/// is the path of the server's MCP endpoint, which the web page's address
+/// leaves off.
 pub fn run(
     answers: &Answers,
     version: &str,
+    mcp_path: &str,
     ask: &dyn Ask,
     steps: &dyn Steps,
 ) -> Result<Record, String> {
@@ -452,6 +457,7 @@ setup notes the install before starting it, so nothing was changed"
                          problem; then connect clients with `kkt connect <client> --write`."
                     )
                 })?;
+            ask.tell(&set_up_line(&record, mcp_path));
             return import_lanes(record, lanes.as_deref(), offer, ask, steps);
         }
     };
@@ -475,6 +481,7 @@ setup notes the install before starting it, so nothing was changed"
         Some(unfinished) => format!("{e}.\n{}", unfinished_advice(unfinished)),
         None => format!("{e}; fix that and run `kkt setup` again"),
     })?;
+    ask.tell(&set_up_line(&record, mcp_path));
     import_lanes(record, lanes.as_deref(), offer, ask, steps)
 }
 
@@ -798,8 +805,14 @@ fn finish(
             "The setup is recorded, but the note of it as unfinished could not be removed: {e}"
         ));
     }
-    let web = record.url.strip_suffix("/mcp").unwrap_or(&record.url);
-    ask.tell(&match (&record.clients, record.local_server()) {
+    Ok(record)
+}
+
+/// The line setup ends with: who uses which server, and the web page's
+/// address, which is the server's address without `mcp_path`.
+fn set_up_line(record: &Record, mcp_path: &str) -> String {
+    let web = record.url.strip_suffix(mcp_path).unwrap_or(&record.url);
+    match (&record.clients, record.local_server()) {
         (Some(clients), Some(local)) => format!(
             "This machine's clients use {}. {local}, at {}, with the web page at {web}/.",
             clients.url, record.url
@@ -809,8 +822,7 @@ fn finish(
             record.mode.name(),
             record.url
         ),
-    });
-    Ok(record)
+    }
 }
 
 /// Lets each of `clients`, just connected, always use kkt's tools and `kkt

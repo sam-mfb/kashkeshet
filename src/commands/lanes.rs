@@ -1,6 +1,6 @@
 //! The lane folder on this machine's disk and git, which the operator's lane
 //! commands take (`LaneDisk`, `LaneGit`); the lanes of kkt in a container,
-//! over the containerized service's `Container` (`ContainerLanes`); and tests of
+//! over the containerized service's `ServiceContainer` (`ContainerLanes`); and tests of
 //! those commands over this program's real parts.
 mod commit;
 mod container;

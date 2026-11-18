@@ -61,7 +61,7 @@ fn unrecorded_docker<D>(
     }
     let (hostname, tailnet) = existing.node.clone().unzip();
     Ok(Some(setup::Unrecorded {
-        url: docker_url(existing.port, existing.node.as_ref()),
+        url: docker_url(existing.port, existing.node.as_ref(), parts.mcp_path),
         mode: setup::Mode::Docker(setup::DockerSetup {
             folder,
             tailscale: existing.sharing,
@@ -116,6 +116,7 @@ fn unrecorded_service<D: crate::ServiceDefaults>(
         shared.as_ref().map(|node| node.dns_name.as_str()),
         connection.url,
         connection.key_file,
+        parts.mcp_path,
     )))
 }
 
@@ -164,7 +165,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::InstalledHere
 pub fn read_unfinished(
     env: &Env,
     files: &dyn SetupFiles,
-    container: &dyn kkt_containerized_service::Container,
+    container: &dyn kkt_containerized_service::ServiceContainer,
     service: &dyn kkt_bare_service::Service,
 ) -> Result<Option<setup::Unfinished>, String> {
     let Some(config_dir) = kkt_config_file::config_dir(env.config_home().as_deref()) else {

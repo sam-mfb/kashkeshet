@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "2a255e98",
+ "commit": "e929c4fe",
  "crates": [
   {
    "bins": [
@@ -1577,6 +1577,7 @@ window.KKT_GRAPH = {
      "fields": [
       "connection",
       "admin_key",
+      "mcp_path",
       "admin_path",
       "servers",
       "credentials",
@@ -5104,19 +5105,6 @@ window.KKT_GRAPH = {
     {
      "implementors": [
       {
-       "crate": "kkt-containerized-service",
-       "type": "Containerized"
-      },
-      {
-       "crate": "kkt-containerized-service",
-       "type": "testing::Memory"
-      }
-     ],
-     "trait": "Container"
-    },
-    {
-     "implementors": [
-      {
        "crate": "kashkeshet",
        "type": "terminal::browser_login::TerminalLink"
       },
@@ -5126,6 +5114,19 @@ window.KKT_GRAPH = {
       }
      ],
      "trait": "LoginLink"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kkt-containerized-service",
+       "type": "Containerized"
+      },
+      {
+       "crate": "kkt-containerized-service",
+       "type": "testing::Memory"
+      }
+     ],
+     "trait": "ServiceContainer"
     },
     {
      "implementors": [
@@ -5178,21 +5179,21 @@ window.KKT_GRAPH = {
    "implements": [
     {
      "crate": "kkt-containerized-service",
-     "trait": "Container",
+     "trait": "LoginLink",
+     "trait_crate": "kkt-containerized-service",
+     "type": null
+    },
+    {
+     "crate": "kkt-containerized-service",
+     "trait": "ServiceContainer",
      "trait_crate": "kkt-containerized-service",
      "type": "Containerized"
     },
     {
      "crate": "kkt-containerized-service",
-     "trait": "Container",
+     "trait": "ServiceContainer",
      "trait_crate": "kkt-containerized-service",
      "type": "testing::Memory"
-    },
-    {
-     "crate": "kkt-containerized-service",
-     "trait": "LoginLink",
-     "trait_crate": "kkt-containerized-service",
-     "type": null
     }
    ],
    "items": [
@@ -5232,28 +5233,6 @@ window.KKT_GRAPH = {
      "path": "ConfigReader"
     },
     {
-     "doc": "Running and managing a kkt container installation.",
-     "kind": "trait",
-     "methods": [
-      "add_admin_key",
-      "backup",
-      "compare_web_key",
-      "config_home_file",
-      "down",
-      "existing",
-      "has_settings",
-      "provision",
-      "run_in_server",
-      "settings_file",
-      "sharing_key",
-      "status",
-      "up",
-      "upgrade",
-      "version"
-     ],
-     "path": "Container"
-    },
-    {
      "doc": "The settings of the server's config file the containerized service uses.",
      "fields": [
       "name_pack",
@@ -5263,7 +5242,7 @@ window.KKT_GRAPH = {
      "path": "ContainerConfig"
     },
     {
-     "doc": "Why a `Container` operation failed.",
+     "doc": "Why a `ServiceContainer` operation failed.",
      "kind": "enum",
      "path": "ContainerError",
      "variants": [
@@ -5391,6 +5370,28 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Provisioned"
+    },
+    {
+     "doc": "Running and managing a kkt container installation.",
+     "kind": "trait",
+     "methods": [
+      "add_admin_key",
+      "backup",
+      "compare_web_key",
+      "config_home_file",
+      "down",
+      "existing",
+      "has_settings",
+      "provision",
+      "run_in_server",
+      "settings_file",
+      "sharing_key",
+      "status",
+      "up",
+      "upgrade",
+      "version"
+     ],
+     "path": "ServiceContainer"
     },
     {
      "doc": "The network name and optional login key requested for sharing.",
@@ -7578,7 +7579,7 @@ window.KKT_GRAPH = {
      "holds": [
       {
        "crate": "kkt-containerized-service",
-       "trait": "Container"
+       "trait": "ServiceContainer"
       },
       {
        "crate": "kkt-containerized-service",
@@ -7668,7 +7669,7 @@ window.KKT_GRAPH = {
      "holds": [
       {
        "crate": "kkt-containerized-service",
-       "trait": "Container"
+       "trait": "ServiceContainer"
       },
       {
        "crate": "kkt-containerized-service",
@@ -7859,7 +7860,8 @@ window.KKT_GRAPH = {
       "entropy",
       "database",
       "backups",
-      "output"
+      "output",
+      "mcp_path"
      ],
      "kind": "struct",
      "path": "InstallParts"
@@ -8186,7 +8188,7 @@ window.KKT_GRAPH = {
      "traits": [
       {
        "crate": "kkt-containerized-service",
-       "trait": "Container"
+       "trait": "ServiceContainer"
       }
      ]
     },
@@ -8370,7 +8372,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -8487,7 +8489,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -8591,7 +8593,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -8695,7 +8697,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -8799,7 +8801,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -8916,7 +8918,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -9033,7 +9035,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -9150,7 +9152,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -9310,7 +9312,7 @@ window.KKT_GRAPH = {
      "traits": [
       {
        "crate": "kkt-containerized-service",
-       "trait": "Container"
+       "trait": "ServiceContainer"
       }
      ]
     },
@@ -9362,7 +9364,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -9479,7 +9481,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -9607,7 +9609,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -9702,7 +9704,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -9806,7 +9808,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -9923,7 +9925,7 @@ window.KKT_GRAPH = {
        "traits": [
         {
          "crate": "kkt-containerized-service",
-         "trait": "Container"
+         "trait": "ServiceContainer"
         },
         {
          "crate": "kkt-containerized-service",
@@ -11235,6 +11237,7 @@ window.KKT_GRAPH = {
       "absolute_xdg_config_home",
       "absolute_xdg_data_home",
       "config_home",
+      "data_home",
       "named"
      ],
      "path": "Env"
@@ -11378,6 +11381,11 @@ window.KKT_GRAPH = {
      "doc": "The path of the admin agents' MCP endpoint.",
      "kind": "const",
      "path": "MCP_ADMIN_PATH"
+    },
+    {
+     "doc": "The path of the agents' MCP endpoint.",
+     "kind": "const",
+     "path": "MCP_PATH"
     },
     {
      "doc": "How the MCP endpoints' event streams keep in touch with their clients.",
@@ -15875,7 +15883,7 @@ window.KKT_GRAPH = {
      "path": "connection::admin_connection"
     },
     {
-     "doc": "The admin endpoint, from a client endpoint ending in /mcp.",
+     "doc": "The admin endpoint, from a client endpoint ending in `mcp_path`.",
      "kind": "fn",
      "path": "connection::admin_endpoint"
     },
@@ -15910,7 +15918,7 @@ window.KKT_GRAPH = {
      "path": "create_destination_check"
     },
     {
-     "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, `$XDG_DATA_HOME/kashkeshet` (or `~/.local/share/kashkeshet`) elsewhere.",
+     "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, and `kashkeshet` in the XDG data home (`Env::data_home`) elsewhere.",
      "kind": "fn",
      "path": "data_dir"
     },
@@ -15935,7 +15943,7 @@ window.KKT_GRAPH = {
      "path": "docker_status_lines"
     },
     {
-     "doc": "The MCP endpoint of kkt in Docker, published on the host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.",
+     "doc": "The MCP endpoint of kkt in Docker, at `mcp_path`: published on the host's `port`, or served over Tailscale as `node`, `(hostname, tailnet)`.",
      "kind": "fn",
      "path": "docker_url"
     },
@@ -15961,12 +15969,12 @@ window.KKT_GRAPH = {
      "path": "doctor_checks::admin_key_fix"
     },
     {
-     "doc": "The doctor's line about kkt in Docker, from what `kkt_containerized_service::Container::status` found in the managed `folder`.",
+     "doc": "The doctor's line about kkt in Docker, from what `kkt_containerized_service::ServiceContainer::status` found in the managed `folder`.",
      "kind": "fn",
      "path": "doctor_checks::docker_check"
     },
     {
-     "doc": "The doctor's line about whether the web key's host copy is the Docker server's key, from what `kkt_containerized_service::Container::compare_web_key` found.",
+     "doc": "The doctor's line about whether the web key's host copy is the Docker server's key, from what `kkt_containerized_service::ServiceContainer::compare_web_key` found.",
      "kind": "fn",
      "path": "doctor_checks::docker_web_key_check"
     },
@@ -16187,7 +16195,7 @@ window.KKT_GRAPH = {
      "path": "unrecorded_here"
     },
     {
-     "doc": "The installed kkt service with no record: shared over Tailscale as the node `shared` names (its DNS name), else reached at `url`, with the access key in `key_file`.",
+     "doc": "The installed kkt service with no record: shared over Tailscale as the node `shared` names (its DNS name), at `mcp_path`, else reached at `url`, with the access key in `key_file`.",
      "kind": "fn",
      "path": "unrecorded_service"
     },
@@ -18995,13 +19003,13 @@ window.KKT_GRAPH = {
     "Browser",
     "Carry",
     "ConfigReader",
-    "Container",
     "ContainerConfig",
     "Containerized",
     "InServer",
     "LoginLink",
     "NodeLogin",
     "NodeStatus",
+    "ServiceContainer",
     "SharingNode",
     "Tell"
    ],
@@ -19609,6 +19617,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "MCP_ADMIN_PATH",
+    "MCP_PATH",
     "Settings",
     "result_format::Settings"
    ],
@@ -19619,6 +19628,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "MCP_ADMIN_PATH",
+      "MCP_PATH",
       "Settings",
       "result_format::Settings"
      ],
@@ -20253,13 +20263,13 @@ window.KKT_GRAPH = {
     "Browser",
     "Carry",
     "ConfigReader",
-    "Container",
     "ContainerConfig",
     "Containerized",
     "InServer",
     "Inputs",
     "KeyCopies",
     "LoginLink",
+    "ServiceContainer",
     "Sharing",
     "Tell",
     "testing",
@@ -23835,9 +23845,9 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "ConfigReader",
-    "Container",
     "Inputs",
     "LoginLink",
+    "ServiceContainer",
     "Sharing"
    ],
    "kind": "normal",
@@ -23847,9 +23857,9 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ConfigReader",
-      "Container",
       "Inputs",
       "LoginLink",
+      "ServiceContainer",
       "Sharing"
      ],
      "role": "uses"
@@ -24289,11 +24299,11 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "ConfigReader",
-    "Container",
     "ContainerConfig",
     "Inputs",
     "KeyCopies",
     "LoginLink",
+    "ServiceContainer",
     "Sharing",
     "testing::Memory"
    ],
@@ -28633,7 +28643,7 @@ window.KKT_CONCERNS = {
    "layer": "platform"
   },
   "kkt-containerized-service": {
-   "concern": "kkt's server installed as a service in a container: setting it up, starting and stopping it, its status, upgrades, backups and its key copies. `Container` is the contract the install commands use, with its failures as kinds (`ContainerError`); `Containerized` implements it over any container tool's `Projects`.",
+   "concern": "kkt's server installed as a service in a container: setting it up, starting and stopping it, its status, upgrades, backups and its key copies. `ServiceContainer` is the contract the install commands use, with its failures as kinds (`ContainerError`); `Containerized` implements it over any container tool's `Projects`.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -30324,7 +30334,7 @@ window.KKT_ASSEMBLY = {
       "kkt-install-commands::record::check_setup",
       "kkt-backup::Backups"
      ],
-     "text": "main.rs builds the program's parts once, a NativeParts with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and the program hands it to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git, and to HereLanes, which picks from it the server kkt lanes acts on (LaneServers): the program's ContainerLanes, kkt lanes run in the container over kkt-containerized-service's Container, or kkt-operator-commands' LocalLanes, on the local database. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane helpers, over LaneParts, to the install commands' ImportLanes, on a server picked the same way. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
+     "text": "main.rs builds the program's parts once, a NativeParts with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and the program hands it to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git, and to HereLanes, which picks from it the server kkt lanes acts on (LaneServers): the program's ContainerLanes, kkt lanes run in the container over kkt-containerized-service's ServiceContainer, or kkt-operator-commands' LocalLanes, on the local database. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane helpers, over LaneParts, to the install commands' ImportLanes, on a server picked the same way. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "title": "The install and operator commands"
     }
    ],

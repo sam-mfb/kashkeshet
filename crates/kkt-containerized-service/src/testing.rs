@@ -3,8 +3,8 @@
 //! config home and sharing keys are supplied explicitly by the test.
 
 use crate::{
-    Arg, Carry, ConfigReader, Container, ContainerError, Existing, InServer, Inputs, KeyCopies,
-    KeyCopy, Login, LoginLink, Provisioned, State,
+    Arg, Carry, ConfigReader, ContainerError, Existing, InServer, Inputs, KeyCopies, KeyCopy,
+    Login, LoginLink, Provisioned, ServiceContainer, State,
 };
 use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;
@@ -93,7 +93,7 @@ impl Memory {
     }
 }
 
-impl Container for Memory {
+impl ServiceContainer for Memory {
     fn provision<'a>(
         &'a self,
         _: &'a dyn Clock,

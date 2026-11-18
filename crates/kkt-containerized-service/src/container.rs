@@ -1,4 +1,4 @@
-//! kkt's server installed in a container, as a contract: `Container`, the
+//! kkt's server installed in a container, as a contract: `ServiceContainer`, the
 //! operations its install commands use, with the records they take and
 //! give, and what it is given (`ConfigReader`, `LoginLink`).
 
@@ -148,7 +148,7 @@ pub struct Provisioned {
 }
 
 /// Running and managing a kkt container installation.
-pub trait Container {
+pub trait ServiceContainer {
     /// Create or finish the installation, start it, and save its keys.
     fn provision<'a>(
         &'a self,

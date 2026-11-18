@@ -4,7 +4,7 @@
 use kkt_container::{FileAction, ProjectError, Projects};
 use std::fmt;
 
-/// Why a [`Container`](crate::Container) operation failed. Each kind says
+/// Why a [`ServiceContainer`](crate::ServiceContainer) operation failed. Each kind says
 /// what went wrong, and its text is what the person reads.
 #[derive(Debug, PartialEq, Eq)]
 pub enum ContainerError {

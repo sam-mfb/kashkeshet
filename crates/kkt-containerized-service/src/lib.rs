@@ -1,4 +1,4 @@
-//! kkt's server installed as a containerized service. `Container` is the
+//! kkt's server installed as a containerized service. `ServiceContainer` is the
 //! contract its install commands use, with its records, what it is given
 //! (`ConfigReader`, `LoginLink`) and its error (`ContainerError`), and a
 //! stand-in in memory behind `testing`. `Containerized` implements it over
@@ -36,8 +36,8 @@ mod upgrade;
 
 pub use config::{ConfigReader, ContainerConfig};
 pub use container::{
-    Arg, Carry, Container, Existing, InServer, Inputs, KeyCopies, KeyCopy, Login, Provisioned,
-    Sharing, State,
+    Arg, Carry, Existing, InServer, Inputs, KeyCopies, KeyCopy, Login, Provisioned,
+    ServiceContainer, Sharing, State,
 };
 pub use error::ContainerError;
 use futures::future::LocalBoxFuture;
@@ -180,7 +180,7 @@ impl<P: Projects> Containerized<P> {
     }
 }
 
-impl<P: Projects> Container for Containerized<P> {
+impl<P: Projects> ServiceContainer for Containerized<P> {
     fn provision<'a>(
         &'a self,
         clock: &'a dyn Clock,

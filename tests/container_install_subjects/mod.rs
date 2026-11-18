@@ -1,4 +1,4 @@
-//! The implementations of kkt-container's `Container` that the container
+//! The implementations of kkt-containerized-service's `ServiceContainer` that the container
 //! install's pins run (`tests/container_install/main.rs`). Every scenario
 //! runs once for each subject here, and each subject's transcript must
 //! match the same file in `tests/container_install/`.
@@ -16,7 +16,7 @@
 use kashkeshet::machine::sharing_node::TailscaleNode;
 use kkt_container_docker::Docker;
 use kkt_container_docker::testing::Scripted;
-use kkt_containerized_service::Container;
+use kkt_containerized_service::ServiceContainer;
 use kkt_containerized_service::{Browser, Containerized, Tell};
 use kkt_keys::KeyFiles;
 use std::io;
@@ -27,7 +27,7 @@ pub const SUBJECTS: &[&str] = &["Containerized"];
 
 /// The subject named `name`, over the scripted host `host`, opening a
 /// login link in `browser`.
-pub fn subject(name: &str, browser: Box<dyn Browser>, host: Scripted) -> Box<dyn Container> {
+pub fn subject(name: &str, browser: Box<dyn Browser>, host: Scripted) -> Box<dyn ServiceContainer> {
     match name {
         // kkt's containerized service over Docker as the general
         // `Projects` on the scripted host. It opens the login link itself,

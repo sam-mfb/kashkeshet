@@ -99,6 +99,7 @@ impl<'a, D> NativeParts<'a, D> {
             database: &NativeDatabases,
             backups: &BACKUPS,
             output: &NativeOutput,
+            mcp_path: kkt_mcp::MCP_PATH,
         }
     }
 
