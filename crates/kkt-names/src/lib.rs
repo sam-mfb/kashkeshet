@@ -4,6 +4,9 @@
 
 use kkt_entropy::Entropy;
 
+mod error;
+pub use error::{NameError, Named, Rule};
+
 /// Characters used in channel IDs.
 const ID_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
@@ -65,23 +68,29 @@ pub const MAX_HANDLE_CHARS: usize = 40;
 /// [`ADMIN_PREFIX`], in any case. Every drawn handle passes. Whether another
 /// avatar has it is not checked here. The error says which rule the handle
 /// breaks.
-pub fn check_proposed_handle(name: &str, max_chars: usize) -> Result<(), String> {
+pub fn check_proposed_handle(name: &str, max_chars: usize) -> Result<(), NameError> {
     if !handle_words(name) {
-        return Err(format!(
-            "the handle must be letters, digits and underscores, in words joined by single hyphens, such as `api-reviewer-2` or `Api_Reviewer-2`; got {name:?}"
-        ));
+        return Err(NameError::new(Named::Handle, words(name)));
     }
     if name.len() > max_chars {
-        return Err(format!("the handle must be at most {max_chars} characters"));
+        return Err(NameError::new(
+            Named::Handle,
+            Rule::TooLong { max: max_chars },
+        ));
     }
     // In any case, so that no handle can pass for the operator or an admin.
     let lower = name.to_ascii_lowercase();
     if lower == OPERATOR || lower.starts_with(ADMIN_PREFIX) {
-        return Err(format!(
-            "`{OPERATOR}` and handles starting `{ADMIN_PREFIX}` are reserved, in any case"
-        ));
+        return Err(NameError::new(Named::Handle, Rule::Reserved));
     }
     Ok(())
+}
+
+/// The words rule, broken by `got`.
+fn words(got: &str) -> Rule {
+    Rule::Words {
+        got: got.to_string(),
+    }
 }
 
 /// Whether `name` is ASCII letters, digits and underscores, in one or more
@@ -114,15 +123,14 @@ pub const MAX_LANE_NAME_CHARS: usize = MAX_HANDLE_CHARS;
 /// handles: no name is reserved, and a lane may share its name with an
 /// avatar. The error says
 /// which rule the name breaks.
-pub fn check_lane_name(name: &str, max_chars: usize) -> Result<(), String> {
+pub fn check_lane_name(name: &str, max_chars: usize) -> Result<(), NameError> {
     if !plain_words(name) {
-        return Err(format!(
-            "the lane name must be lowercase letters and digits, in words joined by single hyphens, such as `orchestrator` or `code-reviewer`; got {name:?}"
-        ));
+        return Err(NameError::new(Named::Lane, words(name)));
     }
     if name.len() > max_chars {
-        return Err(format!(
-            "the lane name must be at most {max_chars} characters"
+        return Err(NameError::new(
+            Named::Lane,
+            Rule::TooLong { max: max_chars },
         ));
     }
     Ok(())
@@ -135,15 +143,14 @@ pub const MAX_MEMORY_NAME_CHARS: usize = MAX_HANDLE_CHARS;
 /// in words joined by single hyphens, at most `max_chars`. Unlike a
 /// handle, no capitals or underscores; no name is reserved. The error says
 /// which rule the name breaks.
-pub fn check_memory_name(name: &str, max_chars: usize) -> Result<(), String> {
+pub fn check_memory_name(name: &str, max_chars: usize) -> Result<(), NameError> {
     if !plain_words(name) {
-        return Err(format!(
-            "the entry name must be lowercase letters and digits, in words joined by single hyphens, such as `handoff` or `open-questions`; got {name:?}"
-        ));
+        return Err(NameError::new(Named::MemoryEntry, words(name)));
     }
     if name.len() > max_chars {
-        return Err(format!(
-            "the entry name must be at most {max_chars} characters"
+        return Err(NameError::new(
+            Named::MemoryEntry,
+            Rule::TooLong { max: max_chars },
         ));
     }
     Ok(())
@@ -162,7 +169,7 @@ impl AdminName {
     /// `given`, with [`ADMIN_PREFIX`] in front unless it starts with it. The
     /// rest is lowercase letters and digits, in words joined by single
     /// hyphens; the whole name has at most `max_chars`.
-    pub fn new(given: &str, max_chars: usize) -> Result<AdminName, String> {
+    pub fn new(given: &str, max_chars: usize) -> Result<AdminName, NameError> {
         let given = given.trim();
         let rest = given.strip_prefix(ADMIN_PREFIX).unwrap_or(given);
         let plain = !rest.is_empty()
@@ -173,14 +180,13 @@ impl AdminName {
                         .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
             });
         if !plain {
-            return Err(format!(
-                "the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `{ADMIN_PREFIX}sentinel`); got {given:?}"
-            ));
+            return Err(NameError::new(Named::AdminName, words(given)));
         }
         let name = format!("{ADMIN_PREFIX}{rest}");
         if name.chars().count() > max_chars {
-            return Err(format!(
-                "the admin name must be at most {max_chars} characters, `{ADMIN_PREFIX}` included"
+            return Err(NameError::new(
+                Named::AdminName,
+                Rule::TooLong { max: max_chars },
             ));
         }
         Ok(AdminName(name))
@@ -320,7 +326,7 @@ mod tests {
         let longest = "a".repeat(MAX_ADMIN_NAME_CHARS - ADMIN_PREFIX.len());
         assert!(AdminName::new(&longest, MAX_ADMIN_NAME_CHARS).is_ok());
         assert_eq!(
-            AdminName::new(&format!("{longest}a"), MAX_ADMIN_NAME_CHARS),
+            AdminName::new(&format!("{longest}a"), MAX_ADMIN_NAME_CHARS).map_err(|e| e.to_string()),
             Err("the admin name must be at most 40 characters, `admin-` included".to_string())
         );
     }
@@ -383,7 +389,9 @@ mod tests {
             ("aDmIn-x_y", "reserved"),
             ("admin-", shape),
         ] {
-            let err = check_proposed_handle(bad, MAX_CHARS).expect_err(bad);
+            let err = check_proposed_handle(bad, MAX_CHARS)
+                .expect_err(bad)
+                .to_string();
             assert!(err.contains(rule), "{bad:?}: {err}");
         }
         // Only the prefix is reserved, not every handle holding the word.
@@ -407,12 +415,12 @@ mod tests {
     #[test]
     fn every_name_check_says_what_it_always_said() {
         assert_eq!(
-            check_proposed_handle("two--hyphens", MAX_CHARS),
+            check_proposed_handle("two--hyphens", MAX_CHARS).map_err(|e| e.to_string()),
             Err("the handle must be letters, digits and underscores, in words joined by single hyphens, such as `api-reviewer-2` or `Api_Reviewer-2`; got \"two--hyphens\"".to_string())
         );
         for reserved in ["Operator", "ADMIN-x"] {
             assert_eq!(
-                check_proposed_handle(reserved, MAX_CHARS),
+                check_proposed_handle(reserved, MAX_CHARS).map_err(|e| e.to_string()),
                 Err(
                     "`operator` and handles starting `admin-` are reserved, in any case"
                         .to_string()
@@ -421,15 +429,15 @@ mod tests {
             );
         }
         assert_eq!(
-            check_lane_name("Big_Lane", MAX_CHARS),
+            check_lane_name("Big_Lane", MAX_CHARS).map_err(|e| e.to_string()),
             Err("the lane name must be lowercase letters and digits, in words joined by single hyphens, such as `orchestrator` or `code-reviewer`; got \"Big_Lane\"".to_string())
         );
         assert_eq!(
-            check_memory_name("", MAX_CHARS),
+            check_memory_name("", MAX_CHARS).map_err(|e| e.to_string()),
             Err("the entry name must be lowercase letters and digits, in words joined by single hyphens, such as `handoff` or `open-questions`; got \"\"".to_string())
         );
         assert_eq!(
-            AdminName::new(" admin-Night ", MAX_CHARS),
+            AdminName::new(" admin-Night ", MAX_CHARS).map_err(|e| e.to_string()),
             Err("the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `admin-sentinel`); got \"admin-Night\"".to_string())
         );
     }
@@ -437,7 +445,7 @@ mod tests {
     #[test]
     fn each_check_takes_its_maximum_from_the_caller() {
         // At the maximum given, and one over it, with the number in the text.
-        type Check = fn(&str, usize) -> Result<(), String>;
+        type Check = fn(&str, usize) -> Result<(), NameError>;
         let checks: [(Check, &str); 3] = [
             (
                 check_proposed_handle,
@@ -454,11 +462,14 @@ mod tests {
         ];
         for (check, text) in checks {
             assert_eq!(check("abcde", 5), Ok(()));
-            assert_eq!(check("abcdef", 5), Err(text.to_string()));
+            assert_eq!(
+                check("abcdef", 5).map_err(|e| e.to_string()),
+                Err(text.to_string())
+            );
         }
         assert!(AdminName::new("abc", 9).is_ok());
         assert_eq!(
-            AdminName::new("abcd", 9),
+            AdminName::new("abcd", 9).map_err(|e| e.to_string()),
             Err("the admin name must be at most 9 characters, `admin-` included".to_string())
         );
     }
