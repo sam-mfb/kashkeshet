@@ -1,6 +1,23 @@
-//! What a person is told about an admin key's name, from what kkt-keys reads
-//! of the name file beside it: `kkt status`, `kkt key show` and `kkt key
-//! create` print these lines.
+//! This machine's key files: where each is for each way kkt is deployed
+//! (`places`), the order of the reads that finding one makes (`finders`),
+//! writing a new key and an admin name (`writes`), what `kkt key create`
+//! refuses, and what a person is told about an admin key's name, from what
+//! kkt-keys reads of the name file beside it: `kkt status`, `kkt key show`
+//! and `kkt key create` print these lines.
+
+mod finders;
+mod places;
+mod writes;
+
+pub use finders::{
+    RecordedServerRead, ServeConfigReads, UnrecordedReads, find_here, find_key, find_operator_key,
+};
+pub use places::{
+    Here, KeyKind, KeyPlace, KeysOff, ServerKeys, UnfinishedSetup, admin_key_collision,
+    configured_key, create_asks_for_docker, create_checks, create_destination_check,
+    docker_key_copies, operator_key, recorded_key,
+};
+pub use writes::new_key_file;
 
 use kkt_keys::{
     ADMIN_KEY_COPY_FILE_NAME, AdminNameFile, KeyFiles, admin_name_path, read_admin_name,

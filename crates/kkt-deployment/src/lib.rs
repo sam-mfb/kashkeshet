@@ -19,7 +19,13 @@ mod tests;
 mod upgrade;
 
 pub use guard::guard;
-pub use keys::{admin_name_line, admin_name_written};
+pub use keys::{
+    Here, KeyKind, KeyPlace, KeysOff, RecordedServerRead, ServeConfigReads, ServerKeys,
+    UnfinishedSetup, UnrecordedReads, admin_key_collision, admin_name_line, admin_name_written,
+    configured_key, create_asks_for_docker, create_checks, create_destination_check,
+    docker_key_copies, find_here, find_key, find_operator_key, new_key_file, operator_key,
+    recorded_key,
+};
 pub use lifecycle::{
     Replace, RunningVersion, Status, StatusThen, UpgradePlan, running_version, status,
     status_looks_for_unrecorded, upgrade_plan,

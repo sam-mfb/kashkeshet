@@ -1,8 +1,8 @@
 //! `kkt setup`: what this machine is set up as (a server run as a service, a
 //! server in Docker, or a client of a server elsewhere), the record that
 //! says so, and which server this machine's clients use (`kkt switch`
-//! changes it). It also decides, by how the machine is set up, where each
-//! key file is, and which server installed with no record is here.
+//! changes it). It also decides which server installed with no record is
+//! here.
 //!
 //! The caller reads what is installed, answers questions through [`Ask`],
 //! and carries out what is decided here, so every rule here is tested
@@ -18,9 +18,6 @@ pub use program::{
 };
 mod flow;
 mod installed_here;
-mod key_finders;
-mod key_writes;
-mod keys;
 mod local;
 mod record;
 mod switch;
@@ -36,12 +33,6 @@ pub use adopt::{
 pub use ask::{Ask, Lines, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use installed_here::InstalledHere;
-pub use key_finders::{KeyReads, OperatorKeyReads, find_here, find_key, find_operator_key};
-pub use key_writes::{new_key_file, write_admin_name, write_key_file};
-pub use keys::{
-    Here, KeyKind, KeyPlace, KeysOff, admin_key_collision, configured_key, create_asks_for_docker,
-    create_checks, create_destination_check, docker_key_copies, operator_key, recorded_key,
-};
 pub use local::recorded_setup;
 pub use record::{DockerSetup, InstallCheck, Mode, Record, Server, TailscaleLogin, Unfinished};
 pub use switch::{Switch, SwitchSteps, Target, switch};

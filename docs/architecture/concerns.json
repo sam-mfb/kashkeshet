@@ -161,12 +161,12 @@
   },
   "kkt-deployment": {
    "layer": "operations",
-   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, what `kkt status` and `kkt upgrade` do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
+   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data, Docker files and key files are, whether `kkt serve` may run here, what `kkt status` and `kkt upgrade` do, and how a client reaches the server. It works on facts it declares, which its caller reads from the setup record.",
    "kind": "logic"
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to, and where key files are. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to. It declares what is installed here (`InstalledHere`).",
    "kind": "logic"
   },
   "kkt-bare-service": {
