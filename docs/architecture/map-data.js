@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "5d3831ab",
+ "commit": "ea566bd3",
  "crates": [
   {
    "bins": [
@@ -17550,6 +17550,11 @@ window.KKT_GRAPH = {
      "path": "Place"
     },
     {
+     "doc": "Why a `Place` could not load or save: the implementation's own error, which kkt-watch passes on unread.",
+     "kind": "struct",
+     "path": "PlaceError"
+    },
+    {
      "doc": "Where the output goes.",
      "kind": "trait",
      "methods": [
@@ -17557,6 +17562,11 @@ window.KKT_GRAPH = {
       "note"
      ],
      "path": "Report"
+    },
+    {
+     "doc": "Why a `Report` could not show a message: the implementation's own error, which kkt-watch passes on unread.",
+     "kind": "struct",
+     "path": "ReportError"
     },
     {
      "doc": "How long the watch's calls wait, and how it retries.",
@@ -17569,6 +17579,21 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Settings"
+    },
+    {
+     "doc": "Why `run` stopped.",
+     "kind": "enum",
+     "path": "WatchError",
+     "variants": [
+      "TimeoutTooLong",
+      "ClockOutOfRange",
+      "NoAnswerBeforeTimeout",
+      "NoChannelNamed",
+      "SeveralChannelsNamed",
+      "Server",
+      "Place",
+      "Report"
+     ]
     },
     {
      "doc": "`id #channel sender: body`, all on one line: the body's line breaks become ` / ` and other control characters spaces.",
@@ -17645,6 +17670,7 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "futures",
+    "thiserror",
     "tokio"
    ]
   },
@@ -20771,7 +20797,9 @@ window.KKT_GRAPH = {
    "items": [
     "Options",
     "Place",
-    "Report"
+    "PlaceError",
+    "Report",
+    "ReportError"
    ],
    "kind": "normal",
    "optional": false,
@@ -20786,7 +20814,9 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "Options"
+      "Options",
+      "PlaceError",
+      "ReportError"
      ],
      "role": "uses"
     }
@@ -21477,7 +21507,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "ReportError"
+   ],
    "to": "kkt-watch"
   },
   {
