@@ -519,6 +519,13 @@ code at f66b0ab:
   kkt-client-command are kkt-llm-agent-config and kkt-llm-agent-command:
   "client" alone was confused with kkt as a client of its own server.
 
+- **Layers say what kind of thing a crate is** (Sam, 2026-11-17, msg
+  3979), not how crates are assembled. kkt-provenance moves from
+  operations to core: it defines what a server run records about itself,
+  touches nothing on the machine at run time, and the rules store its
+  record. Operations is what handles kkt's interactions with the machine
+  it runs on.
+
 ## Other decisions
 
 - kkt-format is dissolved: the formatter becomes kkt-mcp-formatter.

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "6315bbf5",
+ "commit": "d6231c82",
  "crates": [
   {
    "bins": [
@@ -29213,7 +29213,7 @@ window.KKT_CONCERNS = {
   "kkt-provenance": {
    "concern": "What produced a server run: the build, its git commit and the settings that shape the run, as named lines.",
    "kind": "logic",
-   "layer": "operations"
+   "layer": "core"
   },
   "kkt-remote-access": {
    "concern": "Sharing a local service with other machines, as a contract: `RemoteAccess` and its nodes. A remote-access tool implements it.",
@@ -29340,7 +29340,7 @@ window.KKT_CONCERNS = {
    "title": "Programs"
   },
   {
-   "about": "Putting the server together from its parts.",
+   "about": "What builds a whole from the parts a program gives it: the server, and the kkt command's install, operator and agent commands.",
    "id": "assembly",
    "title": "Assembly"
   },
@@ -29350,12 +29350,12 @@ window.KKT_CONCERNS = {
    "title": "Surfaces"
   },
   {
-   "about": "Who is let in at all, who a caller is once in, and which host names the server answers to.",
+   "about": "What decides whether a caller is let in, and as whom: admission, identity, the server's keys, and the host names the server answers to.",
    "id": "access",
    "title": "Access"
   },
   {
-   "about": "Every decision and change, and the notices they send.",
+   "about": "Every decision and change, the notices they send, the names and IDs they give, and what a server run records about itself.",
    "id": "core",
    "title": "Core"
   },
@@ -29365,7 +29365,7 @@ window.KKT_CONCERNS = {
    "title": "Data"
   },
   {
-   "about": "What is specific to running kkt on a machine: setup, settings, services, Docker, client configs, diagnostics, backups, lane files and the record of a server run.",
+   "about": "What handles kkt's interactions with the machine it runs on: installing and running it there, and the files and checks that go with that. Among them: setup, services, containers, agent client configs, diagnostics, backups, the config file and lane files.",
    "id": "operations",
    "title": "Operations"
   },
