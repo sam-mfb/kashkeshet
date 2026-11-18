@@ -2,7 +2,7 @@
 //! reports them. The program supplies what only it can find out about this
 //! machine (kkt in Docker, the service, an unrecorded install) as values.
 
-use super::{Check, Inspector, SERVER_CHECK};
+use super::{Check, Inspector, SERVER_CHECK, Unprobed};
 use std::path::Path;
 
 /// The name of the doctor line about how `kkt setup` set this machine up.
@@ -19,7 +19,7 @@ impl ServerLines {
         inspector: Inspector<'_>,
         url: &str,
         key_file: Option<&Path>,
-    ) -> Result<ServerLines, String> {
+    ) -> Result<ServerLines, Unprobed> {
         inspector.server(url, key_file).await.map(ServerLines)
     }
 }
