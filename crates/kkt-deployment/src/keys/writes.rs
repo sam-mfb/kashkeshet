@@ -11,12 +11,10 @@ pub fn new_key_file(
     entropy: &dyn kkt_entropy::Entropy,
     path: &Path,
     force: bool,
-) -> Result<String, String> {
-    files
-        .new_key(path, force, &mut || {
-            entropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS)
-        })
-        .map_err(|e| e.to_string())
+) -> Result<String, kkt_keys::KeyFileError> {
+    files.new_key(path, force, &mut || {
+        entropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS)
+    })
 }
 
 #[cfg(test)]
@@ -39,7 +37,7 @@ mod tests {
         assert_eq!(file.text, format!("{key}\n"));
         assert_eq!(file.mode, Some(kkt_keys::ACCESS_KEY_FILE_MODE));
         assert_eq!(
-            new_key_file(&files, &SeqEntropy::new(1), path, false),
+            new_key_file(&files, &SeqEntropy::new(1), path, false).map_err(|e| e.to_string()),
             Err(format!(
                 "{} already exists; pass --force to replace it",
                 path.display()
