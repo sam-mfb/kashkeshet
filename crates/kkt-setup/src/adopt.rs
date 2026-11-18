@@ -312,3 +312,102 @@ mod tests {
         );
     }
 }
+
+#[cfg(test)]
+mod refusals {
+    //! Every sentence adopting says when it refuses, pinned exactly.
+
+    use super::*;
+    use crate::DockerSetup;
+
+    /// Finds what it was given, or says it could not read it.
+    struct Found(Result<Option<Unrecorded>, String>);
+    impl AdoptSteps for Found {
+        fn unrecorded(&self) -> Result<Option<Unrecorded>, String> {
+            self.0.clone()
+        }
+    }
+
+    /// Never asked: every case here refuses before a question.
+    struct Silent;
+    impl Ask for Silent {
+        fn interactive(&self) -> bool {
+            false
+        }
+        fn choose(&self, _: Question, _: &[&str], _: usize) -> Result<usize, crate::AskError> {
+            panic!("no question expected")
+        }
+        fn confirm(&self, _: Question) -> Result<bool, crate::AskError> {
+            panic!("no question expected")
+        }
+        fn text(&self, _: Question, _: &str) -> Result<String, crate::AskError> {
+            panic!("no question expected")
+        }
+        fn tell(&self, _: &str) {}
+    }
+
+    fn docker() -> Unrecorded {
+        Unrecorded {
+            mode: Mode::Docker(DockerSetup {
+                folder: PathBuf::from("/data/docker"),
+                tailscale: false,
+                hostname: None,
+                tailnet: None,
+            }),
+            url: "http://127.0.0.1:8080/mcp".into(),
+            key_file: None,
+        }
+    }
+
+    fn refused(answers: &Answers, found: Found) -> String {
+        adoptable(answers, &Silent, &found)
+            .map(|_| ())
+            .expect_err("refused")
+            .to_string()
+    }
+
+    #[test]
+    fn every_adopt_refusal_says_what_it_always_said() {
+        let adopt = Answers {
+            adopt: true,
+            ..Answers::default()
+        };
+        assert_eq!(
+            refused(&adopt, Found(Ok(None))),
+            "--adopt: no kkt server without a setup record was found here"
+        );
+        assert_eq!(
+            refused(
+                &adopt,
+                Found(Err("its service file could not be read".into()))
+            ),
+            "--adopt: its service file could not be read"
+        );
+        let summary = docker().summary();
+        let differs = Answers {
+            purpose: Some(Purpose::Service),
+            ..adopt
+        };
+        assert_eq!(
+            refused(&differs, Found(Ok(Some(docker())))),
+            format!("--adopt: {summary} The answers given now are different.")
+        );
+        let service = Unrecorded {
+            mode: Mode::Service { tailscale: false },
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: None,
+        };
+        let (_, both) = unrecorded_here(Some(docker()), Some(service)).expect_err("both");
+        assert_eq!(
+            both.to_string(),
+            format!(
+                "{summary} A kkt service is installed here too, so which one clients use is not known; remove one (`kkt service uninstall`, or `docker compose down` in the Docker folder) and run `kkt setup` again"
+            )
+        );
+        assert_eq!(
+            service_runs_defaults(&["serve".into(), "--bind".into(), "0.0.0.0:7420".into()], false)
+                .map_err(|e| e.to_string()),
+            Err("Found a kkt service, not recorded, but it runs `kkt serve --bind 0.0.0.0:7420`, with settings other than the default config file's, which `kkt setup` and `kkt upgrade` install; a record could not keep them. Keep managing it with `kkt service`, or put its settings in the default config file, install it again with `kkt service install` and no options, and run `kkt setup`.".to_string())
+        );
+    }
+}

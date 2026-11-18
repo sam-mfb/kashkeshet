@@ -3014,6 +3014,48 @@ mod flow {
     mod switching {
         use super::*;
 
+        /// Every sentence `kkt switch` refuses with, pinned exactly.
+        #[test]
+        fn every_switch_refusal_says_what_it_always_said() {
+            let said = |how: &Switch, steps: &Fake| {
+                switch(how, "0.8.0", &Script::default(), steps)
+                    .expect_err("refused")
+                    .to_string()
+            };
+            assert_eq!(
+                said(&to(OTHER), &Fake::default()),
+                "this machine is not set up yet; run `kkt setup` first"
+            );
+            let local = Switch {
+                to: Target::Local,
+                key_file: None,
+                clients: None,
+            };
+            assert_eq!(
+                said(&local, &on(client_record())),
+                "--local is for a machine that runs a kkt server, and this one is a client of https://old.example/mcp; give the server's address instead"
+            );
+            let unreachable = Fake {
+                bad_addresses: vec![OTHER],
+                ..on(client_record())
+            };
+            assert_eq!(
+                said(&to(OTHER), &unreachable),
+                format!(
+                    "the server at {OTHER} did not pass its check, so nothing was changed:\nproblem: server: connection refused"
+                )
+            );
+            let failing = Fake {
+                connected: vec![Client::ClaudeCode, Client::Codex],
+                fail_connect: Some(Client::Codex),
+                ..on(client_record())
+            };
+            assert_eq!(
+                said(&to(OTHER), &failing),
+                "could not connect Codex, so the record still names https://old.example/mcp; fix that and run `kkt switch` again"
+            );
+        }
+
         fn to(url: &str) -> Switch {
             Switch {
                 to: Target::Url(url.into()),
