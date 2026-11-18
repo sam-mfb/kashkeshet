@@ -1,6 +1,7 @@
 //! The MCP tools, and the agent endpoint at `/mcp` that serves them. Each
 //! tool asks [`Identify`] who the caller is and in which swarm, calls into
-//! the rules in that swarm, and formats the result.
+//! the rules in that swarm, and formats the result with [`result_format`]:
+//! the replies' wording, in text or JSON, within the response size cap.
 
 mod format_choice;
 #[cfg(test)]
@@ -8,6 +9,7 @@ mod identify_tests;
 pub mod mcp_admin;
 mod mcp_tools;
 pub mod mcp_transport;
+pub mod result_format;
 mod tool_text;
 
 pub use mcp_admin::MCP_ADMIN_PATH;
@@ -15,6 +17,7 @@ pub use mcp_transport::Settings;
 
 use crate::format_choice::{FormatChoice, chosen};
 use crate::mcp_transport::Transport;
+use crate::result_format::{Format, Formatter};
 use axum::Router;
 use kkt_admission::Principal;
 use kkt_api_agent::{Actor, Api};
@@ -23,7 +26,6 @@ use kkt_api_agent::{
 };
 use kkt_identity::Identify;
 use kkt_log::{Field, Level, Log};
-use kkt_result_format::{Format, Formatter};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{
     CallToolResult, DiscoverResult, Implementation, InitializeRequestParams, InitializeResult,

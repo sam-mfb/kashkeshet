@@ -47,7 +47,6 @@ members = [
     "crates/kkt-machine",
     "crates/kkt-machine-os",
     "crates/kkt-mcp",
-    "crates/kkt-result-format",
     "crates/kkt-names",
     "crates/kkt-install-commands",
     "crates/kkt-operator-commands",
@@ -117,7 +116,6 @@ default-members = [
     "crates/kkt-machine",
     "crates/kkt-machine-os",
     "crates/kkt-mcp",
-    "crates/kkt-result-format",
     "crates/kkt-names",
     "crates/kkt-install-commands",
     "crates/kkt-operator-commands",
@@ -239,7 +237,6 @@ kkt-diagnostics = { path = "crates/kkt-diagnostics" }
 kkt-probe = { path = "crates/kkt-probe" }
 kkt-events = { path = "crates/kkt-events" }
 kkt-files = { path = "crates/kkt-files" }
-kkt-result-format = { path = "crates/kkt-result-format" }
 kkt-hosts = { path = "crates/kkt-hosts" }
 kkt-identity-keymode = { path = "crates/kkt-identity-keymode" }
 kkt-revision = { path = "crates/kkt-revision" }

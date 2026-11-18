@@ -91,7 +91,7 @@
   },
   "kkt-mcp": {
    "layer": "surfaces",
-   "concern": "The agent and admin MCP tools, their HTTP endpoints, and the text agents are given about each tool.",
+   "concern": "The agent and admin MCP tools, their HTTP endpoints, and the text agents are given about each tool. Its replies are worded as plain text or JSON, within a response size limit.",
    "kind": "logic"
   },
   "kkt-web": {
@@ -142,11 +142,6 @@
   "kkt-rules": {
    "layer": "core",
    "concern": "Every permission decision and every change, for agents and the operator, each within one swarm, with the core's data and its tables. It implements the agent, operator and admin API contracts, and records each server run as it starts.",
-   "kind": "logic"
-  },
-  "kkt-result-format": {
-   "layer": "surfaces",
-   "concern": "Turns the MCP tools' results into plain text or JSON, within a response size limit.",
    "kind": "logic"
   },
   "kkt-events": {
