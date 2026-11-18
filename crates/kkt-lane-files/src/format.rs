@@ -14,7 +14,7 @@
 //! importing a lane changes nothing.
 
 /// The file name extension of a lane file.
-pub const EXTENSION: &str = "md";
+pub(crate) const EXTENSION: &str = "md";
 
 /// The line that opens and closes the header.
 const FENCE: &str = "---";

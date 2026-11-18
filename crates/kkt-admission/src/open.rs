@@ -4,7 +4,7 @@ use crate::{Credentials, Decision, Mode, Principal};
 
 /// Lets every caller in, whatever it presents, as [`Principal::Anyone`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct Open;
+pub(crate) struct Open;
 
 impl Mode for Open {
     fn admit(&self, _credentials: &Credentials) -> Decision {

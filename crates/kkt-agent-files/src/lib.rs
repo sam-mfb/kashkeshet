@@ -91,7 +91,7 @@ impl Drop for CredentialFile {
 /// Reads from the same opened file whose owner and mode the caller checks.
 /// The check receives the path and named file/caller facts.
 /// A warning is delivered after tightening and before reading the secret.
-pub fn read_secret(
+pub(crate) fn read_secret(
     path: &Path,
     check: CredentialCheck,
     on_private: fn(&str),
@@ -193,7 +193,7 @@ pub fn watch_token(
 /// lasts until this is dropped or the process ends, however it ends. The lock
 /// file is left in place: removing it could let two processes each lock a
 /// different file of the same name.
-pub struct FileLock {
+pub(crate) struct FileLock {
     _file: std::fs::File,
 }
 

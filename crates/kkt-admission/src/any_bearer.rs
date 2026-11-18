@@ -11,7 +11,7 @@ use std::fmt;
 /// not a bearer token, is refused as by [`SharedKey`](crate::SharedKey). So
 /// is an empty token, or one that is not UTF-8 text.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct AnyBearer;
+pub(crate) struct AnyBearer;
 
 impl Mode for AnyBearer {
     fn admit(&self, credentials: &Credentials) -> Decision {

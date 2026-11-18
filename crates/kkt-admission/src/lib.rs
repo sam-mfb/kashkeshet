@@ -4,10 +4,9 @@
 //!
 //! For `/mcp`, the HTTP layer turns a request into [`Credentials`], asks
 //! [`Admission::decide`], and then acts on the [`Decision`]: for a caller let
-//! in, the [`Principal`] it was admitted as. Every mode of admitting callers
-//! provides the same thing, [`Mode::admit`]; there are three, [`Open`],
-//! [`SharedKey`] and [`AnyBearer`], and [`Admission`] is the one a server
-//! uses. kkt itself uses only the first two.
+//! in, the [`Principal`] it was admitted as. There are three modes of
+//! admitting callers: open, a [`SharedKey`], and any bearer token; each
+//! [`Admission`] is one of them.
 //!
 //! The web page asks [`WebAdmission`] instead. A viewer signs in once with
 //! credentials [`Admission`] accepts and gets a session, which the page
@@ -17,19 +16,20 @@ mod any_bearer;
 pub mod server_keys;
 mod shared_key;
 
-pub use any_bearer::{AnyBearer, BearerToken};
+use any_bearer::AnyBearer;
+pub use any_bearer::BearerToken;
 pub use server_keys::key_refusal;
 pub use shared_key::SharedKey;
 
 mod open;
-pub use open::Open;
+use open::Open;
 
 use std::sync::Arc;
 
 /// A way of admitting callers: what every mode provides. A mode turns the
 /// credential a caller presents into who was admitted, a [`Principal`], or a
 /// refusal, and says nothing about agent tokens or channels.
-pub trait Mode: Send + Sync {
+pub(crate) trait Mode: Send + Sync {
     /// Decides whether the caller that presented `credentials` is let in.
     fn admit(&self, credentials: &Credentials) -> Decision;
 }

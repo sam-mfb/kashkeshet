@@ -19,7 +19,8 @@ pub mod testing;
 mod tests;
 
 pub use commit::LaneCommit;
-pub use format::{EXTENSION, LaneFile, parse, render};
+use format::EXTENSION;
+pub use format::{LaneFile, parse, render};
 
 use format::has_header;
 use std::fmt;
