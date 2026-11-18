@@ -159,9 +159,14 @@
    "concern": "The config file: its TOML format and what it says, where it lives, and reading and writing it and the instructions file whole, through a `Disk` it declares.",
    "kind": "logic"
   },
+  "kkt-deployment": {
+   "layer": "operations",
+   "concern": "What follows from how kkt is deployed on this machine, as a service, in Docker or as a client: where its data and Docker files are, whether `kkt serve` may run here, and what `kkt status` and `kkt upgrade` do. It works on facts it declares, which its caller reads from the setup record.",
+   "kind": "logic"
+  },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: whether a server may run here, which server its clients use, and what status, upgrade, lanes, backup and doctor do. It declares what is installed here (`InstalledHere`), finds and writes the operator's key files, and places the data folder.",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients use, and what lanes, backup and doctor do. It declares what is installed here (`InstalledHere`), and finds and writes the operator's key files.",
    "kind": "logic"
   },
   "kkt-bare-service": {

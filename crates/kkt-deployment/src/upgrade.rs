@@ -1,6 +1,6 @@
-//! Whether the installed binary should replace the recorded server version.
+//! Whether the installed binary should replace the version the server runs.
 
-use super::SETUP_UNKNOWN_VERSION;
+use super::ServerVersion;
 use std::cmp::Ordering;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -12,14 +12,19 @@ pub enum Upgrade {
 /// Compare semantic versions without exposing the parser's types. Build
 /// metadata does not affect precedence. Unknown image tags require the same
 /// explicit override as a downgrade, because their ordering is unknowable.
-/// A server whose version is recorded as not known
-/// ([`SETUP_UNKNOWN_VERSION`]) is always replaced.
-pub fn upgrade(current: &str, target: &str, allow_downgrade: bool) -> Result<Upgrade, String> {
+/// A server whose version is not known ([`ServerVersion::NotKnown`]) is
+/// always replaced.
+pub fn upgrade(
+    current: &ServerVersion,
+    target: &str,
+    allow_downgrade: bool,
+) -> Result<Upgrade, String> {
     let target_version = semver::Version::parse(target)
         .map_err(|_| format!("this kkt has an invalid version {target:?}"))?;
-    if current == SETUP_UNKNOWN_VERSION {
-        return Ok(Upgrade::Proceed);
-    }
+    let current = match current {
+        ServerVersion::NotKnown => return Ok(Upgrade::Proceed),
+        ServerVersion::Known(current) => current,
+    };
     let current_version = match semver::Version::parse(current) {
         Ok(version) => version,
         Err(_) if allow_downgrade => return Ok(Upgrade::Proceed),
@@ -43,11 +48,21 @@ pub fn upgrade(current: &str, target: &str, allow_downgrade: bool) -> Result<Upg
 mod tests {
     use super::*;
 
+    fn known(version: &str) -> ServerVersion {
+        ServerVersion::Known(version.into())
+    }
+
     #[test]
     fn same_version_including_build_metadata_does_nothing() {
         for (current, target) in [("0.4.0", "0.4.0"), ("0.4.0+one", "0.4.0+two")] {
-            assert_eq!(upgrade(current, target, false).unwrap(), Upgrade::Already);
-            assert_eq!(upgrade(current, target, true).unwrap(), Upgrade::Already);
+            assert_eq!(
+                upgrade(&known(current), target, false).unwrap(),
+                Upgrade::Already
+            );
+            assert_eq!(
+                upgrade(&known(current), target, true).unwrap(),
+                Upgrade::Already
+            );
         }
     }
 
@@ -58,36 +73,42 @@ mod tests {
             ("0.4.0-rc.9", "0.4.0-rc.10"),
             ("0.4.0-rc.1", "0.4.0"),
         ] {
-            assert_eq!(upgrade(current, target, false).unwrap(), Upgrade::Proceed);
+            assert_eq!(
+                upgrade(&known(current), target, false).unwrap(),
+                Upgrade::Proceed
+            );
             assert!(
-                upgrade(target, current, false)
+                upgrade(&known(target), current, false)
                     .unwrap_err()
                     .contains("--allow-downgrade")
             );
-            assert_eq!(upgrade(target, current, true).unwrap(), Upgrade::Proceed);
+            assert_eq!(
+                upgrade(&known(target), current, true).unwrap(),
+                Upgrade::Proceed
+            );
         }
     }
 
     #[test]
     fn unknown_tags_require_override_and_invalid_target_is_always_refused() {
         assert!(
-            upgrade("local-test", "0.4.0", false)
+            upgrade(&known("local-test"), "0.4.0", false)
                 .unwrap_err()
                 .contains("cannot compare")
         );
         assert_eq!(
-            upgrade("local-test", "0.4.0", true).unwrap(),
+            upgrade(&known("local-test"), "0.4.0", true).unwrap(),
             Upgrade::Proceed
         );
-        assert!(upgrade("0.4.0", "invalid", true).is_err());
+        assert!(upgrade(&known("0.4.0"), "invalid", true).is_err());
     }
 
     #[test]
     fn a_service_of_unknown_version_is_always_replaced() {
         assert_eq!(
-            upgrade(SETUP_UNKNOWN_VERSION, "0.5.1", false).unwrap(),
+            upgrade(&ServerVersion::NotKnown, "0.5.1", false).unwrap(),
             Upgrade::Proceed
         );
-        assert!(upgrade(SETUP_UNKNOWN_VERSION, "invalid", false).is_err());
+        assert!(upgrade(&ServerVersion::NotKnown, "invalid", false).is_err());
     }
 }

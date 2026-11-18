@@ -22,6 +22,7 @@ kkt-names = { path = "../kkt-names" }
 kkt-provenance = { path = "../kkt-provenance" }
 kkt-remote-access = { path = "../kkt-remote-access" }
 kkt-bare-service = { path = "../kkt-bare-service" }
+kkt-deployment = { path = "../kkt-deployment" }
 kkt-setup = { path = "../kkt-setup" }
 tokio.workspace = true
 

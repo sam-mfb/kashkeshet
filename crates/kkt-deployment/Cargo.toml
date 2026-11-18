@@ -1,0 +1,12 @@
+[package]
+name = "kkt-deployment"
+description = "What follows from how kkt is deployed on this machine: its places, whether kkt serve may run, and what kkt status and kkt upgrade do"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-machine = { path = "../kkt-machine" }
+semver.workspace = true
