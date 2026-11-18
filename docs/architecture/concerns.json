@@ -199,6 +199,11 @@
    "concern": "Implements kkt-container's `Container` with Docker and Compose: the Compose files, the managed folder and the docker commands, among them a run in the container with its work folder made by mktemp and files copied in or out; and kkt-container's general `Projects`, each operation one `docker compose` command in the project's folder. It opens a sharing setup's login link through a `Browser` it declares.",
    "kind": "effect"
   },
+  "kkt-containerized-service": {
+   "layer": "operations",
+   "concern": "kkt's server installed as a containerized service: `Containerized` implements kkt-container's `Container` over the general `Projects`, whatever tool implements it. It owns the Compose files that come with this program, the settings file and what its files say, and starting and stopping the service, and hands the operations it does not do itself to a fallback `Container`.",
+   "kind": "logic"
+  },
   "kkt-remote-access": {
    "layer": "platform",
    "concern": "Sharing a local service with other machines, as a contract: `RemoteAccess` and its nodes. A remote-access tool implements it.",

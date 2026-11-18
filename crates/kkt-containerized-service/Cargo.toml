@@ -1,0 +1,16 @@
+[package]
+name = "kkt-containerized-service"
+description = "kkt's server installed as a containerized service, over kkt-container's general Projects"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+futures.workspace = true
+kkt-clock = { path = "../kkt-clock" }
+kkt-container = { path = "../kkt-container" }
+
+[dev-dependencies]
+kkt-container = { path = "../kkt-container", features = ["testing"] }
