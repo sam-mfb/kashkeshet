@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ea566bd3",
+ "commit": "6e7356ef",
  "crates": [
   {
    "bins": [
@@ -231,6 +231,12 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kashkeshet",
+     "trait": "InstalledHere",
+     "trait_crate": "kkt-operator-commands",
+     "type": "machine::native::InstalledOnThisMachine"
+    },
+    {
+     "crate": "kashkeshet",
      "trait": "Output",
      "trait_crate": "kkt-operator-commands",
      "type": null
@@ -411,6 +417,11 @@ window.KKT_GRAPH = {
      "doc": "The server `kkt lanes` acts on: as kkt-operator-commands' `lanes_on` says, from the deployment this machine's setup record names.",
      "kind": "struct",
      "path": "machine::native::HereLanes"
+    },
+    {
+     "doc": "What is installed on this machine, as kkt-operator-commands declares it: kkt-install-commands' reads of the setup record, the note of an unfinished setup and a server found with no record, read into kkt-deployment's facts.",
+     "kind": "struct",
+     "path": "machine::native::InstalledOnThisMachine"
     },
     {
      "doc": "The operator's parts on this machine, from the implementations the program chooses.",
@@ -757,7 +768,7 @@ window.KKT_GRAPH = {
      "name": "installed",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-operator-commands",
        "trait": "InstalledHere"
       }
      ]
@@ -786,7 +797,7 @@ window.KKT_GRAPH = {
      "name": "installed",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-operator-commands",
        "trait": "InstalledHere"
       }
      ]
@@ -8726,12 +8737,6 @@ window.KKT_GRAPH = {
     },
     {
      "crate": "kkt-install-commands",
-     "trait": "InstalledHere",
-     "trait_crate": "kkt-setup",
-     "type": "record::InstallReads"
-    },
-    {
-     "crate": "kkt-install-commands",
      "trait": "Steps",
      "trait_crate": "kkt-setup",
      "type": null
@@ -9003,7 +9008,10 @@ window.KKT_GRAPH = {
      "doc": "What is installed on this machine, read through the install's parts: the setup record, the note of an unfinished setup whose install is still here, and a server installed with no record.",
      "kind": "struct",
      "methods": [
-      "new"
+      "new",
+      "record",
+      "unfinished",
+      "unrecorded"
      ],
      "path": "record::InstallReads"
     },
@@ -13023,6 +13031,15 @@ window.KKT_GRAPH = {
      "implementors": [
       {
        "crate": "kashkeshet",
+       "type": "machine::native::InstalledOnThisMachine"
+      }
+     ],
+     "trait": "InstalledHere"
+    },
+    {
+     "implementors": [
+      {
+       "crate": "kashkeshet",
        "type": null
       }
      ],
@@ -13115,7 +13132,7 @@ window.KKT_GRAPH = {
     {
      "holds": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-operator-commands",
        "trait": "InstalledHere"
       },
       {
@@ -13258,6 +13275,16 @@ window.KKT_GRAPH = {
       "open"
      ],
      "path": "Databases"
+    },
+    {
+     "doc": "What is installed on this machine, as the key lookups need it, in kkt-deployment's terms.",
+     "kind": "trait",
+     "methods": [
+      "recorded",
+      "unfinished",
+      "unrecorded"
+     ],
+     "path": "InstalledHere"
     },
     {
      "doc": "What the lane helpers and `lanes::LocalLanes` need: the serve config and database, the clock, the lane folder and its commit, and where to say things.",
@@ -13655,7 +13682,7 @@ window.KKT_GRAPH = {
      "name": "installed",
      "traits": [
       {
-       "crate": "kkt-setup",
+       "crate": "kkt-operator-commands",
        "trait": "InstalledHere"
       }
      ]
@@ -13744,7 +13771,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
+         "crate": "kkt-operator-commands",
          "trait": "InstalledHere"
         },
         {
@@ -13811,7 +13838,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
+         "crate": "kkt-operator-commands",
          "trait": "InstalledHere"
         },
         {
@@ -13878,7 +13905,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
+         "crate": "kkt-operator-commands",
          "trait": "InstalledHere"
         },
         {
@@ -13945,7 +13972,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
+         "crate": "kkt-operator-commands",
          "trait": "InstalledHere"
         },
         {
@@ -14012,7 +14039,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
+         "crate": "kkt-operator-commands",
          "trait": "InstalledHere"
         },
         {
@@ -14079,7 +14106,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
+         "crate": "kkt-operator-commands",
          "trait": "InstalledHere"
         },
         {
@@ -14146,7 +14173,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
+         "crate": "kkt-operator-commands",
          "trait": "InstalledHere"
         },
         {
@@ -14487,7 +14514,7 @@ window.KKT_GRAPH = {
        "crate": "kkt-operator-commands",
        "traits": [
         {
-         "crate": "kkt-setup",
+         "crate": "kkt-operator-commands",
          "trait": "InstalledHere"
         },
         {
@@ -16531,15 +16558,6 @@ window.KKT_GRAPH = {
      "trait": "Ask"
     },
     {
-     "implementors": [
-      {
-       "crate": "kkt-install-commands",
-       "type": "record::InstallReads"
-      }
-     ],
-     "trait": "InstalledHere"
-    },
-    {
      "implementors": [],
      "trait": "Lines"
     },
@@ -16687,16 +16705,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Installed"
-    },
-    {
-     "doc": "The three reads of what is installed on this machine.",
-     "kind": "trait",
-     "methods": [
-      "record",
-      "unfinished",
-      "unrecorded"
-     ],
-     "path": "InstalledHere"
     },
     {
      "doc": "The caller's line input and output for setup's questions.",
@@ -19733,6 +19741,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "ServerKeys",
+    "UnfinishedSetup",
     "connection",
     "connection::ConnectionOptions",
     "connection::ConnectionSource",
@@ -19754,6 +19764,8 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "ServerKeys",
+      "UnfinishedSetup",
       "connection",
       "connection::ConnectionOptions",
       "connection::RecordedServer",
@@ -19953,8 +19965,10 @@ window.KKT_GRAPH = {
     "ServiceDefaults",
     "ServiceInputs",
     "SetupFiles",
-    "deployment::deployment",
+    "deployment::found_server_keys",
     "deployment::recorded_server",
+    "deployment::server_keys",
+    "deployment::unfinished_setup",
     "doctor::run",
     "lifecycle::backup",
     "lifecycle::status",
@@ -19990,8 +20004,10 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "deployment::deployment",
+      "deployment::found_server_keys",
       "deployment::recorded_server",
+      "deployment::server_keys",
+      "deployment::unfinished_setup",
       "doctor::run",
       "lifecycle::backup",
       "lifecycle::status",
@@ -20063,6 +20079,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "WEB_KEY_COPY_FILE_NAME",
     "bound_to"
    ],
    "to": "kkt-keys"
@@ -20366,6 +20383,7 @@ window.KKT_GRAPH = {
    "items": [
     "Config",
     "Databases",
+    "InstalledHere",
     "LaneParts",
     "OperatorParts",
     "Output",
@@ -20401,6 +20419,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "a type of its own implements Databases",
+      "machine::native::InstalledOnThisMachine implements InstalledHere",
       "a type of its own implements Output",
       "a type of its own implements Paths",
       "a type of its own implements ServeConfig",
@@ -20676,7 +20695,6 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Answers",
-    "InstalledHere",
     "Lines",
     "Mode",
     "Purpose",
@@ -20700,7 +20718,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Answers",
-      "InstalledHere",
       "Lines",
       "Mode",
       "Purpose",
@@ -21122,7 +21139,8 @@ window.KKT_GRAPH = {
     "Record",
     "Server",
     "Unfinished",
-    "Unrecorded"
+    "Unrecorded",
+    "unfinished_path"
    ],
    "kind": "dev",
    "optional": false,
@@ -21136,7 +21154,8 @@ window.KKT_GRAPH = {
       "Record",
       "Server",
       "Unfinished",
-      "Unrecorded"
+      "Unrecorded",
+      "unfinished_path"
      ],
      "role": "uses"
     }
@@ -25126,7 +25145,6 @@ window.KKT_GRAPH = {
     "DockerSetup",
     "InstallCheck",
     "Installed",
-    "InstalledHere",
     "Lines",
     "Mode",
     "Purpose",
@@ -25165,7 +25183,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "a type of its own implements AdoptSteps",
-      "record::InstallReads implements InstalledHere",
       "a type of its own implements Steps",
       "a type of its own implements SwitchSteps"
      ],
@@ -26858,7 +26875,10 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "Time",
+    "testing::FixedClock"
+   ],
    "to": "kkt-clock"
   },
   {
@@ -26958,7 +26978,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "testing::SeqEntropy"
+   ],
    "to": "kkt-entropy"
   },
   {
@@ -27132,35 +27154,57 @@ window.KKT_GRAPH = {
    "to": "kkt-rules"
   },
   {
-   "features": [],
+   "features": [
+    "testing"
+   ],
    "from": "kkt-operator-commands",
    "items": [
-    "InstalledHere",
-    "Mode",
-    "Purpose",
-    "Record",
-    "Unfinished",
-    "Unrecorded"
+    "Time",
+    "testing::FixedClock"
    ],
-   "kind": "normal",
+   "kind": "dev",
    "optional": false,
    "role": "uses",
    "roles": [
     {
      "detail": [
-      "InstalledHere",
-      "Mode",
-      "Purpose",
-      "Record",
-      "Unfinished",
-      "Unrecorded"
+      "Time"
      ],
      "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
     }
    ],
    "target": null,
    "test_items": [],
-   "to": "kkt-setup"
+   "to": "kkt-clock"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-operator-commands",
+   "items": [
+    "testing::SeqEntropy"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "testing::SeqEntropy"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-entropy"
   },
   {
    "features": [
@@ -29830,7 +29874,7 @@ window.KKT_CONCERNS = {
    "layer": "assembly"
   },
   "kkt-setup": {
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to. It declares what is installed here (`InstalledHere`).",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to.",
    "kind": "logic",
    "layer": "operations"
   },
@@ -31261,7 +31305,8 @@ window.KKT_ASSEMBLY = {
       "kashkeshet::machine::native::NativeParts",
       "kkt-install-commands::InstallParts",
       "kkt-install-commands::record::InstallReads",
-      "kkt-setup::InstalledHere",
+      "kashkeshet::machine::native::InstalledOnThisMachine",
+      "kkt-operator-commands::InstalledHere",
       "kkt-operator-commands::OperatorParts",
       "kkt-operator-commands::LaneParts",
       "kkt-operator-commands::lanes::LaneServers",
@@ -31296,7 +31341,7 @@ window.KKT_ASSEMBLY = {
       "kkt-install-commands::record::check_setup",
       "kkt-backup::Backups"
      ],
-     "text": "main.rs builds the program's parts once, a NativeParts with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and the program hands it to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git, and to HereLanes, which picks from it the server kkt lanes acts on (LaneServers): the program's ContainerLanes, kkt lanes run in the container over kkt-containerized-service's ServiceContainer, or kkt-operator-commands' LocalLanes, on the local database. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane helpers, over LaneParts, to the install commands' ImportLanes, on a server picked the same way. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
+     "text": "main.rs builds the program's parts once, a NativeParts with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and InstalledOnThisMachine reads it into kkt-operator-commands' InstalledHere, which the program hands to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git, and to HereLanes, which picks from it the server kkt lanes acts on (LaneServers): the program's ContainerLanes, kkt lanes run in the container over kkt-containerized-service's ServiceContainer, or kkt-operator-commands' LocalLanes, on the local database. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane helpers, over LaneParts, to the install commands' ImportLanes, on a server picked the same way. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
      "title": "The install and operator commands"
     }
    ],

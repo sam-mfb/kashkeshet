@@ -108,7 +108,7 @@ impl<'a, D> NativeParts<'a, D> {
     /// acts on ([`Self::lane_servers`]).
     pub fn operator_parts<'b>(
         &'b self,
-        installed: &'b dyn kkt_setup::InstalledHere,
+        installed: &'b dyn kkt_operator_commands::InstalledHere,
         lane_servers: &'b dyn LaneServers,
     ) -> OperatorParts<'b> {
         OperatorParts {
@@ -150,7 +150,7 @@ impl<'a, D> NativeParts<'a, D> {
     /// installed here.
     pub fn lane_servers<'b>(
         &'b self,
-        installed: &'b dyn kkt_setup::InstalledHere,
+        installed: &'b dyn kkt_operator_commands::InstalledHere,
     ) -> HereLanes<'b, 'a, D> {
         HereLanes {
             native: self,
@@ -214,11 +214,49 @@ impl kkt_containerized_service::Tell for TerminalTell {
     }
 }
 
+/// What is installed on this machine, as kkt-operator-commands declares
+/// it: kkt-install-commands' reads of the setup record, the note of an
+/// unfinished setup and a server found with no record, read into
+/// kkt-deployment's facts. One assembly may not depend on another, so the
+/// program joins the two.
+pub struct InstalledOnThisMachine<'r, 'a, 'p, C: kkt_deployment::connection::ConnectionSource, D>(
+    pub &'r kkt_install_commands::record::InstallReads<'a, 'p, C, D>,
+);
+
+impl<C: kkt_deployment::connection::ConnectionSource, D: kkt_install_commands::ServiceDefaults>
+    kkt_operator_commands::InstalledHere for InstalledOnThisMachine<'_, '_, '_, C, D>
+{
+    fn recorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String> {
+        Ok(self
+            .0
+            .record()?
+            .as_ref()
+            .map(kkt_install_commands::deployment::server_keys))
+    }
+    fn unfinished(&self) -> Result<Option<kkt_deployment::UnfinishedSetup>, String> {
+        Ok(self
+            .0
+            .unfinished()?
+            .as_ref()
+            .map(kkt_install_commands::deployment::unfinished_setup))
+    }
+    /// The reason a server cannot be made out, without how it runs, which
+    /// the key lookups do not use.
+    fn unrecorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String> {
+        match self.0.unrecorded() {
+            Ok(found) => Ok(found
+                .as_ref()
+                .map(kkt_install_commands::deployment::found_server_keys)),
+            Err((_, e)) => Err(e),
+        }
+    }
+}
+
 /// The server `kkt lanes` acts on: as kkt-operator-commands' `lanes_on`
 /// says, from the deployment this machine's setup record names.
 pub struct HereLanes<'n, 'a, D> {
     native: &'n NativeParts<'a, D>,
-    installed: &'n dyn kkt_setup::InstalledHere,
+    installed: &'n dyn kkt_operator_commands::InstalledHere,
 }
 
 impl<D> LaneServers for HereLanes<'_, '_, D> {
@@ -227,10 +265,7 @@ impl<D> LaneServers for HereLanes<'_, '_, D> {
         db: Option<PathBuf>,
         config: Option<PathBuf>,
     ) -> Result<Box<dyn LaneServer + '_>, String> {
-        let deployment = self
-            .installed
-            .record()?
-            .map(|record| kkt_install_commands::deployment::deployment(&record.mode));
+        let deployment = self.installed.recorded()?.map(|keys| keys.deployment);
         let on = kkt_operator_commands::lanes::lanes_on(
             deployment.as_ref(),
             db.is_some() || config.is_some(),

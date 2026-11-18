@@ -166,7 +166,7 @@
   },
   "kkt-setup": {
    "layer": "operations",
-   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to. It declares what is installed here (`InstalledHere`).",
+   "concern": "What this machine is set up as, kept in the setup record, and what follows from it: which server its clients are switched to.",
    "kind": "logic"
   },
   "kkt-bare-service": {
