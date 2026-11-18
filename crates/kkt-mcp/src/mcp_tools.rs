@@ -7,10 +7,10 @@
 //! Each endpoint logs for itself, and passes in what to do with an internal
 //! error.
 
+use crate::result_format::{Format, Formatter};
 use crate::tool_text;
 use kkt_api_agent::Limits;
 use kkt_api_agent::{Position, RuleError};
-use kkt_result_format::{Format, Formatter};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::Value;
@@ -239,7 +239,7 @@ mod tests {
     fn formatter() -> Formatter {
         let now = Time::from_parts(2026, 10, 23, 15, 0, 0).unwrap();
         Formatter::new(
-            kkt_result_format::Settings::DEFAULT.max_response_bytes,
+            crate::result_format::Settings::DEFAULT.max_response_bytes,
             Arc::new(FixedClock::new(now)),
             "1.2.3-test",
         )

@@ -3,7 +3,7 @@
 use super::agents::{client_json, with_description};
 use super::fit::{Row, cut_body, one_line};
 use super::{Format, Formatter};
-use crate::NOTE_PREVIEW_CHARS;
+use crate::result_format::NOTE_PREVIEW_CHARS;
 use kkt_api_agent::{ChannelInfo, ChannelNote, Members, Page};
 use serde_json::{Value, json};
 

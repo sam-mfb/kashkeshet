@@ -376,12 +376,12 @@ fn client_metadata_is_added_to_lists_and_long_values_fit() {
             total: 1,
             page: page.clone(),
         };
-        let fmt = formatter(crate::MIN_RESPONSE_BYTES);
+        let fmt = formatter(crate::result_format::MIN_RESPONSE_BYTES);
         for (out, key) in [
             (fmt.agents(Format::Json, &page), "agents"),
             (fmt.members(Format::Json, &members), "members"),
         ] {
-            assert!(out.len() <= crate::MIN_RESPONSE_BYTES);
+            assert!(out.len() <= crate::result_format::MIN_RESPONSE_BYTES);
             let value: Value = serde_json::from_str(&out).unwrap();
             assert_eq!(value[key][0]["handle"], "amber-falcon");
             assert_eq!(value[key][0]["client"]["run_id"], 1);
@@ -393,7 +393,7 @@ fn client_metadata_is_added_to_lists_and_long_values_fit() {
             fmt.agents(Format::Text, &page),
             fmt.members(Format::Text, &members),
         ] {
-            assert!(out.len() <= crate::MIN_RESPONSE_BYTES);
+            assert!(out.len() <= crate::result_format::MIN_RESPONSE_BYTES);
             assert!(out.contains("amber-falcon"));
             assert!(out.contains("client:"));
         }
@@ -455,7 +455,7 @@ fn agent_and_member_lists_show_descriptions() {
 
 #[test]
 fn the_longest_descriptions_fit_the_smallest_response_cap() {
-    let cap = crate::MIN_RESPONSE_BYTES;
+    let cap = crate::result_format::MIN_RESPONSE_BYTES;
     let max_chars = kkt_rules::Settings::DEFAULT.max_description_chars;
     // Four-byte characters, characters JSON must escape, and control
     // characters JSON writes as six bytes each.
@@ -508,7 +508,7 @@ fn descriptions_are_whole_when_their_row_fits() {
         items: vec![agent.clone()],
         next_cursor: None,
     };
-    let out = formatter(crate::MIN_RESPONSE_BYTES).agents(Format::Json, &page);
+    let out = formatter(crate::result_format::MIN_RESPONSE_BYTES).agents(Format::Json, &page);
     let json: Value = serde_json::from_str(&out).unwrap();
     assert_eq!(json["agents"][0]["description"], long.as_str());
     // At the default cap, so do the longest four-byte descriptions.
@@ -729,7 +729,7 @@ fn the_admin_sees_which_channels_are_hidden() {
 /// shortened before serializing, so the answer stays valid JSON.
 #[test]
 fn the_admin_channel_json_stays_valid_at_the_smallest_cap() {
-    let cap = crate::MIN_RESPONSE_BYTES;
+    let cap = crate::result_format::MIN_RESPONSE_BYTES;
     let fmt = formatter(cap);
     for unit in ["界", "\"", "\\", "\n", "\u{1}", "😀"] {
         let purpose = unit.repeat(500);
@@ -783,7 +783,7 @@ fn the_admin_channel_json_stays_valid_at_the_smallest_cap() {
 /// client are shortened, and following `more: offset=` reaches every channel.
 #[test]
 fn the_admin_agent_details_fit_and_page_through_channels() {
-    let cap = crate::MIN_RESPONSE_BYTES;
+    let cap = crate::result_format::MIN_RESPONSE_BYTES;
     let fmt = formatter(cap);
     let channel = |n: usize| kkt_api_agent::ChannelInfo {
         id: format!("ch_{n:08}"),
@@ -954,7 +954,7 @@ fn escaped_note_previews_do_not_hide_a_channel_at_the_minimum_cap() {
 
 #[test]
 fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
-    let fmt = formatter(crate::MIN_RESPONSE_BYTES);
+    let fmt = formatter(crate::result_format::MIN_RESPONSE_BYTES);
     for description in ["reviewer".into(), "😀".repeat(300), "\u{1}\n".repeat(150)] {
         let mut a = described("amber-falcon", Some(&description));
         a.listening = true;
@@ -973,7 +973,7 @@ fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
                 fmt.agents(format, &members.page),
                 fmt.members(format, &members),
             ] {
-                assert!(out.len() <= crate::MIN_RESPONSE_BYTES);
+                assert!(out.len() <= crate::result_format::MIN_RESPONSE_BYTES);
                 assert!(!out.contains("larger than"), "{out}");
                 if matches!(format, Format::Json) {
                     let json: Value = serde_json::from_str(&out).unwrap();
@@ -999,7 +999,7 @@ fn many_waiting_channels_keep_paginated_agents_and_members_visible() {
 
 #[test]
 fn a_long_memory_entry_reads_back_whole_in_parts_within_the_cap() {
-    let cap = crate::MIN_RESPONSE_BYTES;
+    let cap = crate::result_format::MIN_RESPONSE_BYTES;
     let text = "😀 \"quoted\"\nline ".repeat(200);
     let entry = kkt_api_agent::MemoryEntry {
         handle: "amber-falcon".into(),
@@ -1085,7 +1085,7 @@ fn memory_lists_fit_the_cap_and_follow_their_cursor() {
         chars: 1770,
         max_chars: 100_000,
     };
-    let cap = crate::MIN_RESPONSE_BYTES;
+    let cap = crate::result_format::MIN_RESPONSE_BYTES;
     let fmt = formatter(cap);
     let text = fmt.memory_list(Format::Text, &list);
     assert!(text.len() <= cap);
@@ -1135,7 +1135,7 @@ fn saving_an_entry_says_how_full_the_memory_is() {
 
 #[test]
 fn reclaim_names_the_memory_entries_up_to_a_bound() {
-    use crate::memory::RECLAIM_MEMORY_NAMES;
+    use crate::result_format::memory::RECLAIM_MEMORY_NAMES;
     let reclaimed = |memory| kkt_api_agent::Reclaimed {
         handle: "amber-falcon".into(),
         token: "act_x".into(),
@@ -1189,7 +1189,7 @@ fn current_server_announcement_text_and_version_are_returned_whole() {
         server_announcement: Some(instructions.clone()),
         lane: None,
     };
-    let fmt = formatter(crate::MIN_RESPONSE_BYTES);
+    let fmt = formatter(crate::result_format::MIN_RESPONSE_BYTES);
     for format in [Format::Text, Format::Json] {
         let registration_text = fmt.registration(format, &registration);
         let whoami = fmt.whoami(format, &registration.handle, Some(&instructions), None);
