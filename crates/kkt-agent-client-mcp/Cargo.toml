@@ -10,7 +10,6 @@ publish = false
 [dependencies]
 futures.workspace = true
 kkt-agent-client = { path = "../kkt-agent-client" }
-kkt-clock = { path = "../kkt-clock" }
 # Written out rather than left to the program: rmcp's client transport talks
 # TLS through reqwest's `rustls`.
 reqwest = { workspace = true, features = ["rustls", "stream"] }

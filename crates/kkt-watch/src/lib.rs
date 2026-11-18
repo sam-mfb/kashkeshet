@@ -33,16 +33,21 @@ pub struct Settings {
     pub watch_retry_first: Duration,
     /// The longest pause after a lost connection.
     pub watch_retry_max: Duration,
+    /// How often a server whose waits answer at once ([`Watched::polls`],
+    /// the admin endpoint's) is asked again while nothing new comes.
+    pub watch_poll: Duration,
 }
 
 impl Settings {
     /// Waits of 50 seconds with 30 seconds' grace; pauses from 2 seconds,
-    /// doubling up to a minute.
+    /// doubling up to a minute; a server that answers at once asked every
+    /// 2 seconds.
     pub const DEFAULT: Settings = Settings {
         watch_wait: Duration::from_secs(50),
         watch_call_grace: Duration::from_secs(30),
         watch_retry_first: Duration::from_secs(2),
         watch_retry_max: Duration::from_secs(60),
+        watch_poll: Duration::from_secs(2),
     };
 }
 
@@ -171,7 +176,7 @@ pub async fn run(
         let grace = later(clock.now(), wait + settings.watch_call_grace).ok_or(OUT_OF_RANGE)?;
         let limit = deadline.map_or(grace, |d| d.min(grace));
         let answer = tokio::select! {
-            answer = fetch(server, &me, after, options, channels.as_deref(), wait) => answer,
+            answer = fetch(server, clock, settings, &me, after, options, channels.as_deref(), wait) => answer,
             () = clock.sleep_until(limit) => Err(Failure::Lost("no answer in time".into())),
         };
         match answer {
@@ -246,18 +251,48 @@ async fn starting<T>(
     }
 }
 
-/// Messages after `after`, waiting up to `wait`. Whole bodies are needed
-/// for `full` and for finding mentions beyond the server's preview. The
-/// agent's own messages are not shown, so they are not fetched.
+/// Messages after `after`, waiting up to `wait`: on the server, or, for a
+/// server that answers at once, by asking again every
+/// `settings.watch_poll` until something comes or the wait is over. Whole
+/// bodies are needed for `full` and for finding mentions beyond the
+/// server's preview. The agent's own messages are not shown, so they are
+/// not fetched.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the loop's state, passed as it is; a struct of them would only rename it"
+)]
 async fn fetch(
     server: &dyn Watched,
+    clock: &dyn Clock,
+    settings: Settings,
     me: &str,
     after: i64,
     options: &Options,
     channels: Option<&[String]>,
     wait: Duration,
 ) -> Result<Waited, Failure> {
-    let mut waited = server.wait(after, channels, wait).await?;
+    let mut waited = if server.polls() {
+        let lost = || Failure::Lost(OUT_OF_RANGE.into());
+        let end = later(clock.now(), wait).ok_or_else(lost)?;
+        let poll = Span::from_std(settings.watch_poll).map_err(|_| lost())?;
+        // Asked only before the end: once the next ask would fall at or
+        // after it, the wait sleeps to its end and gives what it has, so
+        // the end of the wait wins over a last ask. The next wait asks at
+        // once.
+        loop {
+            let waited = server.wait(after, channels, wait).await?;
+            let next = clock.now() + poll;
+            if !waited.messages.is_empty() || next >= end {
+                if waited.messages.is_empty() {
+                    clock.sleep_until(end).await;
+                }
+                break waited;
+            }
+            clock.sleep_until(next).await;
+        }
+    } else {
+        server.wait(after, channels, wait).await?
+    };
     if options.full || options.mentions {
         for message in waited
             .messages

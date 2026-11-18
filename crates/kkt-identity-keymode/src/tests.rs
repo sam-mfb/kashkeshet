@@ -134,16 +134,24 @@ async fn key_mode_refuses_a_bearer_everything() {
 
     // The same token is good from a caller admitted by a key.
     let admitted = mode
-        .avatar(&rules, &Principal::Anyone, Some(&registered.token))
+        .avatar(
+            &kkt_identity::ApiTokens(&rules),
+            &Principal::Anyone,
+            Some(&registered.token),
+        )
         .await
         .expect("the avatar");
     assert_eq!(admitted.actor.handle, registered.handle);
 
     let refusals = [
-        mode.avatar(&rules, &bearer, Some(&registered.token))
-            .await
-            .expect_err("no avatar")
-            .code,
+        mode.avatar(
+            &kkt_identity::ApiTokens(&rules),
+            &bearer,
+            Some(&registered.token),
+        )
+        .await
+        .expect_err("no avatar")
+        .code,
         mode.newcomer(&bearer).await.expect_err("no newcomer").code,
         mode.operator(&bearer).await.expect_err("no operator").code,
     ];
