@@ -1,12 +1,14 @@
 //! The lane folder on this machine's disk and git, which the operator's lane
-//! commands take (`LaneDisk`, `LaneGit`); and tests of those commands over
-//! this program's real parts, among them kkt-operator-commands'
-//! `ContainerLanes` over this program's reader of the container's config
-//! file.
+//! commands take (`LaneDisk`, `LaneGit`), and kkt installed in a container as
+//! they take it (`LanesInContainer`); and tests of those commands over this
+//! program's real parts, among them kkt-operator-commands' `ContainerLanes`
+//! over `LanesInContainer`.
 mod commit;
 mod disk;
+mod in_container;
 pub(crate) use commit::LaneGit;
 pub(crate) use disk::LaneDisk;
+pub(crate) use in_container::LanesInContainer;
 #[cfg(test)]
 use kkt_machine::{Env, Platform};
 #[cfg(test)]
@@ -97,15 +99,17 @@ mod tests {
         );
     }
 
-    /// kkt-operator-commands' `ContainerLanes` over this program's reader
-    /// of the container's config file, in a container installed in
-    /// `/data/docker`.
+    /// kkt-operator-commands' `ContainerLanes` over `LanesInContainer`, with
+    /// this program's reader of the container's config file, in a container
+    /// installed in `/data/docker`.
     mod container {
         use futures::future::BoxFuture;
         use kkt_clock::{Clock, Time};
         use kkt_container::Folder;
-        use kkt_containerized_service::testing::Memory;
-        use kkt_containerized_service::{Inputs, KeyCopies, LoginLink, ServiceContainer};
+        use kkt_containerized_service::testing::{Memory, Run};
+        use kkt_containerized_service::{
+            Arg, Carry, Inputs, KeyCopies, LoginLink, ServiceContainer,
+        };
         use kkt_operator_commands::lanes::{ContainerLanes, LaneServer};
         use kkt_operator_commands::{Output, Paths};
         use std::fmt::Arguments;
@@ -176,12 +180,55 @@ mod tests {
 
         fn lanes(memory: &Memory) -> ContainerLanes<'_> {
             ContainerLanes {
-                container: memory,
-                configs: &crate::machine::settings::ContainerConfigs,
+                container: Box::new(super::super::LanesInContainer {
+                    container: memory,
+                    configs: &crate::machine::settings::ContainerConfigs,
+                    folder: folder(),
+                }),
                 paths: &Unused,
                 output: &Unused,
-                folder: folder(),
             }
+        }
+
+        /// An import runs kkt in the container in its folder, with each
+        /// argument and the files carried in as the lane commands gave them.
+        #[test]
+        fn an_import_runs_in_the_containers_folder_with_its_arguments() {
+            let memory = installed();
+            let read = kkt_lane_files::Read {
+                lanes: vec![kkt_lane_files::LaneFile {
+                    name: "reviewer".into(),
+                    description: String::new(),
+                    text: "Do the work.".into(),
+                }],
+                skipped: vec![],
+                folder: "/home/me/lanes".into(),
+                commit: None,
+            };
+            futures::executor::block_on(lanes(&memory).import(
+                kkt_operator_commands::lanes::LaneImport {
+                    read,
+                    retire_missing: false,
+                    source: None,
+                },
+            ))
+            .expect("imported");
+            let text = |text: &str| Arg::Text(text.into());
+            assert_eq!(
+                memory.runs(),
+                [Run {
+                    folder: folder(),
+                    args: vec![
+                        text("lanes"),
+                        text("import"),
+                        Arg::Folder,
+                        text("--source-folder"),
+                        text("/home/me/lanes"),
+                    ],
+                    folder_prefix: "/tmp/kkt-lanes-import".into(),
+                    carry: Carry::In(vec!["/home/me/lanes/reviewer.md".into()]),
+                }]
+            );
         }
 
         #[test]

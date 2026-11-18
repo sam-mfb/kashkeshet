@@ -1594,8 +1594,6 @@ dependencies = [
  "kkt-api-operator",
  "kkt-clock",
  "kkt-config-file",
- "kkt-container",
- "kkt-containerized-service",
  "kkt-deployment",
  "kkt-entropy",
  "kkt-keys",

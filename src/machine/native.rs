@@ -170,11 +170,13 @@ impl<'a, D> NativeParts<'a, D> {
     ) -> Box<dyn LaneServer + '_> {
         match on {
             LanesOn::Docker(folder) => Box::new(kkt_operator_commands::lanes::ContainerLanes {
-                container: &self.container,
-                configs: &settings::ContainerConfigs,
+                container: Box::new(crate::commands::lanes::LanesInContainer {
+                    container: &self.container,
+                    configs: &settings::ContainerConfigs,
+                    folder: kkt_container::Folder(folder),
+                }),
                 paths: &NativeSetupFiles,
                 output: &NativeOutput,
-                folder: kkt_container::Folder(folder),
             }),
             LanesOn::Local => Box::new(kkt_operator_commands::lanes::LocalLanes::new(
                 self.lane_parts(),

@@ -6,9 +6,7 @@
 use super::{LaneFuture, LaneImport, LaneServer};
 use crate::{Output, Paths};
 use kkt_api_agent::LaneSource;
-use kkt_container::Folder;
-use kkt_containerized_service::{Arg, Carry, ConfigReader, InServer, ServiceContainer};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 /// The start of the name of the folder in the kkt container that `kkt lanes
 /// import` copies the lane files into, to import them there. Each run makes
@@ -20,15 +18,52 @@ const LANES_IMPORT_FOLDER: &str = "/tmp/kkt-lanes-import";
 /// [`LANES_IMPORT_FOLDER`].
 const LANES_EXPORT_FOLDER: &str = "/tmp/kkt-lanes-export";
 
-/// The lanes of kkt installed in a container in `folder`.
+/// kkt installed in a container, as the lane commands use it. The program
+/// adapts its container, the folder kkt is installed in and its reader of
+/// kkt's config file to it.
+pub trait KktInContainer {
+    /// Runs kkt's own program in the container with `args`, in a work
+    /// folder of its own whose name starts with `folder_prefix`, carrying
+    /// files in or out as `carry` says; what it printed.
+    fn run_kkt(
+        &self,
+        args: &[KktArg],
+        folder_prefix: &str,
+        carry: Carried,
+    ) -> Result<String, String>;
+    /// Whether kkt is installed in the folder.
+    fn installed(&self) -> bool;
+    /// The text of kkt's config file in the container, where `kkt` there
+    /// finds it.
+    fn config_file(&self) -> Result<String, String>;
+    /// The lane text limit that the config file `text` sets, if it sets
+    /// one. The error names the setting that is wrong.
+    fn lane_limit_in(&self, text: &str) -> Result<Option<usize>, String>;
+}
+
+/// One argument to kkt's program in the container.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KktArg {
+    Text(String),
+    /// The run's own work folder.
+    WorkFolder,
+}
+
+/// The files a run in the container carries.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Carried {
+    /// These files on the host are copied into the work folder first.
+    In(Vec<PathBuf>),
+    /// The work folder is copied out to this folder on the host after.
+    Out(PathBuf),
+}
+
+/// The lanes of kkt installed in a container.
 pub struct ContainerLanes<'a> {
-    pub container: &'a dyn ServiceContainer,
-    /// Reads the container's config file.
-    pub configs: &'a dyn ConfigReader,
+    pub container: Box<dyn KktInContainer + 'a>,
     /// Makes an export's folder absolute, as the person typed it here.
     pub paths: &'a dyn Paths,
     pub output: &'a dyn Output,
-    pub folder: Folder,
 }
 
 impl LaneServer for ContainerLanes<'_> {
@@ -38,13 +73,10 @@ impl LaneServer for ContainerLanes<'_> {
                 .paths
                 .absolute(dest)
                 .map_err(|e| format!("could not resolve {}: {e}", dest.display()))?;
-            let said = self.container.run_in_server(
-                &self.folder,
-                &InServer {
-                    args: &[text("lanes"), text("export"), Arg::Folder],
-                    folder_prefix: LANES_EXPORT_FOLDER,
-                    carry: Carry::Out(dest.clone()),
-                },
+            let said = self.container.run_kkt(
+                &[text("lanes"), text("export"), KktArg::WorkFolder],
+                LANES_EXPORT_FOLDER,
+                Carried::Out(dest.clone()),
             )?;
             self.output.output(format_args!("{said}"));
             self.output
@@ -73,26 +105,18 @@ impl LaneServer for ContainerLanes<'_> {
             let mut args = vec![
                 text("lanes"),
                 text("import"),
-                Arg::Folder,
+                KktArg::WorkFolder,
                 text("--source-folder"),
-                Arg::Text(lanes.read.folder.display().to_string()),
+                KktArg::Text(lanes.read.folder.display().to_string()),
             ];
             if let Some(commit) = lanes.read.commit {
-                args.extend([text("--source-commit"), Arg::Text(commit)]);
+                args.extend([text("--source-commit"), KktArg::Text(commit)]);
             }
             if lanes.retire_missing {
                 args.push(text("--retire-missing"));
             }
             self.container
-                .run_in_server(
-                    &self.folder,
-                    &InServer {
-                        args: &args,
-                        folder_prefix: LANES_IMPORT_FOLDER,
-                        carry: Carry::In(files),
-                    },
-                )
-                .map_err(String::from)
+                .run_kkt(&args, LANES_IMPORT_FOLDER, Carried::In(files))
         })
     }
 
@@ -102,27 +126,22 @@ impl LaneServer for ContainerLanes<'_> {
     /// `--config`, so it reads only the default config file there.
     fn lane_limit(&self) -> Result<usize, String> {
         let default = kkt_rules::Settings::DEFAULT.max_lane_chars;
-        docker_limit(self.container.has_settings(&self.folder), default, || {
-            let said = self
+        docker_limit(self.container.installed(), default, || {
+            let said = self.container.config_file()?;
+            let limit = self
                 .container
-                .config_home_file(&self.folder, &kkt_config_file::config_file_in_home())?;
-            // Only the lane limit is used, so the paths are not, and a
-            // `~/` path need only be read as one: the home given is a
-            // stand-in for the container's.
-            let settings = self
-                .configs
-                .settings(&said, Path::new("/"), Some(Path::new("/")))
+                .lane_limit_in(&said)
                 // Names the setting that is wrong.
                 .map_err(|detail| {
                     format!("unexpected output from the kkt container's config file: {detail}")
                 })?;
-            Ok(settings.max_lane_chars.unwrap_or(default))
+            Ok(limit.unwrap_or(default))
         })
     }
 }
 
-fn text(text: &str) -> Arg {
-    Arg::Text(text.into())
+fn text(text: &str) -> KktArg {
+    KktArg::Text(text.into())
 }
 
 /// The lane limit of kkt in a container: `default` when the folder holds
@@ -141,32 +160,9 @@ fn docker_limit(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use futures::future::BoxFuture;
-    use kkt_clock::{Clock, Time};
-    use kkt_containerized_service::testing::{Memory, Run};
-    use kkt_containerized_service::{Inputs, KeyCopies, LoginLink};
     use kkt_lane_files::{LaneFile, Read, Skip, Skipped};
     use std::cell::RefCell;
     use std::fmt::Arguments;
-    use std::path::PathBuf;
-
-    struct Unused;
-    impl Clock for Unused {
-        fn now(&self) -> Time {
-            panic!("no clock is read")
-        }
-        fn sleep_until(&self, _: Time) -> BoxFuture<'_, ()> {
-            panic!("nothing sleeps")
-        }
-    }
-    impl LoginLink for Unused {
-        fn show(&self, _: &str) {
-            panic!("no login")
-        }
-        fn open_requested(&self) -> bool {
-            panic!("no login")
-        }
-    }
 
     /// Paths typed here are under `/home/me`.
     struct Here;
@@ -194,41 +190,44 @@ mod tests {
         }
     }
 
-    fn folder() -> Folder {
-        Folder("/data/docker".into())
+    /// One run of kkt in the container: its arguments, its work folder's
+    /// prefix and what it carried.
+    type RunKkt = (Vec<KktArg>, String, Carried);
+
+    /// kkt in a container, in memory: installed or not, every run printing
+    /// `said`, and a config file (none is an empty one, as a container with
+    /// no config file reads).
+    #[derive(Default)]
+    struct Stand {
+        installed: bool,
+        said: String,
+        config: RefCell<Option<String>>,
+        runs: RefCell<Vec<RunKkt>>,
+        config_reads: RefCell<usize>,
     }
 
-    /// A container installed in [`folder`], whose every run prints `said`.
-    fn installed(said: &str) -> Memory {
-        let memory = Memory::new(None, said.into());
-        let inputs = Inputs {
-            version: "0.4.0".into(),
-            project: "kkt".into(),
-            port: 7420,
-            allow_hosts: vec![],
-            sharing: None,
-        };
-        let keys = KeyCopies {
-            access: "/k/a".into(),
-            web: "/k/w".into(),
-            admin: "/k/m".into(),
-        };
-        futures::executor::block_on(memory.provision(&Unused, &Unused, &folder(), &inputs, &keys))
-            .expect("installed");
-        memory
-    }
-
-    /// The container's config file, read for its one setting here: a
-    /// `max_lane_chars = N` line, refused by name when N is not a whole
-    /// number, as the program's reader refuses it.
-    struct Configs;
-    impl ConfigReader for Configs {
-        fn settings(
+    impl KktInContainer for &Stand {
+        fn run_kkt(
             &self,
-            text: &str,
-            _: &Path,
-            _: Option<&Path>,
-        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
+            args: &[KktArg],
+            folder_prefix: &str,
+            carry: Carried,
+        ) -> Result<String, String> {
+            self.runs
+                .borrow_mut()
+                .push((args.to_vec(), folder_prefix.into(), carry));
+            Ok(self.said.clone())
+        }
+        fn installed(&self) -> bool {
+            self.installed
+        }
+        fn config_file(&self) -> Result<String, String> {
+            *self.config_reads.borrow_mut() += 1;
+            Ok(self.config.borrow().clone().unwrap_or_default())
+        }
+        /// A `max_lane_chars = N` line, refused by name when N is not a
+        /// whole number, as the program's reader refuses it.
+        fn lane_limit_in(&self, text: &str) -> Result<Option<usize>, String> {
             let mut max_lane_chars = None;
             for line in text.lines() {
                 if let Some(value) = line.strip_prefix("max_lane_chars = ") {
@@ -238,25 +237,25 @@ mod tests {
                         })?);
                 }
             }
-            Ok(kkt_containerized_service::ContainerConfig {
-                name_pack: None,
-                max_lane_chars,
-            })
+            Ok(max_lane_chars)
         }
     }
 
-    fn lanes<'a>(memory: &'a Memory, said: &'a Said) -> ContainerLanes<'a> {
+    /// kkt installed in the container, whose every run prints `said`.
+    fn installed(said: &str) -> Stand {
+        Stand {
+            installed: true,
+            said: said.into(),
+            ..Stand::default()
+        }
+    }
+
+    fn lanes<'a>(stand: &'a Stand, said: &'a Said) -> ContainerLanes<'a> {
         ContainerLanes {
-            container: memory,
-            configs: &Configs,
+            container: Box::new(stand),
             paths: &Here,
             output: said,
-            folder: folder(),
         }
-    }
-
-    fn text(text: &str) -> Arg {
-        Arg::Text(text.into())
     }
 
     /// Two lanes and a file with no header, read from `/home/me/lanes`.
@@ -291,18 +290,17 @@ mod tests {
 
     #[test]
     fn an_export_runs_kkt_lanes_export_in_the_container_and_carries_the_files_out() {
-        let memory = installed("reviewer.md (version 2)\n");
+        let stand = installed("reviewer.md (version 2)\n");
         let said = Said::default();
-        futures::executor::block_on(lanes(&memory, &said).export(Path::new("out")))
+        futures::executor::block_on(lanes(&stand, &said).export(Path::new("out")))
             .expect("exported");
         assert_eq!(
-            memory.runs(),
-            [Run {
-                folder: folder(),
-                args: vec![text("lanes"), text("export"), Arg::Folder],
-                folder_prefix: "/tmp/kkt-lanes-export".into(),
-                carry: Carry::Out("/home/me/out".into()),
-            }]
+            *stand.runs.borrow(),
+            [(
+                vec![text("lanes"), text("export"), KktArg::WorkFolder],
+                "/tmp/kkt-lanes-export".to_string(),
+                Carried::Out("/home/me/out".into()),
+            )]
         );
         assert_eq!(*said.output.borrow(), "reviewer.md (version 2)\n");
         assert_eq!(*said.errors.borrow(), "Exported to /home/me/out\n");
@@ -310,60 +308,58 @@ mod tests {
 
     #[test]
     fn an_import_runs_kkt_lanes_import_in_the_container_with_the_host_folder_as_source() {
-        let memory = installed("created reviewer (version 1)\n");
+        let stand = installed("created reviewer (version 1)\n");
         let said = Said::default();
-        let report = futures::executor::block_on(lanes(&memory, &said).import(LaneImport {
+        let report = futures::executor::block_on(lanes(&stand, &said).import(LaneImport {
             read: read(Some("abc123")),
             retire_missing: true,
             source: None,
         }))
         .expect("imported");
         assert_eq!(report, "created reviewer (version 1)\n");
-        futures::executor::block_on(lanes(&memory, &said).import(LaneImport {
+        futures::executor::block_on(lanes(&stand, &said).import(LaneImport {
             read: read(None),
             retire_missing: false,
             source: None,
         }))
         .expect("imported");
         assert_eq!(
-            memory.runs(),
+            *stand.runs.borrow(),
             [
-                Run {
-                    folder: folder(),
-                    args: vec![
+                (
+                    vec![
                         text("lanes"),
                         text("import"),
-                        Arg::Folder,
+                        KktArg::WorkFolder,
                         text("--source-folder"),
                         text("/home/me/lanes"),
                         text("--source-commit"),
                         text("abc123"),
                         text("--retire-missing"),
                     ],
-                    folder_prefix: "/tmp/kkt-lanes-import".into(),
+                    "/tmp/kkt-lanes-import".to_string(),
                     // Retiring, the file with no header goes in too, so its
                     // lane is not retired.
-                    carry: Carry::In(vec![
+                    Carried::In(vec![
                         "/home/me/lanes/orchestrator.md".into(),
                         "/home/me/lanes/reviewer.md".into(),
                         "/home/me/lanes/writer.md".into(),
                     ]),
-                },
-                Run {
-                    folder: folder(),
-                    args: vec![
+                ),
+                (
+                    vec![
                         text("lanes"),
                         text("import"),
-                        Arg::Folder,
+                        KktArg::WorkFolder,
                         text("--source-folder"),
                         text("/home/me/lanes"),
                     ],
-                    folder_prefix: "/tmp/kkt-lanes-import".into(),
-                    carry: Carry::In(vec![
+                    "/tmp/kkt-lanes-import".to_string(),
+                    Carried::In(vec![
                         "/home/me/lanes/orchestrator.md".into(),
                         "/home/me/lanes/reviewer.md".into(),
                     ]),
-                },
+                ),
             ]
         );
         assert!(said.output.borrow().is_empty() && said.errors.borrow().is_empty());
@@ -371,14 +367,14 @@ mod tests {
 
     #[test]
     fn an_import_with_its_own_source_is_refused_and_runs_nothing() {
-        let memory = installed("");
+        let stand = installed("");
         let said = Said::default();
         let source = LaneSource {
             folder: "/elsewhere".into(),
             commit: None,
         };
         let refusal = "--source-folder is for `kkt lanes import` in the container itself";
-        let server = lanes(&memory, &said);
+        let server = lanes(&stand, &said);
         assert_eq!(server.check_source(Some(&source)), Err(refusal.into()));
         assert_eq!(server.check_source(None), Ok(()));
         let done = futures::executor::block_on(server.import(LaneImport {
@@ -387,7 +383,7 @@ mod tests {
             source: Some(source),
         }));
         assert_eq!(done, Err(refusal.into()));
-        assert!(memory.runs().is_empty());
+        assert!(stand.runs.borrow().is_empty());
     }
 
     #[test]
@@ -396,34 +392,27 @@ mod tests {
         let said = Said::default();
 
         // No install yet: the default, and nothing is read.
-        let memory = Memory::new(None, String::new());
-        assert_eq!(lanes(&memory, &said).lane_limit(), Ok(default));
-        assert!(memory.config_home_reads().is_empty());
+        let stand = Stand::default();
+        assert_eq!(lanes(&stand, &said).lane_limit(), Ok(default));
+        assert_eq!(*stand.config_reads.borrow(), 0);
 
         // An install with no config file, or one without the setting.
-        let memory = installed("");
-        assert_eq!(lanes(&memory, &said).lane_limit(), Ok(default));
-        memory.set_config_home_file("kkt/config.toml".into(), "name_pack = \"animals\"\n".into());
-        assert_eq!(lanes(&memory, &said).lane_limit(), Ok(default));
+        let stand = installed("");
+        assert_eq!(lanes(&stand, &said).lane_limit(), Ok(default));
+        *stand.config.borrow_mut() = Some("name_pack = \"animals\"\n".into());
+        assert_eq!(lanes(&stand, &said).lane_limit(), Ok(default));
 
-        // Its own setting, read from where `kkt` in the container finds
-        // its config file; a path under the home folder reads too.
-        memory.set_config_home_file(
-            "kkt/config.toml".into(),
-            "db = \"~/kkt.db\"\nmax_lane_chars = 20\n".into(),
-        );
-        assert_eq!(lanes(&memory, &said).lane_limit(), Ok(20));
-        assert_eq!(
-            memory.config_home_reads(),
-            vec![PathBuf::from("kkt/config.toml"); 3]
-        );
+        // Its own setting.
+        *stand.config.borrow_mut() = Some("db = \"~/kkt.db\"\nmax_lane_chars = 20\n".into());
+        assert_eq!(lanes(&stand, &said).lane_limit(), Ok(20));
+        assert_eq!(*stand.config_reads.borrow(), 3);
     }
 
     #[test]
     fn a_lane_limit_that_cannot_be_read_names_the_setting() {
-        let memory = installed("");
-        memory.set_config_home_file("kkt/config.toml".into(), "max_lane_chars = 0.5\n".into());
-        let err = lanes(&memory, &Said::default())
+        let stand = installed("");
+        *stand.config.borrow_mut() = Some("max_lane_chars = 0.5\n".into());
+        let err = lanes(&stand, &Said::default())
             .lane_limit()
             .expect_err("refused");
         assert!(
