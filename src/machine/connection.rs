@@ -1,5 +1,5 @@
 //! How a client reaches the server: its address and access key file, from
-//! the setup record or the serve settings. kkt-setup's connection question,
+//! the setup record or the serve settings. kkt-deployment's connection question,
 //! answered on this machine (`ConnectionReads`).
 
 use crate::machine::keys::{make_default_key, read_key};
@@ -7,17 +7,16 @@ use crate::machine::native::NativeSetupFiles;
 use crate::machine::settings::ServeOptions;
 use crate::machine::settings::Sources;
 use crate::machine::settings::serve_settings_and_sources;
+#[cfg(test)]
+use kkt_deployment::connection::Connection;
+pub use kkt_deployment::connection::ConnectionOptions;
+use kkt_deployment::connection::{ConnectionSource, RecordedServer, ServeConnection};
 use kkt_diagnostics as diagnostics;
 use kkt_keys::AccessKey;
 use kkt_machine::{Env, Platform};
-use kkt_setup as setup;
-#[cfg(test)]
-use setup::connection::Connection;
-pub use setup::connection::ConnectionOptions;
-use setup::connection::{ConnectionSource, ServeConnection};
 use std::path::Path;
 
-/// kkt-setup's connection question, answered from this machine's setup
+/// kkt-deployment's connection question, answered from this machine's setup
 /// record and serve settings.
 pub struct ConnectionReads<'a> {
     pub(crate) env: &'a Env,
@@ -33,8 +32,11 @@ impl<'a> ConnectionReads<'a> {
 impl ConnectionSource for ConnectionReads<'_> {
     type KeySource = Sources;
 
-    fn record(&self) -> Result<Option<setup::Record>, String> {
-        kkt_install_commands::record::read_setup(self.env, &NativeSetupFiles)
+    fn recorded(&self) -> Result<Option<RecordedServer>, String> {
+        Ok(
+            kkt_install_commands::record::read_setup(self.env, &NativeSetupFiles)?
+                .map(|record| kkt_install_commands::deployment::recorded_server(&record)),
+        )
     }
 
     fn serve(&self, flags: ConnectionOptions) -> Result<ServeConnection<Sources>, String> {
@@ -82,7 +84,7 @@ fn serve_connection(
     flags: ConnectionOptions,
     create: bool,
 ) -> Result<Connection, String> {
-    setup::connection::serve_connection(&ConnectionReads { env, platform }, flags, create)
+    kkt_deployment::connection::serve_connection(&ConnectionReads { env, platform }, flags, create)
 }
 
 #[cfg(test)]

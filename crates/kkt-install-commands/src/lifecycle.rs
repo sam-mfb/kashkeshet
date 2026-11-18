@@ -11,10 +11,10 @@ use crate::service::{self, ServiceAction, ServiceInstall, service_plan};
 use crate::{InstallParts, ServeFacts, ServiceDefaults};
 use kkt_backup as backup;
 use kkt_bare_service::ServiceError;
+use kkt_deployment::connection::ConnectionSource;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_setup as setup;
-use kkt_setup::connection::ConnectionSource;
 use std::path::{Path, PathBuf};
 
 /// `kkt backup`: backs up the Docker server through its container, or the
@@ -606,13 +606,13 @@ mod tests {
 
     impl ConnectionSource for Untouched {
         type KeySource = ();
-        fn record(&self) -> Result<Option<setup::Record>, String> {
+        fn recorded(&self) -> Result<Option<kkt_deployment::connection::RecordedServer>, String> {
             self.refused("connection.record")
         }
         fn serve(
             &self,
-            _: kkt_setup::connection::ConnectionOptions,
-        ) -> Result<kkt_setup::connection::ServeConnection<()>, String> {
+            _: kkt_deployment::connection::ConnectionOptions,
+        ) -> Result<kkt_deployment::connection::ServeConnection<()>, String> {
             self.refused("connection.serve")
         }
         fn make_default_key(&self, _: &kkt_keys::AccessKey) -> Result<(), String> {

@@ -2,6 +2,7 @@
 //! here, as the record, the note of an unfinished setup, or a server found
 //! installed with no record says.
 
+use kkt_deployment::connection::{RecordedServer, ServerAddress};
 use kkt_deployment::{
     Deployment, DeploymentEndpoint, RecordedDeployment, ServerVersion, UnrecordedDeployment,
 };
@@ -41,6 +42,20 @@ pub fn recorded(record: &setup::Record) -> RecordedDeployment {
         key_file: record.key_file.clone(),
         clients_url: record.clients.as_ref().map(|clients| clients.url.clone()),
         version: server_version(&record.written_by),
+    }
+}
+
+/// The servers `record` names, for how a client reaches the server: the
+/// one set up here (or used, on a client machine), and the one its clients
+/// were switched to, if they were.
+pub fn recorded_server(record: &setup::Record) -> RecordedServer {
+    let address = |server: setup::Server| ServerAddress {
+        url: server.url,
+        key_file: server.key_file,
+    };
+    RecordedServer {
+        server: address(record.own_server()),
+        switched_to: record.clients.clone().map(address),
     }
 }
 

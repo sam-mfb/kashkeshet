@@ -4,12 +4,12 @@
 
 use crate::keys::{KeyKind, local_operator_key, local_web_key};
 use crate::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
+use kkt_deployment::connection::{self, ConnectionOptions, ConnectionSource};
 use kkt_diagnostics as diagnostics;
 use kkt_llm_agent_config as clients;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_setup as setup;
-use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
 use setup::{Mode, Record, Unfinished, Unrecorded};
 
 pub async fn run<D: crate::ServiceDefaults>(
@@ -32,7 +32,7 @@ pub async fn run<D: crate::ServiceDefaults>(
     let connection = match &record {
         Some(record) if flags.config.is_none() => connection::recorded_connection(
             |path| parts.connection.absolute(path),
-            record.for_clients(),
+            crate::deployment::recorded_server(record).for_clients(),
             flags,
         )?,
         _ => connection::client_connection(parts.connection, flags, false)?,

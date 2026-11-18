@@ -1,10 +1,10 @@
 //! Where a client reaches the server, and with which key: the agent
-//! endpoint as kkt-setup's connection question says, or the local server's
+//! endpoint as kkt-deployment's connection question says, or the local server's
 //! admin endpoint with the admin key.
 
 use crate::AgentParts;
 use kkt_agent_client::Address;
-use kkt_setup::connection::{self, ConnectionOptions, ConnectionSource};
+use kkt_deployment::connection::{self, ConnectionOptions, ConnectionSource};
 
 /// The agent endpoint, with the access key the connection names, if any.
 pub(crate) fn agent<C: ConnectionSource>(
