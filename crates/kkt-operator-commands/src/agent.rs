@@ -1,8 +1,21 @@
 //! The operator's list and revoke commands, on the local server database.
-use crate::OperatorParts;
-use crate::lanes::existing_db;
+use crate::lanes::{DatabaseError, existing_db};
+use crate::{OperatorParts, PartError};
+use kkt_api_agent::RuleError;
 use kkt_rules::{DirectAccess, Revoked};
 use std::path::PathBuf;
+
+/// Why `kkt agent` failed: the serve config could not be read, the
+/// database could not be used, or the rules refused.
+#[derive(Debug, thiserror::Error)]
+pub enum AgentError {
+    #[error(transparent)]
+    Config(PartError),
+    #[error(transparent)]
+    Database(#[from] DatabaseError),
+    #[error(transparent)]
+    Rule(#[from] RuleError),
+}
 
 /// What `kkt agent` does.
 pub enum AgentAction {
@@ -17,14 +30,14 @@ pub async fn run(
     command: AgentAction,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
-) -> Result<(), String> {
+) -> Result<(), AgentError> {
     // An explicit --db needs nothing from the config file, so it is not read.
     let config_db = match db {
         Some(_) => None,
-        None => parts.serve.config(config)?.db,
+        None => parts.serve.config(config).map_err(AgentError::Config)?.db,
     };
     let path = existing_db(&parts.lane_parts(), db, config_db)?;
-    let db = parts.database.open(&path)?;
+    let db = parts.database.open(&path).map_err(DatabaseError::Open)?;
     // Key mode: the one swarm, which every avatar is in.
     let access = DirectAccess::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone());
     // Whoever can open the database file may do anything to it already.
@@ -38,7 +51,7 @@ pub async fn run(
     );
     match command {
         AgentAction::List => {
-            let agents = access.agents(&operator).await.map_err(|e| e.to_string())?;
+            let agents = access.agents(&operator).await?;
             if agents.is_empty() {
                 parts
                     .output
@@ -56,20 +69,14 @@ pub async fn run(
                 ));
             }
         }
-        AgentAction::Revoke { handle } => {
-            match access
-                .revoke(&operator, handle.clone())
-                .await
-                .map_err(|e| e.to_string())?
-            {
-                Revoked::Now { at } => parts
-                    .output
-                    .output(format_args!("revoked {handle} at {at}\n")),
-                Revoked::Already { at } => parts
-                    .output
-                    .output(format_args!("{handle} was already revoked at {at}\n")),
-            }
-        }
+        AgentAction::Revoke { handle } => match access.revoke(&operator, handle.clone()).await? {
+            Revoked::Now { at } => parts
+                .output
+                .output(format_args!("revoked {handle} at {at}\n")),
+            Revoked::Already { at } => parts
+                .output
+                .output(format_args!("{handle} was already revoked at {at}\n")),
+        },
     }
     Ok(())
 }

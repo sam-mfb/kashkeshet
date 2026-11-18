@@ -208,9 +208,12 @@ async fn run(
             },
             force,
             show,
-        ),
+        )
+        .map_err(|e| e.to_string()),
         Task::Agent { action, db, config } => {
-            kkt_operator_commands::agent::run(&operator, action, db, config).await
+            kkt_operator_commands::agent::run(&operator, action, db, config)
+                .await
+                .map_err(|e| e.to_string())
         }
         Task::Lanes { action, db, config } => {
             kkt_operator_commands::lanes::run(&operator, action, db, config).await
@@ -228,10 +231,11 @@ async fn run(
         }
         Task::Switch(how) => kkt_install_commands::setup::run_switch(&install, env, how).await,
         Task::KeyHeader { key_file, json } => {
-            kkt_operator_commands::key::header(&operator, key_file, json)
+            kkt_operator_commands::key::header(&operator, key_file, json).map_err(|e| e.to_string())
         }
         Task::KeyShow { key_file, kind } => {
-            return kkt_operator_commands::key::show(&operator, key_file, kind);
+            return kkt_operator_commands::key::show(&operator, key_file, kind)
+                .map_err(|e| e.to_string());
         }
         Task::Connect {
             client,

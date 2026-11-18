@@ -4,25 +4,80 @@
 
 use crate::OperatorParts;
 use crate::keys::{
-    KeyKind, admin_key_collision, local_operator_key, optional_key_path, runs_in_docker,
-    selected_key_path,
+    KeyKind, SelectedKeyError, admin_key_collision, local_operator_key, optional_key_path,
+    runs_in_docker, selected_key_path,
 };
 use kkt_deployment::new_key_file;
+use kkt_deployment::{
+    AdminKeyCollision, AdminNameLineError, CreateRefusal, FindKeyError, NameNotWritten,
+};
 use kkt_deployment::{admin_name_line, admin_name_written};
 use kkt_llm_agent_config as clients;
-use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS, NameError};
+use std::io;
 use std::path::{Path, PathBuf};
 
-pub fn header(parts: &OperatorParts<'_>, path: Option<PathBuf>, json: bool) -> Result<(), String> {
+/// Why `kkt key header`, `show` or `create` failed: a source's own error,
+/// or the step here that failed, with the key file it was on.
+#[derive(Debug, thiserror::Error)]
+pub enum KeyError {
+    #[error(transparent)]
+    Find(#[from] FindKeyError),
+    #[error(transparent)]
+    Selected(#[from] SelectedKeyError),
+    #[error(transparent)]
+    Header(#[from] clients::ClientConfigError),
+    #[error(transparent)]
+    AdminNameLine(#[from] AdminNameLineError),
+    #[error(transparent)]
+    Refused(#[from] CreateRefusal),
+    /// The admin name given is not a valid one.
+    #[error(transparent)]
+    Name(#[from] NameError),
+    #[error(transparent)]
+    Collision(#[from] AdminKeyCollision),
+    #[error(transparent)]
+    Write(#[from] kkt_keys::KeyFileError),
+    #[error(transparent)]
+    NameNotWritten(#[from] NameNotWritten),
+    #[error("could not read key file {}: {source}", path.display())]
+    Read {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("could not tell whether the key file {} is there: {source}", path.display())]
+    Exists {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("could not resolve key file {}: {source}", path.display())]
+    Resolve {
+        path: PathBuf,
+        #[source]
+        source: io::Error,
+    },
+    #[error("set HOME or pass --path")]
+    NoHome,
+}
+
+pub fn header(
+    parts: &OperatorParts<'_>,
+    path: Option<PathBuf>,
+    json: bool,
+) -> Result<(), KeyError> {
     let path = selected_key_path(parts, path, KeyKind::Access)?;
     let text = parts
         .key_files
         .read(&path)
-        .map_err(|e| format!("could not read key file {}: {}", path.display(), e))?;
-    parts.output.output(format_args!(
-        "{}\n",
-        clients::header(text.trim(), json).map_err(|e| e.to_string())?
-    ));
+        .map_err(|source| KeyError::Read {
+            path: path.clone(),
+            source,
+        })?;
+    parts
+        .output
+        .output(format_args!("{}\n", clients::header(text.trim(), json)?));
     Ok(())
 }
 
@@ -33,7 +88,7 @@ pub fn show(
     parts: &OperatorParts<'_>,
     path: Option<PathBuf>,
     kind: KeyKind,
-) -> Result<std::process::ExitCode, String> {
+) -> Result<std::process::ExitCode, KeyError> {
     let Some(path) = optional_key_path(parts, path, kind)? else {
         parts.output.errors(format_args!(
             "there is no admin key; `kkt key create --admin` makes one\n"
@@ -49,16 +104,12 @@ pub fn show(
             ));
             return Ok(std::process::ExitCode::from(kkt_keys::NO_ADMIN_KEY_EXIT));
         }
-        Err(e) => {
-            return Err(format!("could not read key file {}: {}", path.display(), e));
-        }
+        Err(source) => return Err(KeyError::Read { path, source }),
     };
     parts.output.output(format_args!("{}\n", text.trim()));
     if kind == KeyKind::Admin {
         // On standard error, so standard output stays the key alone.
-        if let Some(line) = admin_name_line(parts.key_files, &path, &text, "admin name")
-            .map_err(|e| e.to_string())?
-        {
+        if let Some(line) = admin_name_line(parts.key_files, &path, &text, "admin name")? {
             parts.output.errors(format_args!("{line}\n"));
         }
     }
@@ -78,7 +129,7 @@ pub fn create(
     new: NewKey<'_>,
     force: bool,
     show: bool,
-) -> Result<(), String> {
+) -> Result<(), KeyError> {
     let NewKey { kind, path, name } = new;
     // Checked before anything is written, so a refused key or a bad name
     // leaves no key.
@@ -92,19 +143,23 @@ pub fn create(
         // Canonicalize existing files to also catch relative paths and
         // symlinks; a missing destination cannot overwrite an existing key.
         let there = |path: &Path| {
-            parts.key_files.try_exists(path).map_err(|e| {
-                format!(
-                    "could not tell whether the key file {} is there: {e}",
-                    path.display()
-                )
-            })
+            parts
+                .key_files
+                .try_exists(path)
+                .map_err(|source| KeyError::Exists {
+                    path: path.to_path_buf(),
+                    source,
+                })
         };
         let (destination, access) = if there(destination)? && there(&access)? {
             let resolve = |path: &Path| {
                 parts
                     .paths
                     .canonicalize(path)
-                    .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
+                    .map_err(|source| KeyError::Resolve {
+                        path: path.to_path_buf(),
+                        source,
+                    })
             };
             (resolve(destination)?, resolve(&access)?)
         } else {
@@ -112,22 +167,22 @@ pub fn create(
                 parts
                     .paths
                     .absolute(path)
-                    .map_err(|e| format!("could not resolve key file {}: {e}", path.display()))
+                    .map_err(|source| KeyError::Resolve {
+                        path: path.to_path_buf(),
+                        source,
+                    })
             };
             (resolve(destination)?, resolve(&access)?)
         };
-        kkt_deployment::create_destination_check(&destination, &access)
-            .map_err(|e| e.to_string())?;
+        kkt_deployment::create_destination_check(&destination, &access)?;
     }
     let path = match kind {
         KeyKind::Access => path
             .or_else(|| parts.serve.default_access_key())
-            .ok_or("set HOME or pass --path")?,
-        _ => optional_key_path(parts, path, kind)?
-            .ok_or_else(|| admin_key_collision().to_string())?,
+            .ok_or(KeyError::NoHome)?,
+        _ => optional_key_path(parts, path, kind)?.ok_or_else(admin_key_collision)?,
     };
-    let key =
-        new_key_file(parts.key_files, parts.entropy, &path, force).map_err(|e| e.to_string())?;
+    let key = new_key_file(parts.key_files, parts.entropy, &path, force)?;
     match kind {
         KeyKind::Web => parts.output.output(format_args!(
             "Wrote a new web key to {}. Restart the server to use it and end existing web sessions.\n",
@@ -142,8 +197,7 @@ pub fn create(
                     &path,
                     name.as_ref().map(ToString::to_string).as_deref(),
                     write_admin_name(parts.key_files, &path, &key, name.as_ref()),
-                )
-                .map_err(|e| e.to_string())?));
+                )?));
         }
         KeyKind::Access => {}
     }
@@ -192,11 +246,11 @@ fn checked_name(
     kind: KeyKind,
     in_docker: bool,
     name: Option<&str>,
-) -> Result<Option<AdminName>, String> {
-    kkt_deployment::create_checks(kind, in_docker, name).map_err(|e| e.to_string())?;
-    name.map(|name| AdminName::new(name, MAX_ADMIN_NAME_CHARS))
-        .transpose()
-        .map_err(|e| e.to_string())
+) -> Result<Option<AdminName>, KeyError> {
+    kkt_deployment::create_checks(kind, in_docker, name)?;
+    Ok(name
+        .map(|name| AdminName::new(name, MAX_ADMIN_NAME_CHARS))
+        .transpose()?)
 }
 
 /// Ties `name` to the new admin key `key`, just written to the file at
@@ -224,8 +278,10 @@ mod tests {
 
     #[test]
     fn key_create_checks_the_name_after_the_key() {
+        let checked =
+            |kind, in_docker, name| checked_name(kind, in_docker, name).map_err(|e| e.to_string());
         assert_eq!(
-            checked_name(KeyKind::Admin, true, Some("Bad Name")),
+            checked(KeyKind::Admin, true, Some("Bad Name")),
             Err(
                 "make or rotate the admin key inside the container: `docker compose exec kkt \
                  kkt key create --admin --force --name <name>`, then restart kkt and rerun \
@@ -235,20 +291,20 @@ mod tests {
         );
         for kind in [KeyKind::Access, KeyKind::Web] {
             assert_eq!(
-                checked_name(kind, false, Some("sentinel")),
+                checked(kind, false, Some("sentinel")),
                 Err("--name names the admin agent, so it goes with --admin".to_string())
             );
-            assert_eq!(checked_name(kind, false, None), Ok(None));
+            assert_eq!(checked(kind, false, None), Ok(None));
         }
         assert_eq!(
-            checked_name(KeyKind::Admin, false, Some("sentinel")),
+            checked(KeyKind::Admin, false, Some("sentinel")),
             Ok(Some(
                 AdminName::new("admin-sentinel", MAX_ADMIN_NAME_CHARS).unwrap()
             ))
         );
-        assert_eq!(checked_name(KeyKind::Admin, false, None), Ok(None));
+        assert_eq!(checked(KeyKind::Admin, false, None), Ok(None));
         assert_eq!(
-            checked_name(KeyKind::Admin, false, Some("Bad Name")),
+            checked(KeyKind::Admin, false, Some("Bad Name")),
             Err(
                 "the admin name must be lowercase letters and digits, in words joined by single \
                  hyphens, such as `sentinel` (which becomes `admin-sentinel`); got \"Bad Name\""
@@ -289,16 +345,20 @@ mod tests {
     }
 
     impl crate::ServeConfig for Machine {
-        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, String> {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, crate::PartError> {
             Ok(crate::Config {
                 db: None,
                 max_lane_chars: 100,
             })
         }
-        fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, crate::PartError> {
             Ok(self.configured.clone())
         }
-        fn database(&self, given: Option<PathBuf>, _: Option<PathBuf>) -> Result<PathBuf, String> {
+        fn database(
+            &self,
+            given: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<PathBuf, crate::PartError> {
             Ok(given.unwrap_or_else(|| PathBuf::from("/db/kkt.db")))
         }
         fn default_access_key(&self) -> Option<PathBuf> {
@@ -310,13 +370,13 @@ mod tests {
     }
 
     impl crate::InstalledHere for Machine {
-        fn recorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String> {
+        fn recorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, crate::PartError> {
             Ok(None)
         }
-        fn unfinished(&self) -> Result<Option<kkt_deployment::UnfinishedSetup>, String> {
+        fn unfinished(&self) -> Result<Option<kkt_deployment::UnfinishedSetup>, crate::PartError> {
             Ok(None)
         }
-        fn unrecorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, String> {
+        fn unrecorded(&self) -> Result<Option<kkt_deployment::ServerKeys>, crate::PartError> {
             Ok(None)
         }
     }
@@ -337,7 +397,7 @@ mod tests {
         fn exists(&self, _: &Path) -> bool {
             false
         }
-        fn open(&self, _: &Path) -> Result<kkt_rules::Db, String> {
+        fn open(&self, _: &Path) -> Result<kkt_rules::Db, crate::PartError> {
             unreachable!("there is no database")
         }
     }
@@ -410,7 +470,9 @@ mod tests {
             entropy: kkt_entropy::testing::SeqEntropy::new(0),
         };
         let access = Some("/k/access-key");
-        let said = |result: Result<(), String>| result.map_err(|e| e.to_string());
+        fn said(result: Result<(), KeyError>) -> Result<(), String> {
+            result.map_err(|e| e.to_string())
+        }
 
         let here = machine(access, None, false);
         let files = Memory::new().failing("/k/refused");

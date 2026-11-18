@@ -3,11 +3,22 @@
 
 use crate::OperatorParts;
 use kkt_deployment::{
-    self, RecordedServerRead, ServeConfigReads, ServerKeys, UnfinishedSetup, UnrecordedReads,
+    self, FindKeyError, KeyReadError, RecordedServerRead, ServeConfigReads, ServerKeys,
+    UnfinishedSetup, UnrecordedReads,
 };
 use std::path::PathBuf;
 
 pub use kkt_deployment::{KeyKind, admin_key_collision};
+
+/// Why `kkt key` found no key to use: the finder's own refusal, or no
+/// admin key where one was asked for.
+#[derive(Debug, thiserror::Error)]
+pub enum SelectedKeyError {
+    #[error(transparent)]
+    Find(#[from] FindKeyError),
+    #[error("there is no admin key")]
+    NoAdminKey,
+}
 
 /// The reads finding a key makes, over the operator's parts.
 struct Reads<'a, 'p> {
@@ -19,7 +30,7 @@ impl RecordedServerRead for Reads<'_, '_> {
         self.parts
             .installed
             .recorded()
-            .map_err(|said| kkt_deployment::KeyReadError(said.into()))
+            .map_err(|e| KeyReadError(Box::new(e)))
     }
 }
 
@@ -28,7 +39,7 @@ impl ServeConfigReads for Reads<'_, '_> {
         self.parts
             .serve
             .configured_access_key()
-            .map_err(|said| kkt_deployment::KeyReadError(said.into()))
+            .map_err(|e| KeyReadError(Box::new(e)))
     }
     fn config_dir(&self) -> Option<PathBuf> {
         self.parts.serve.config_dir()
@@ -40,7 +51,7 @@ impl UnrecordedReads for Reads<'_, '_> {
         self.parts
             .installed
             .unfinished()
-            .map_err(|said| kkt_deployment::KeyReadError(said.into()))
+            .map_err(|e| KeyReadError(Box::new(e)))
     }
     /// A server kkt installed here with no record. One that cannot be made
     /// out is said on standard error, as `kkt status` says it, and the keys
@@ -64,8 +75,8 @@ pub fn selected_key_path(
     parts: &OperatorParts<'_>,
     path: Option<PathBuf>,
     kind: KeyKind,
-) -> Result<PathBuf, String> {
-    optional_key_path(parts, path, kind)?.ok_or_else(|| "there is no admin key".into())
+) -> Result<PathBuf, SelectedKeyError> {
+    optional_key_path(parts, path, kind)?.ok_or(SelectedKeyError::NoAdminKey)
 }
 
 /// None means the access key occupies the implicit admin key's place.
@@ -73,16 +84,14 @@ pub fn optional_key_path(
     parts: &OperatorParts<'_>,
     path: Option<PathBuf>,
     kind: KeyKind,
-) -> Result<Option<PathBuf>, String> {
-    kkt_deployment::find_key(&Reads { parts }, path, kind).map_err(|e| e.to_string())
+) -> Result<Option<PathBuf>, FindKeyError> {
+    kkt_deployment::find_key(&Reads { parts }, path, kind)
 }
 
 /// Whether this machine's server runs in Docker, as recorded or, with no
 /// record and no unfinished setup, as found.
-pub(crate) fn runs_in_docker(parts: &OperatorParts<'_>) -> Result<bool, String> {
-    Ok(kkt_deployment::find_here(&Reads { parts })
-        .map_err(|e| e.to_string())?
-        .runs_in_docker())
+pub(crate) fn runs_in_docker(parts: &OperatorParts<'_>) -> Result<bool, FindKeyError> {
+    Ok(kkt_deployment::find_here(&Reads { parts })?.runs_in_docker())
 }
 
 /// Where this machine's web or admin key file is, if it runs a server: for
@@ -94,9 +103,8 @@ pub fn local_operator_key(
     unfinished: Option<&UnfinishedSetup>,
     unrecorded: Option<&ServerKeys>,
     kind: KeyKind,
-) -> Result<Option<PathBuf>, String> {
+) -> Result<Option<PathBuf>, FindKeyError> {
     kkt_deployment::find_operator_key(&Reads { parts }, unfinished, unrecorded, kind)
-        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
@@ -116,13 +124,17 @@ mod tests {
 
     struct Serve;
     impl ServeConfig for Serve {
-        fn config(&self, _: Option<PathBuf>) -> Result<Config, String> {
+        fn config(&self, _: Option<PathBuf>) -> Result<Config, crate::PartError> {
             unreachable!("the key lookups read no config")
         }
-        fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, crate::PartError> {
             Ok(Some(PathBuf::from("/home/me/.config/kkt/access-key")))
         }
-        fn database(&self, _: Option<PathBuf>, _: Option<PathBuf>) -> Result<PathBuf, String> {
+        fn database(
+            &self,
+            _: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<PathBuf, crate::PartError> {
             unreachable!("the key lookups open no database")
         }
         fn default_access_key(&self) -> Option<PathBuf> {
@@ -177,7 +189,7 @@ mod tests {
         fn exists(&self, _: &Path) -> bool {
             unreachable!()
         }
-        fn open(&self, _: &Path) -> Result<kkt_rules::Db, String> {
+        fn open(&self, _: &Path) -> Result<kkt_rules::Db, crate::PartError> {
             unreachable!()
         }
     }
@@ -216,14 +228,17 @@ mod tests {
         for kind in [KeyKind::Access, KeyKind::Web, KeyKind::Admin] {
             lines.push_str(&format!(
                 "{kind:?}: {:?}\n",
-                optional_key_path(&parts, None, kind)
+                optional_key_path(&parts, None, kind).map_err(|e| e.to_string())
             ));
             lines.push_str(&format!(
                 "{kind:?} here: {:?}\n",
-                local_operator_key(&parts, None, None, kind)
+                local_operator_key(&parts, None, None, kind).map_err(|e| e.to_string())
             ));
         }
-        lines.push_str(&format!("docker: {:?}\n", runs_in_docker(&parts)));
+        lines.push_str(&format!(
+            "docker: {:?}\n",
+            runs_in_docker(&parts).map_err(|e| e.to_string())
+        ));
         lines.push_str(&said.0.borrow());
         lines
     }
@@ -245,14 +260,16 @@ mod tests {
     }
 
     impl crate::InstalledHere for Here {
-        fn recorded(&self) -> Result<Option<ServerKeys>, String> {
+        fn recorded(&self) -> Result<Option<ServerKeys>, crate::PartError> {
             Ok(self.recorded.clone())
         }
-        fn unfinished(&self) -> Result<Option<UnfinishedSetup>, String> {
+        fn unfinished(&self) -> Result<Option<UnfinishedSetup>, crate::PartError> {
             Ok(self.unfinished.clone())
         }
-        fn unrecorded(&self) -> Result<Option<ServerKeys>, String> {
-            self.unrecorded.clone()
+        fn unrecorded(&self) -> Result<Option<ServerKeys>, crate::PartError> {
+            self.unrecorded
+                .clone()
+                .map_err(|said| crate::PartError(said.into()))
         }
     }
 
