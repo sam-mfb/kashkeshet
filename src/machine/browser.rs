@@ -1,5 +1,6 @@
-//! Adapts kkt-browser's system opener to the browser kkt-container-docker
-//! opens a sharing setup's login link in.
+//! Adapts kkt-browser's system opener to the browsers a sharing setup's
+//! login link opens in: kkt-containerized-service's, and kkt-container-
+//! docker's.
 
 use kkt_browser::SystemBrowser;
 use kkt_container_docker::Browser;
@@ -15,6 +16,15 @@ impl OpenerBrowser {
 }
 
 impl Browser for OpenerBrowser {
+    fn open(&self, url: &str) -> io::Result<()> {
+        self.0.open(url)
+    }
+    fn open_failure(&self) -> Option<String> {
+        self.0.open_failure()
+    }
+}
+
+impl kkt_containerized_service::Browser for OpenerBrowser {
     fn open(&self, url: &str) -> io::Result<()> {
         self.0.open(url)
     }

@@ -4,9 +4,11 @@
 //! install: the Compose files that come with this program, the settings
 //! file's name and the variables it sets, what the managed folder's files
 //! say, the service's status and the name pack its server uses, runs of the
-//! server's own program in its container, reading its config home, backups
-//! and the web key's comparison. It touches the machine only through
-//! `Projects`, and takes the tool's name and how its commands are typed
+//! server's own program in its container, reading its config home,
+//! backups, the web key's comparison, and setting it up: its files, the
+//! sharing node's login, and the server's key copies on this machine. It
+//! touches the machine only through `Projects` and kkt-keys' `KeyFiles`,
+//! for the key copies, and takes the tool's name and how its commands are typed
 //! from it, never naming a tool itself. What the sharing node's status
 //! answer means comes from the `SharingNode` it is given.
 //!
@@ -19,6 +21,7 @@ mod in_server;
 mod keys;
 mod reads;
 mod services;
+mod setup;
 mod status;
 #[cfg(test)]
 mod tests;
@@ -29,6 +32,7 @@ use kkt_container::{
     ConfigReader, Container, Existing, Folder, InServer, Inputs, KeyCopies, KeyCopy, LoginLink,
     Project, Projects, Provisioned, State,
 };
+use kkt_keys::KeyFiles;
 use std::path::{Path, PathBuf};
 
 /// No folder: paths in it are taken as they are, relative ones from where
@@ -42,12 +46,38 @@ pub trait Tell {
     fn say(&self, line: &str);
 }
 
+/// The person's browser, which a sharing setup's login link opens in.
+pub trait Browser {
+    /// Starts opening `url`. Fails if it cannot be started; whether it
+    /// then worked is told by `open_failure`.
+    fn open(&self, url: &str) -> std::io::Result<()>;
+    /// Why opening ended without success, if it did since the last time
+    /// this was asked. Never repeats the link, which may hold a secret.
+    fn open_failure(&self) -> Option<String>;
+}
+
 /// Reads what the node that shares the server says of itself, whatever
 /// shares it.
 pub trait SharingNode {
     /// What the node's status answer, `answer`, says of its login, or
     /// `None` when the answer cannot be read.
     fn login(&self, answer: &str) -> Option<NodeLogin>;
+    /// What the node's status answer, `answer`, says of the node, or why
+    /// it cannot be read.
+    fn status(&self, answer: &str) -> Result<NodeStatus, String>;
+}
+
+/// What a sharing node's status answer says of it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NodeStatus {
+    pub login: NodeLogin,
+    /// The link to log in with, while one is needed.
+    pub link: Option<String>,
+    /// The node's full name on its network, such as
+    /// `kkt-1.tail1234.ts.net`, once it has one.
+    pub name: Option<String>,
+    /// Whether HTTPS certificates can be issued for the node.
+    pub https: bool,
 }
 
 /// Where a sharing node's login stands, as its status answer says.
@@ -66,6 +96,10 @@ pub struct Containerized<P, F> {
     fallback: F,
     tell: Box<dyn Tell>,
     sharing: Box<dyn SharingNode>,
+    /// Where a sharing setup's login link opens when the person asks.
+    browser: Box<dyn Browser>,
+    /// The key copies on this machine.
+    key_files: Box<dyn KeyFiles>,
     /// The folder the person ran kkt in, which paths they type are
     /// relative to, or why it could not be found.
     working_dir: Result<PathBuf, String>,
@@ -73,15 +107,18 @@ pub struct Containerized<P, F> {
 
 impl<P: Projects, F: Container> Containerized<P, F> {
     /// The service over `projects`, with `fallback` for the rest, telling
-    /// the person what they need to know through `tell`, and reading what
-    /// the sharing node says of itself through `sharing`. `working_dir` is
-    /// the folder the person ran kkt in, read once by the caller, or why
-    /// it could not be found.
+    /// the person what they need to know through `tell`, reading what the
+    /// sharing node says of itself through `sharing`, opening a login link
+    /// in `browser`, and writing the server's key copies through
+    /// `key_files`. `working_dir` is the folder the person ran kkt in, read
+    /// once by the caller, or why it could not be found.
     pub fn new(
         projects: P,
         fallback: F,
         tell: Box<dyn Tell>,
         sharing: Box<dyn SharingNode>,
+        browser: Box<dyn Browser>,
+        key_files: Box<dyn KeyFiles>,
         working_dir: Result<PathBuf, String>,
     ) -> Self {
         Containerized {
@@ -89,7 +126,28 @@ impl<P: Projects, F: Container> Containerized<P, F> {
             fallback,
             tell,
             sharing,
+            browser,
+            key_files,
             working_dir,
+        }
+    }
+
+    /// What setup works with, at `clock`, showing a login link through
+    /// `link`.
+    fn setup_parts<'a>(
+        &'a self,
+        clock: &'a dyn Clock,
+        link: &'a dyn LoginLink,
+    ) -> setup::Parts<'a> {
+        setup::Parts {
+            projects: &self.projects,
+            tell: &*self.tell,
+            clock,
+            link,
+            browser: &*self.browser,
+            sharing: &*self.sharing,
+            key_files: &*self.key_files,
+            settings: setup::Settings::DEFAULT,
         }
     }
 
@@ -112,7 +170,10 @@ impl<P: Projects, F: Container> Container for Containerized<P, F> {
         inputs: &'a Inputs,
         keys: &'a KeyCopies,
     ) -> LocalBoxFuture<'a, Result<Provisioned, String>> {
-        self.fallback.provision(clock, login, folder, inputs, keys)
+        Box::pin(async move {
+            let parts = self.setup_parts(clock, login);
+            setup::provision(&parts, &self.project(folder), inputs, keys).await
+        })
     }
     fn add_admin_key<'a>(
         &'a self,
