@@ -13,7 +13,9 @@ under `#[cfg(test)]`.
 It also reads the crate descriptions and layer texts concerns.json gives
 the map: a platform crate's description, and the platform layer's text,
 must not say kkt or kashkeshet, other crates' names included, and none may
-carry the plainest marks of history (HISTORY).
+carry the plainest marks of history (HISTORY) or the plainest negatives
+(NEGATIVE). A crate's description is one to three short sentences, so one
+longer than MAX_DESCRIPTION characters fails.
 
 Usage: check-platform-words.py [ROOT]   (the workspace root; default: here)
 Tested by test_check_platform_words.py.
@@ -34,6 +36,11 @@ PUBLIC_NAME = re.compile(
 DOC_WORD = re.compile(r"\b(kkt|kashkeshet)\b(?![-_])", re.IGNORECASE)
 DOC_LINE = re.compile(r"^\s*//[/!](.*)$")
 HISTORY = re.compile(r"\bwas kkt-|\bformerly\b|ARCHITECTURE\.md|RUST\.md|#\d+|\bphase \d+", re.IGNORECASE)
+# A description says what a crate is and does, not what it is not.
+NEGATIVE = re.compile(r"\bnot\b|\bnever\b|\bnothing\b|\bcannot\b|n['’]t\b", re.IGNORECASE)
+# One to three short sentences: room for the longest descriptions that keep
+# the rules, with a margin.
+MAX_DESCRIPTION = 360
 TEST_MODULE = re.compile(r"#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{")
 
 
@@ -114,7 +121,7 @@ def problems_in(text, where):
 
 def description_problems(root):
     """The crate descriptions that break the map's rules: kkt's words in a
-    platform crate's, and history in any."""
+    platform crate's, and history, negatives or too many words in any."""
     concerns = json.loads((root / "docs/architecture/concerns.json").read_text())
     found = []
     for name, crate in sorted(concerns["crates"].items()):
@@ -124,6 +131,12 @@ def description_problems(root):
         history = HISTORY.search(text)
         if history:
             found.append(f"concerns.json: {name}'s description gives history: {history.group(0)}")
+        negative = NEGATIVE.search(text)
+        if negative:
+            found.append(f"concerns.json: {name}'s description says what it is not: {negative.group(0)}")
+        if len(text) > MAX_DESCRIPTION:
+            found.append(f"concerns.json: {name}'s description is {len(text)} characters, "
+                         f"more than {MAX_DESCRIPTION}: say it in one to three short sentences")
     # The layers' texts keep to the same rules.
     for layer in concerns.get("layers", []):
         text = layer.get("about", "")
@@ -131,6 +144,8 @@ def description_problems(root):
             found.append(f"concerns.json: the platform layer's text names kkt: {WORD.search(text).group(0)}")
         if HISTORY.search(text):
             found.append(f"concerns.json: the {layer['id']} layer's text gives history: {HISTORY.search(text).group(0)}")
+        if NEGATIVE.search(text):
+            found.append(f"concerns.json: the {layer['id']} layer's text says what it is not: {NEGATIVE.search(text).group(0)}")
     return found
 
 
@@ -151,7 +166,7 @@ def main():
     if found:
         print("check-platform-words: a platform crate names kkt (it must know nothing of kkt, "
               "so the caller passes kkt's words in), or a crate's map description says kkt "
-              "where it may not, or gives history:", file=sys.stderr)
+              "where it may not, gives history, says what it is not, or runs long:", file=sys.stderr)
         for line in found:
             print(line, file=sys.stderr)
         sys.exit(1)

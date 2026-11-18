@@ -317,7 +317,10 @@ a sign the crate lines are wrong.
   in [dependencies] on a crate outside the platform layer, and on any
   `real` feature. `.github/scripts/check-platform-words.py` fails when a
   platform crate's code outside its tests says `kkt` or `kashkeshet` in a
-  string or a public item's name: the caller passes kkt's words in.
+  string or a public item's name: the caller passes kkt's words in. It
+  also fails on a map description in concerns.json that names kkt in the
+  platform layer, gives history, says what a crate is not, or runs past
+  one to three short sentences.
   `docs/architecture/check-programs.py` builds the map from the code and
   fails on a kind that does not fit, a broken rule, and machine work in a
   program's own code that the temporary-breaks table in
