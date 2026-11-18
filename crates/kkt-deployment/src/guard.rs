@@ -1,7 +1,7 @@
 //! Whether `kkt serve` may run on this machine, given how kkt is deployed
 //! here.
 
-use super::{Deployment, Recorded};
+use super::{Deployment, RecordedDeployment};
 
 /// Whether `kkt serve` may start here. `recorded` is this machine's
 /// deployment as its setup record says, if it has one. `service_running` is
@@ -11,7 +11,7 @@ use super::{Deployment, Recorded};
 ///
 /// The error says where this machine's server really is.
 pub fn guard(
-    recorded: Option<&Recorded>,
+    recorded: Option<&RecordedDeployment>,
     service_running: Option<bool>,
     ignore: bool,
 ) -> Result<(), String> {

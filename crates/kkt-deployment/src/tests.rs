@@ -1,8 +1,8 @@
 use super::*;
 use std::path::PathBuf;
 
-fn recorded(deployment: Deployment) -> Recorded {
-    Recorded {
+fn recorded(deployment: Deployment) -> RecordedDeployment {
+    RecordedDeployment {
         deployment,
         url: "https://kkt.tail1234.ts.net/mcp".into(),
         key_file: Some("/home/sam/.config/kkt/docker-access-key".into()),

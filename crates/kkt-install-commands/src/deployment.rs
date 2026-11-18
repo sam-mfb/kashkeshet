@@ -2,7 +2,9 @@
 //! here, as the record, the note of an unfinished setup, or a server found
 //! installed with no record says.
 
-use kkt_deployment::{Deployment, Found, Noted, Recorded, ServerVersion};
+use kkt_deployment::{
+    Deployment, DeploymentEndpoint, RecordedDeployment, ServerVersion, UnrecordedDeployment,
+};
 use kkt_machine::{Env, Platform};
 use kkt_setup as setup;
 
@@ -32,8 +34,8 @@ pub fn server_version(version: &str) -> ServerVersion {
 }
 
 /// This machine's deployment, as `record` says.
-pub fn recorded(record: &setup::Record) -> Recorded {
-    Recorded {
+pub fn recorded(record: &setup::Record) -> RecordedDeployment {
+    RecordedDeployment {
         deployment: deployment(&record.mode),
         url: record.url.clone(),
         key_file: record.key_file.clone(),
@@ -49,39 +51,39 @@ pub fn noted_unfinished(
     unfinished: &Result<Option<setup::Unfinished>, String>,
     env: &Env,
     platform: Platform,
-) -> Result<Option<Noted>, String> {
+) -> Result<Option<UnrecordedDeployment>, String> {
     let Some(unfinished) = unfinished.as_ref().map_err(Clone::clone)? else {
         return Ok(None);
     };
     let found = match &unfinished.record {
-        Some(record) => Ok(Found {
+        Some(record) => Ok(DeploymentEndpoint {
             deployment: deployment(&record.mode),
             url: Some(record.url.clone()),
         }),
         None => unfinished
             .mode(kkt_deployment::docker_folder(env, platform))
-            .map(|mode| Found {
+            .map(|mode| DeploymentEndpoint {
                 deployment: deployment(&mode),
                 url: None,
             }),
     };
-    Ok(Some(Noted {
+    Ok(Some(UnrecordedDeployment {
         summary: unfinished.summary(),
-        found,
+        deployment: found,
     }))
 }
 
 /// A server found installed with no record, for `kkt status`.
 pub fn noted_unrecorded(
     unrecorded: &Result<Option<setup::Unrecorded>, String>,
-) -> Result<Option<Noted>, String> {
+) -> Result<Option<UnrecordedDeployment>, String> {
     Ok(unrecorded
         .as_ref()
         .map_err(Clone::clone)?
         .as_ref()
-        .map(|found| Noted {
+        .map(|found| UnrecordedDeployment {
             summary: found.summary(),
-            found: Ok(Found {
+            deployment: Ok(DeploymentEndpoint {
                 deployment: deployment(&found.mode),
                 url: Some(found.url.clone()),
             }),
@@ -146,7 +148,7 @@ mod tests {
         };
         assert_eq!(
             recorded(&record),
-            Recorded {
+            RecordedDeployment {
                 deployment: Deployment::Service { tailscale: false },
                 url: "http://127.0.0.1:7420/mcp".into(),
                 key_file: Some(PathBuf::from("/k")),

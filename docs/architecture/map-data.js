@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "8f5d2d96",
+ "commit": "1066c03d",
  "crates": [
   {
    "bins": [
@@ -6511,22 +6511,13 @@ window.KKT_GRAPH = {
      ]
     },
     {
-     "doc": "The deployment of a `Noted` install.",
+     "doc": "An `UnrecordedDeployment`'s kind of deployment and its MCP endpoint.",
      "fields": [
       "deployment",
       "url"
      ],
      "kind": "struct",
-     "path": "Found"
-    },
-    {
-     "doc": "A deployment `kkt status` reports beside the record, or in its place: one an earlier setup began and did not finish, or one found installed with no record.",
-     "fields": [
-      "summary",
-      "found"
-     ],
-     "kind": "struct",
-     "path": "Noted"
+     "path": "DeploymentEndpoint"
     },
     {
      "doc": "This machine's deployment, as its setup record says.",
@@ -6538,7 +6529,7 @@ window.KKT_GRAPH = {
       "version"
      ],
      "kind": "struct",
-     "path": "Recorded"
+     "path": "RecordedDeployment"
     },
     {
      "doc": "How `kkt upgrade` replaces the server.",
@@ -6585,6 +6576,15 @@ window.KKT_GRAPH = {
       "Docker",
       "Done"
      ]
+    },
+    {
+     "doc": "A deployment `kkt status` reports beside the record, or in its place: one an earlier setup began and did not finish, or one found installed with no record.",
+     "fields": [
+      "summary",
+      "deployment"
+     ],
+     "kind": "struct",
+     "path": "UnrecordedDeployment"
     },
     {
      "doc": "",
@@ -24041,13 +24041,13 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "Deployment",
-    "Found",
-    "Noted",
-    "Recorded",
+    "DeploymentEndpoint",
+    "RecordedDeployment",
     "Replace",
     "RunningVersion",
     "ServerVersion",
     "StatusThen",
+    "UnrecordedDeployment",
     "docker_folder",
     "docker_url",
     "guard",
@@ -24063,13 +24063,13 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Deployment",
-      "Found",
-      "Noted",
-      "Recorded",
+      "DeploymentEndpoint",
+      "RecordedDeployment",
       "Replace",
       "RunningVersion",
       "ServerVersion",
       "StatusThen",
+      "UnrecordedDeployment",
       "docker_folder",
       "docker_url",
       "guard",

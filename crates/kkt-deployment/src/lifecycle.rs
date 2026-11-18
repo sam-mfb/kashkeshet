@@ -4,7 +4,7 @@
 //! what these functions return.
 
 use super::upgrade::{Upgrade, upgrade};
-use super::{Deployment, Noted, Recorded, ServerVersion};
+use super::{Deployment, RecordedDeployment, ServerVersion, UnrecordedDeployment};
 use std::path::PathBuf;
 
 /// What `kkt status` says after the key lines, and what it does next.
@@ -43,9 +43,9 @@ pub fn status_looks_for_unrecorded<R, U>(
 /// (looked for only as [`status_looks_for_unrecorded`] says; otherwise
 /// `Ok(None)`).
 pub fn status(
-    recorded: Option<&Recorded>,
-    unfinished: &Result<Option<Noted>, String>,
-    unrecorded: &Result<Option<Noted>, String>,
+    recorded: Option<&RecordedDeployment>,
+    unfinished: &Result<Option<UnrecordedDeployment>, String>,
+    unrecorded: &Result<Option<UnrecordedDeployment>, String>,
 ) -> Status {
     let mut lines = Vec::new();
     match unfinished {
@@ -78,7 +78,7 @@ pub fn status(
             }
             Ok((recorded.deployment.clone(), recorded.url.clone()))
         }
-        (None, Some(noted)) => noted.found.clone().map(|found| {
+        (None, Some(noted)) => noted.deployment.clone().map(|found| {
             (
                 found.deployment,
                 found
@@ -138,7 +138,7 @@ pub enum RunningVersion {
 
 /// Where the version of the server `recorded` describes is, for `kkt
 /// upgrade`. A client machine has no server to upgrade.
-pub fn running_version(recorded: &Recorded) -> Result<RunningVersion, String> {
+pub fn running_version(recorded: &RecordedDeployment) -> Result<RunningVersion, String> {
     match &recorded.deployment {
         Deployment::Client => Err(client_upgrade()),
         Deployment::Docker { folder, .. } => Ok(RunningVersion::DockerSettings(folder.clone())),
@@ -173,7 +173,7 @@ pub enum Replace {
 /// What `kkt upgrade` does to the server `recorded` describes, which runs
 /// kkt `running`, to bring it to `target`.
 pub fn upgrade_plan(
-    recorded: &Recorded,
+    recorded: &RecordedDeployment,
     running: &ServerVersion,
     target: &str,
     allow_downgrade: bool,
@@ -201,7 +201,7 @@ pub fn upgrade_plan(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Found;
+    use crate::DeploymentEndpoint;
 
     fn docker_mode() -> Deployment {
         Deployment::Docker {
@@ -212,8 +212,8 @@ mod tests {
         }
     }
 
-    fn record(deployment: Deployment) -> Recorded {
-        Recorded {
+    fn record(deployment: Deployment) -> RecordedDeployment {
+        RecordedDeployment {
             deployment,
             url: "http://127.0.0.1:8080/mcp".into(),
             key_file: Some(PathBuf::from("/home/k/access-key")),
@@ -233,20 +233,20 @@ mod tests {
 
     /// An unfinished setup that began to install a server deployed as
     /// `deployment`, in a folder that is `found`.
-    fn began(summary: &str, found: Result<Deployment, String>) -> Noted {
-        Noted {
+    fn began(summary: &str, found: Result<Deployment, String>) -> UnrecordedDeployment {
+        UnrecordedDeployment {
             summary: summary.into(),
-            found: found.map(|deployment| Found {
+            deployment: found.map(|deployment| DeploymentEndpoint {
                 deployment,
                 url: None,
             }),
         }
     }
 
-    fn unrecorded(deployment: Deployment, summary: &str) -> Noted {
-        Noted {
+    fn unrecorded(deployment: Deployment, summary: &str) -> UnrecordedDeployment {
+        UnrecordedDeployment {
             summary: summary.into(),
-            found: Ok(Found {
+            deployment: Ok(DeploymentEndpoint {
                 deployment,
                 url: Some("http://127.0.0.1:9000/mcp".into()),
             }),
@@ -269,13 +269,17 @@ mod tests {
     #[test]
     fn status_looks_for_an_unrecorded_install_only_with_nothing_else_known() {
         let recorded = record(service());
-        let nothing: Result<Option<Noted>, String> = Ok(None);
-        assert!(status_looks_for_unrecorded::<Recorded, _>(None, &nothing));
+        let nothing: Result<Option<UnrecordedDeployment>, String> = Ok(None);
+        assert!(status_looks_for_unrecorded::<RecordedDeployment, _>(
+            None, &nothing
+        ));
         assert!(!status_looks_for_unrecorded(Some(&recorded), &nothing));
         let noted = Ok(Some(began(BEGAN_AS_SERVICE_SUMMARY, Ok(service()))));
-        assert!(!status_looks_for_unrecorded::<Recorded, _>(None, &noted));
-        let unreadable: Result<Option<Noted>, String> = Err("bad".into());
-        assert!(!status_looks_for_unrecorded::<Recorded, _>(
+        assert!(!status_looks_for_unrecorded::<RecordedDeployment, _>(
+            None, &noted
+        ));
+        let unreadable: Result<Option<UnrecordedDeployment>, String> = Err("bad".into());
+        assert!(!status_looks_for_unrecorded::<RecordedDeployment, _>(
             None,
             &unreadable
         ));
@@ -400,12 +404,12 @@ mod tests {
 
     #[test]
     fn status_of_a_finished_but_unrecorded_install_uses_its_record() {
-        let noted = Noted {
+        let noted = UnrecordedDeployment {
             summary: "An earlier `kkt setup` installed a server here in Docker, from \
                       /data/docker, for clients at http://127.0.0.1:8080/mcp, but stopped \
                       before recording it."
                 .into(),
-            found: Ok(Found {
+            deployment: Ok(DeploymentEndpoint {
                 deployment: docker_mode(),
                 url: Some("http://127.0.0.1:8080/mcp".into()),
             }),

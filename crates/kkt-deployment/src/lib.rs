@@ -3,8 +3,8 @@
 //! its data and its Docker files, whether `kkt serve` may run here, and
 //! what `kkt status` and `kkt upgrade` do.
 //!
-//! It works on facts it declares itself ([`Deployment`], [`Recorded`],
-//! [`Noted`]). Its caller reads how the machine is set up, hands it those
+//! It works on facts it declares itself ([`Deployment`], [`RecordedDeployment`],
+//! [`UnrecordedDeployment`]). Its caller reads how the machine is set up, hands it those
 //! facts, and carries out what it returns, so every rule here is tested
 //! directly.
 
@@ -71,7 +71,7 @@ pub enum ServerVersion {
 
 /// This machine's deployment, as its setup record says.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Recorded {
+pub struct RecordedDeployment {
     pub deployment: Deployment,
     /// The MCP endpoint of the server set up here, or, on a client machine,
     /// of the server it uses.
@@ -89,16 +89,16 @@ pub struct Recorded {
 /// an earlier setup began and did not finish, or one found installed with no
 /// record.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Noted {
+pub struct UnrecordedDeployment {
     /// One sentence saying what was noted or found.
     pub summary: String,
     /// Its deployment and endpoint, or why its deployment is not known.
-    pub found: Result<Found, String>,
+    pub deployment: Result<DeploymentEndpoint, String>,
 }
 
-/// The deployment of a [`Noted`] install.
+/// An [`UnrecordedDeployment`]'s kind of deployment and its MCP endpoint.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Found {
+pub struct DeploymentEndpoint {
     pub deployment: Deployment,
     /// Its MCP endpoint, or `None` while the install that sets it has not
     /// finished.
