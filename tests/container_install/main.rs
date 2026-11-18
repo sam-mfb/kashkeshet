@@ -1325,6 +1325,19 @@ fn up_and_down() -> String {
     ])
 }
 
+fn up_and_down_cannot_run() -> String {
+    let cannot = Run::new(
+        rules(vec![
+            ("up -d", vec![cannot_run("no such file or directory")]),
+            ("down", vec![cannot_run("no such file or directory")]),
+        ]),
+        installed_local(LOCAL_ENV),
+    );
+    cannot.result(cannot.docker.up(&folder()));
+    cannot.result(cannot.docker.down(&folder(), false));
+    cases(&[case("the tool cannot run at all", &cannot)])
+}
+
 // ---------------------------------------------------------------- backup
 
 fn backup() -> String {
@@ -1730,6 +1743,7 @@ pinned! {
     reads => super::reads();
     compare_web_key => super::compare_web_key();
     up_and_down => super::up_and_down();
+    up_and_down_cannot_run => super::up_and_down_cannot_run();
     backup => super::backup();
     upgrade_local => super::upgrade_local();
     upgrade_tailscale_with_an_admin_key => super::upgrade_tailscale_with_an_admin_key();
