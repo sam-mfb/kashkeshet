@@ -244,6 +244,17 @@ pub fn check_bind(
 
 #[cfg(test)]
 mod tests {
+    use super::SettingError as Refused;
+
+    #[test]
+    fn a_setting_error_says_the_setting_then_why() {
+        let error = Refused::new("allow_host", "must be a host name, not \"a b\"");
+        assert_eq!(
+            error.to_string(),
+            "allow_host must be a host name, not \"a b\""
+        );
+    }
+
     use super::*;
 
     fn hosts(extra: &[&str]) -> AllowedHosts {

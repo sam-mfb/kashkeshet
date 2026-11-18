@@ -1,6 +1,6 @@
 //! The conformance suite on both places, and search against FTS5 itself.
 
-use crate::{MemoryPlace, Options, SqlitePlace, copy_database};
+use crate::{CreateError, MemoryPlace, Options, SqlitePlace, copy_database};
 use kkt_db::testing::{Place, conformance};
 use kkt_db::{Backend, BackendExt, DbError, Set, Step, Upgrade};
 use kkt_scratch as scratch;
@@ -540,4 +540,16 @@ fn creating_a_database_refuses_an_existing_file_without_opening_it() {
         Err(crate::CreateError::Exists)
     ));
     assert_eq!(std::fs::read(path).expect("read"), b"keep this file");
+}
+
+#[test]
+fn a_create_error_says_what_it_always_said() {
+    assert_eq!(
+        CreateError::Exists.to_string(),
+        "a database file already exists"
+    );
+    let open = CreateError::Open(kkt_db::DbError::Backend("disk full".into()));
+    assert_eq!(open.to_string(), "database error: disk full");
+    assert!(std::error::Error::source(&open).is_some());
+    assert!(std::error::Error::source(&CreateError::Exists).is_none());
 }

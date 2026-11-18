@@ -308,6 +308,65 @@ pub trait Projects {
 mod tests {
     use super::*;
 
+    #[test]
+    fn each_kind_of_failure_says_what_it_always_said() {
+        let file = |action| ProjectError::File {
+            action,
+            path: PathBuf::from("/p/.env"),
+            cause: io::ErrorKind::PermissionDenied,
+            detail: "denied".into(),
+        };
+        let said: Vec<String> = [
+            ProjectError::Missing {
+                command: "tool version".into(),
+                cause: "not found".into(),
+            },
+            ProjectError::Failed {
+                command: "tool up".into(),
+                status: Some(2),
+                stdout: "out\n".into(),
+                stderr: " err \n".into(),
+            },
+            ProjectError::Failed {
+                command: "tool up".into(),
+                status: None,
+                stdout: "only out".into(),
+                stderr: "  ".into(),
+            },
+            ProjectError::Unexpected {
+                command: "tool ps".into(),
+                detail: "no list".into(),
+            },
+            ProjectError::NoContainer {
+                command: "tool ps -q web".into(),
+                detail: "no ID".into(),
+            },
+            file(FileAction::Read),
+            file(FileAction::Write),
+            file(FileAction::Make),
+            ProjectError::Refused {
+                what: "a path that is not plain".into(),
+            },
+        ]
+        .iter()
+        .map(ToString::to_string)
+        .collect();
+        assert_eq!(
+            said,
+            [
+                "could not run `tool version`: not found",
+                "`tool up` failed (exit 2: err)",
+                "`tool up` failed (ended by a signal: only out)",
+                "unexpected output from `tool ps`: no list",
+                "no container from `tool ps -q web`: no ID",
+                "could not read /p/.env: denied",
+                "could not write /p/.env: denied",
+                "could not create /p/.env: denied",
+                "a path that is not plain",
+            ]
+        );
+    }
+
     fn failed(status: Option<i32>, stdout: &str, stderr: &str) -> ProjectError {
         Ran {
             command: "tool compose restart web".into(),
