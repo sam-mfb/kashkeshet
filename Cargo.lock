@@ -1737,6 +1737,7 @@ dependencies = [
  "kkt-names",
  "kkt-toml",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

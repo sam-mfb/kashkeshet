@@ -40,6 +40,91 @@ use std::path::{Path, PathBuf};
 /// The only format this version reads and writes.
 const FORMAT: u32 = 1;
 
+/// Which of setup's files an error is about.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SetupFile {
+    /// The setup record.
+    Record,
+    /// The note of a setup that has not finished.
+    Unfinished,
+}
+
+impl SetupFile {
+    fn the(self) -> &'static str {
+        match self {
+            SetupFile::Record => "the setup record",
+            SetupFile::Unfinished => "the unfinished setup",
+        }
+    }
+}
+
+/// What is wrong with a setup record or note, said after its name.
+#[derive(Debug, thiserror::Error)]
+pub enum RecordProblem {
+    /// It is not TOML of the right shape: the parser's reason.
+    #[error("is not valid: {}", .0.reason().trim())]
+    Invalid(#[source] kkt_toml::ParseError),
+    /// It is in a format this kkt does not read.
+    #[error("has format {found}, but this kkt reads format {FORMAT}; run `kkt setup` again")]
+    Format { found: u32 },
+    /// Its mode does not have the tables that mode needs.
+    #[error("has mode {mode:?}, which {}", mode_tables(mode))]
+    ModeTables { mode: String },
+    /// Its mode is not one kkt knows.
+    #[error("has an unknown mode {mode:?}: expected service, docker or client")]
+    UnknownMode { mode: String },
+    /// A client machine's record has a `[clients]` table.
+    #[error(
+        "has mode \"client\" and a [clients] table, which is only for a machine that runs a server"
+    )]
+    ClientWithClients,
+    /// It holds a relative path.
+    #[error("has a relative path {}", path.display())]
+    RelativePath { path: PathBuf },
+    /// A note's mode is not one a setup can leave unfinished.
+    #[error("has mode {mode:?}: expected docker or service")]
+    UnfinishedMode { mode: String },
+    /// A note names a client kkt does not know.
+    #[error("has an unknown client {name:?}")]
+    UnknownClient { name: String },
+    /// A note for Docker over Tailscale has no host name.
+    #[error("is for Docker over Tailscale but has no ts_hostname")]
+    NoTsHostname,
+    /// A note has a host name but is not for Docker over Tailscale.
+    #[error("has ts_hostname, which is only for Docker over Tailscale")]
+    TsHostnameNotDocker,
+    /// A note has an auth key file but no host name.
+    #[error("has ts_authkey_file but no ts_hostname")]
+    AuthKeyWithoutHostname,
+}
+
+fn mode_tables(mode: &str) -> &'static str {
+    match mode {
+        "service" => "needs a [service] table and no [docker] table",
+        "docker" => "needs a [docker] table and no [service] table",
+        _ => "has no [service] or [docker] table",
+    }
+}
+
+/// A setup record or note that cannot be read, naming the file.
+#[derive(Debug, thiserror::Error)]
+#[error("{} {} {problem}", file.the(), path.display())]
+pub struct RecordError {
+    pub file: SetupFile,
+    pub path: PathBuf,
+    #[source]
+    pub problem: RecordProblem,
+}
+
+/// A setup record or note that could not be written as text.
+#[derive(Debug, thiserror::Error)]
+#[error("could not write {}: {cause}", file.the())]
+pub struct RenderError {
+    pub file: SetupFile,
+    #[source]
+    pub cause: kkt_toml::WriteError,
+}
+
 /// What a machine was set up as, and how clients reach its server.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Record {
@@ -149,20 +234,23 @@ struct DockerTable {
 impl Record {
     /// The record in `text`, read from the file at `path`. Errors name the
     /// file and what is wrong with it.
-    pub fn parse(text: &str, path: &Path) -> Result<Record, String> {
-        let bad = |what: String| format!("the setup record {} {what}", path.display());
-        let file: File = kkt_toml::read(text)
-            .map_err(|e| bad(format!("is not valid: {}", e.reason().trim())))?;
+    pub fn parse(text: &str, path: &Path) -> Result<Record, RecordError> {
+        let bad = |problem| RecordError {
+            file: SetupFile::Record,
+            path: path.to_path_buf(),
+            problem,
+        };
+        let file: File = kkt_toml::read(text).map_err(|e| bad(RecordProblem::Invalid(e)))?;
         Record::from_file(file, &bad)
     }
 
     /// The record `file` holds; `bad` names the file in an error.
-    fn from_file(file: File, bad: &dyn Fn(String) -> String) -> Result<Record, String> {
+    fn from_file(
+        file: File,
+        bad: &dyn Fn(RecordProblem) -> RecordError,
+    ) -> Result<Record, RecordError> {
         if file.format != FORMAT {
-            return Err(bad(format!(
-                "has format {}, but this kkt reads format {FORMAT}; run `kkt setup` again",
-                file.format
-            )));
+            return Err(bad(RecordProblem::Format { found: file.format }));
         }
         let mode = match (file.mode.as_str(), file.service, file.docker) {
             ("service", Some(service), None) => Mode::Service {
@@ -176,25 +264,18 @@ impl Record {
             }),
             ("client", None, None) => Mode::Client,
             (mode @ ("service" | "docker" | "client"), _, _) => {
-                let tables = match mode {
-                    "service" => "needs a [service] table and no [docker] table",
-                    "docker" => "needs a [docker] table and no [service] table",
-                    _ => "has no [service] or [docker] table",
-                };
-                return Err(bad(format!("has mode {mode:?}, which {tables}")));
+                return Err(bad(RecordProblem::ModeTables {
+                    mode: mode.to_string(),
+                }));
             }
             (other, _, _) => {
-                return Err(bad(format!(
-                    "has an unknown mode {other:?}: expected service, docker or client"
-                )));
+                return Err(bad(RecordProblem::UnknownMode {
+                    mode: other.to_string(),
+                }));
             }
         };
         if mode == Mode::Client && file.clients.is_some() {
-            return Err(bad(
-                "has mode \"client\" and a [clients] table, which is only for a machine that \
-                 runs a server"
-                    .into(),
-            ));
+            return Err(bad(RecordProblem::ClientWithClients));
         }
         let clients = file.clients.map(|table| Server {
             url: table.url,
@@ -206,7 +287,9 @@ impl Record {
         }
         paths.extend(clients.iter().filter_map(|s| s.key_file.as_deref()));
         if let Some(relative) = paths.iter().find(|p| !p.is_absolute()) {
-            return Err(bad(format!("has a relative path {}", relative.display())));
+            return Err(bad(RecordProblem::RelativePath {
+                path: relative.to_path_buf(),
+            }));
         }
         Ok(Record {
             mode,
@@ -271,9 +354,11 @@ impl Record {
     }
 
     /// The record as file text, which [`Record::parse`] reads back.
-    pub fn render(&self) -> Result<String, String> {
-        kkt_toml::write(&self.to_file())
-            .map_err(|e| format!("could not write the setup record: {e}"))
+    pub fn render(&self) -> Result<String, RenderError> {
+        kkt_toml::write(&self.to_file()).map_err(|cause| RenderError {
+            file: SetupFile::Record,
+            cause,
+        })
     }
 
     fn to_file(&self) -> File {
@@ -392,17 +477,20 @@ struct UnfinishedFile {
 
 impl Unfinished {
     /// What is in `text`, read from the file at `path`.
-    pub fn parse(text: &str, path: &Path) -> Result<Unfinished, String> {
-        let bad = |what: String| format!("the unfinished setup {} {what}", path.display());
-        let file: UnfinishedFile = kkt_toml::read(text)
-            .map_err(|e| bad(format!("is not valid: {}", e.reason().trim())))?;
+    pub fn parse(text: &str, path: &Path) -> Result<Unfinished, RecordError> {
+        let bad = |problem| RecordError {
+            file: SetupFile::Unfinished,
+            path: path.to_path_buf(),
+            problem,
+        };
+        let file: UnfinishedFile =
+            kkt_toml::read(text).map_err(|e| bad(RecordProblem::Invalid(e)))?;
         let purpose = match Purpose::from_name(&file.mode) {
             Some(purpose @ (Purpose::Docker | Purpose::Service)) => purpose,
             _ => {
-                return Err(bad(format!(
-                    "has mode {:?}: expected docker or service",
-                    file.mode
-                )));
+                return Err(bad(RecordProblem::UnfinishedMode {
+                    mode: file.mode.clone(),
+                }));
             }
         };
         let clients = file
@@ -410,7 +498,7 @@ impl Unfinished {
             .iter()
             .map(|name| {
                 Client::from_name(name)
-                    .ok_or_else(|| bad(format!("has an unknown client {name:?}")))
+                    .ok_or_else(|| bad(RecordProblem::UnknownClient { name: name.clone() }))
             })
             .collect::<Result<_, _>>()?;
         let tailscale_login = match (purpose, file.tailscale, file.ts_hostname) {
@@ -419,17 +507,13 @@ impl Unfinished {
                 auth_key_file: file.ts_authkey_file,
             }),
             (Purpose::Docker, true, None) => {
-                return Err(bad(
-                    "is for Docker over Tailscale but has no ts_hostname".into()
-                ));
+                return Err(bad(RecordProblem::NoTsHostname));
             }
             (_, _, Some(_)) => {
-                return Err(bad(
-                    "has ts_hostname, which is only for Docker over Tailscale".into(),
-                ));
+                return Err(bad(RecordProblem::TsHostnameNotDocker));
             }
             (_, _, None) if file.ts_authkey_file.is_some() => {
-                return Err(bad("has ts_authkey_file but no ts_hostname".into()));
+                return Err(bad(RecordProblem::AuthKeyWithoutHostname));
             }
             (_, _, None) => None,
         };
@@ -438,7 +522,9 @@ impl Unfinished {
             .and_then(|login| login.auth_key_file.as_ref())
             .filter(|path| !path.is_absolute())
         {
-            return Err(bad(format!("has a relative path {}", relative.display())));
+            return Err(bad(RecordProblem::RelativePath {
+                path: relative.clone(),
+            }));
         }
         let record = match file.record {
             Some(record) => Some(Record::from_file(record, &bad)?),
@@ -455,7 +541,7 @@ impl Unfinished {
     }
 
     /// As file text, which [`Unfinished::parse`] reads back.
-    pub fn render(&self) -> Result<String, String> {
+    pub fn render(&self) -> Result<String, RenderError> {
         let login = self.tailscale_login.as_ref();
         let file = UnfinishedFile {
             mode: self.purpose.name().to_string(),
@@ -466,7 +552,10 @@ impl Unfinished {
             ts_authkey_file: login.and_then(|login| login.auth_key_file.clone()),
             record: self.record.as_ref().map(Record::to_file),
         };
-        kkt_toml::write(&file).map_err(|e| format!("could not write the unfinished setup: {e}"))
+        kkt_toml::write(&file).map_err(|cause| RenderError {
+            file: SetupFile::Unfinished,
+            cause,
+        })
     }
 
     /// What to look at to tell whether the install noted is still here: a
@@ -488,7 +577,7 @@ impl Unfinished {
     /// that did not finish, where that install puts the server. A Docker
     /// install goes in `docker_folder`, the folder `kkt setup` keeps kkt's
     /// Docker files in, or the error saying why there is none.
-    pub fn mode(&self, docker_folder: Result<PathBuf, String>) -> Result<Mode, String> {
+    pub fn mode<E>(&self, docker_folder: Result<PathBuf, E>) -> Result<Mode, E> {
         if let Some(record) = &self.record {
             return Ok(record.mode.clone());
         }
@@ -599,17 +688,18 @@ mod tests {
     fn the_mode_noted_is_the_records_else_where_the_install_goes() {
         let recorded = docker("/data/recorded", false);
         let noted = unfinished(Purpose::Docker, Some(record(recorded.clone())));
-        assert_eq!(noted.mode(Err("no home".into())), Ok(recorded));
+        assert_eq!(noted.mode(Err::<PathBuf, &str>("no home")), Ok(recorded));
         assert_eq!(
-            unfinished(Purpose::Docker, None).mode(Ok(PathBuf::from("/data/managed"))),
+            unfinished(Purpose::Docker, None)
+                .mode(Ok::<PathBuf, &str>(PathBuf::from("/data/managed"))),
             Ok(docker("/data/managed", true))
         );
         assert_eq!(
-            unfinished(Purpose::Docker, None).mode(Err("no home".into())),
-            Err("no home".into())
+            unfinished(Purpose::Docker, None).mode(Err::<PathBuf, &str>("no home")),
+            Err("no home")
         );
         assert_eq!(
-            unfinished(Purpose::Service, None).mode(Err("no home".into())),
+            unfinished(Purpose::Service, None).mode(Err::<PathBuf, &str>("no home")),
             Ok(Mode::Service { tailscale: true })
         );
     }
@@ -684,15 +774,13 @@ mod refusals {
 
     fn record(text: &str) -> String {
         Record::parse(text, Path::new("/s/setup.toml"))
-            .err()
-            .expect("refused")
+            .expect_err("refused")
             .to_string()
     }
 
     fn note(text: &str) -> String {
         Unfinished::parse(text, Path::new("/s/unfinished.toml"))
-            .err()
-            .expect("refused")
+            .expect_err("refused")
             .to_string()
     }
 

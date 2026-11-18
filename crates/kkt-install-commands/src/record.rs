@@ -294,6 +294,7 @@ pub fn recorded_setup<D: crate::ServiceDefaults>(
         || read_unfinished(env, parts.setup_files, parts.container, parts.service),
         || read_unrecorded(parts, env, platform),
     )
+    .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

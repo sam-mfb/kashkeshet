@@ -1,31 +1,57 @@
 //! The advice when no record has been saved.
 
+use std::error::Error;
+
+/// Why there is no setup record to act on, and what to do about it.
+#[derive(Debug, thiserror::Error)]
+pub enum NoRecord {
+    /// A setup began here and did not finish.
+    #[error("this machine has no setup record; run `kkt setup` to finish it")]
+    Unfinished,
+    /// The note of an unfinished setup could not be read.
+    #[error("this machine has no setup record; run `kkt setup` first ({0})")]
+    UnfinishedUnreadable(#[source] Box<dyn Error + Send + Sync>),
+    /// Nothing kkt installed is here.
+    #[error("this machine has no setup record; run `kkt setup` first")]
+    Nothing,
+    /// A server kkt installed is here with no record: `summary` says what.
+    #[error(
+        "this machine has no setup record. {summary} Run `kkt setup` to record it (`kkt setup --adopt` with no terminal); it installs nothing. Then run this again."
+    )]
+    Found { summary: String },
+    /// Whether a server kkt installed is here could not be told.
+    #[error("this machine has no setup record; run `kkt setup` first. {0}")]
+    FoundUnreadable(#[source] Box<dyn Error + Send + Sync>),
+}
+
 /// This machine's setup record. Without one, the error says so, and names a
 /// server kkt installed here anyway, which `kkt setup` can record without
-/// installing it again.
-pub fn recorded_setup(
+/// installing it again. The readers' errors are their own, passed on as
+/// they are.
+pub fn recorded_setup<E1, E2>(
     record: Option<crate::Record>,
-    unfinished: impl FnOnce() -> Result<Option<crate::Unfinished>, String>,
-    unrecorded: impl FnOnce() -> Result<Option<crate::Unrecorded>, (crate::Purpose, String)>,
-) -> Result<crate::Record, String> {
+    unfinished: impl FnOnce() -> Result<Option<crate::Unfinished>, E1>,
+    unrecorded: impl FnOnce() -> Result<Option<crate::Unrecorded>, (crate::Purpose, E2)>,
+) -> Result<crate::Record, NoRecord>
+where
+    E1: Into<Box<dyn Error + Send + Sync>>,
+    E2: Into<Box<dyn Error + Send + Sync>>,
+{
     if let Some(record) = record {
         return Ok(record);
     }
-    let no_record = "this machine has no setup record";
     // An unfinished setup is described by `kkt status`.
     match unfinished() {
-        Ok(Some(_)) => return Err(format!("{no_record}; run `kkt setup` to finish it")),
+        Ok(Some(_)) => return Err(NoRecord::Unfinished),
         Ok(None) => {}
-        Err(e) => return Err(format!("{no_record}; run `kkt setup` first ({e})")),
+        Err(e) => return Err(NoRecord::UnfinishedUnreadable(e.into())),
     }
     Err(match unrecorded() {
-        Ok(Some(found)) => format!(
-            "{no_record}. {} Run `kkt setup` to record it (`kkt setup --adopt` with no \
-             terminal); it installs nothing. Then run this again.",
-            found.summary()
-        ),
-        Ok(None) => format!("{no_record}; run `kkt setup` first"),
-        Err((_, e)) => format!("{no_record}; run `kkt setup` first. {e}"),
+        Ok(Some(found)) => NoRecord::Found {
+            summary: found.summary(),
+        },
+        Ok(None) => NoRecord::Nothing,
+        Err((_, e)) => NoRecord::FoundUnreadable(e.into()),
     })
 }
 
@@ -51,8 +77,7 @@ mod tests {
         unrecorded: Result<Option<Unrecorded>, (Purpose, String)>,
     ) -> String {
         recorded_setup(None, || unfinished, || unrecorded)
-            .err()
-            .expect("no record")
+            .expect_err("no record")
             .to_string()
     }
 

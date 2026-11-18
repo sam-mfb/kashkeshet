@@ -25,8 +25,11 @@ pub use adopt::{
 };
 pub use ask::{Ask, Lines, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
-pub use local::recorded_setup;
-pub use record::{DockerSetup, InstallCheck, Mode, Record, Server, TailscaleLogin, Unfinished};
+pub use local::{NoRecord, recorded_setup};
+pub use record::{
+    DockerSetup, InstallCheck, Mode, Record, RecordError, RecordProblem, RenderError, Server,
+    SetupFile, TailscaleLogin, Unfinished,
+};
 pub use switch::{Switch, SwitchSteps, Target, switch};
 
 use std::path::{Path, PathBuf};
