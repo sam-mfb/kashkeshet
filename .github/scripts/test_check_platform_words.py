@@ -87,7 +87,24 @@ class DescriptionProblems(unittest.TestCase):
                 {"id": "data", "about": "The kkt database."}]}))
             self.assertEqual(check.description_problems(root), [
                 "concerns.json: the platform layer's text names kkt: kkt",
+                "concerns.json: the platform layer's text says what it is not: know nothing",
                 "concerns.json: the core layer's text gives history: phase 16"])
+
+    def test_a_negative_in_any_description_is_found(self):
+        for text, negative in [("It knows nothing of what runs in it.", "knows nothing"), ("It never names a tool.", "never"),
+                               ("It does not log.", "does not"), ("It is not a contract.", "is not"),
+                               ("It doesn't log.", "doesn't"), ("It isn't a contract.", "isn't")]:
+            self.assertEqual(self.found({"kkt-core": {"layer": "core", "concern": text}}),
+                             [f"concerns.json: kkt-core's description says what it is not: {negative}"], text)
+        # A word that only contains one is fine.
+        self.assertEqual(self.found({"kkt-core": {"layer": "core", "concern": "Nevertheless, it notes each change."}}), [])
+
+    def test_a_description_longer_than_the_most_three_short_sentences_hold_is_found(self):
+        longest = "x" * check.MAX_DESCRIPTION
+        self.assertEqual(self.found({"kkt-core": {"layer": "core", "concern": longest}}), [])
+        self.assertEqual(self.found({"kkt-core": {"layer": "core", "concern": longest + "x"}}), [
+            f"concerns.json: kkt-core's description is {check.MAX_DESCRIPTION + 1} characters, "
+            f"more than {check.MAX_DESCRIPTION}: say it in one to three short sentences"])
 
     def test_a_plain_description_passes(self):
         self.assertEqual(self.found({"kkt-plain": {"layer": "platform", "concern": "A file that rolls over at a size."},
