@@ -118,7 +118,6 @@ impl Rules {
             name: created.name.clone(),
             open: created.open,
             created_by: created.created_by.clone(),
-            created_at: created.created_at.clone(),
             member_count: created.member_count,
         });
         Ok(created)
@@ -192,7 +191,6 @@ impl Rules {
             name: created.name.clone(),
             open: created.open,
             created_by: created.created_by.clone(),
-            created_at: created.created_at.clone(),
             member_count: created.member_count,
         });
         self.publish_message(&notice);

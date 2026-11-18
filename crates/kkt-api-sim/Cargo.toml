@@ -18,7 +18,6 @@ kkt-api-agent = { path = "../kkt-api-agent" }
 kkt-api-operator = { path = "../kkt-api-operator" }
 kkt-clock = { path = "../kkt-clock" }
 kkt-entropy = { path = "../kkt-entropy" }
-kkt-events = { path = "../kkt-events" }
 kkt-names = { path = "../kkt-names" }
 kkt-shutdown = { path = "../kkt-shutdown" }
 kkt-web = { path = "../kkt-web" }

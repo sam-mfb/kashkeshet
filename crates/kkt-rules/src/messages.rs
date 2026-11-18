@@ -1,5 +1,5 @@
 use super::*;
-use kkt_events::{NewMessage, Notice};
+use crate::events::{NewMessage, Notice};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 impl Rules {

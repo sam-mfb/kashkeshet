@@ -18,10 +18,10 @@
 )]
 
 use super::*;
+use crate::events::Notice;
 use futures::FutureExt;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::{FirstOfLongListsEntropy, SeqEntropy};
-use kkt_events::Notice;
 use std::future::Future;
 use std::pin::Pin;
 use std::time::Duration;
@@ -201,7 +201,7 @@ pub(crate) async fn world_with(settings: Settings, entropy: Arc<dyn Entropy>) ->
     let rules = Rules::new(Deps {
         db,
         swarm: SwarmId::main(),
-        events: Events::new(kkt_events::Settings::DEFAULT),
+        shutdown: kkt_shutdown::Shutdown::new(),
         clock: clock.clone(),
         entropy,
         run_id,
@@ -390,7 +390,7 @@ pub(crate) async fn wait_lasts(timeout: Option<Duration>, lasts: i64) {
     clippy::disallowed_methods,
     reason = "notices have no clock; a short real wait shows nothing more is coming"
 )]
-pub(crate) async fn heard_changes(notices: &mut kkt_events::Subscription) -> Vec<String> {
+pub(crate) async fn heard_changes(notices: &mut crate::events::Subscription) -> Vec<String> {
     let mut heard = Vec::new();
     while let Ok(Some(notice)) =
         tokio::time::timeout(Duration::from_millis(50), notices.next()).await
@@ -1757,7 +1757,7 @@ async fn administration_rolls_back_when_the_operator_message_cannot_be_saved() {
     let broken = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
-        events: Events::new(kkt_events::Settings::DEFAULT),
+        shutdown: kkt_shutdown::Shutdown::new(),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,
@@ -2078,7 +2078,7 @@ async fn operator_channel_creation_is_atomic_and_never_adds_the_operator() {
     let broken = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
-        events: Events::new(kkt_events::Settings::DEFAULT),
+        shutdown: kkt_shutdown::Shutdown::new(),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(15)),
         run_id: i64::MAX,

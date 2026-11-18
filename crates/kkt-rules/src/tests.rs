@@ -1,10 +1,10 @@
 //! Rule tests against an in-memory database. Each row of the rules table has a test.
 
 use super::*;
+use crate::events::Notice;
 use futures::FutureExt;
 use kkt_clock::testing::FixedClock;
 use kkt_entropy::testing::{FirstOfLongListsEntropy, SeqEntropy};
-use kkt_events::Notice;
 use std::time::Duration;
 
 use crate::scenarios::*;
@@ -5462,11 +5462,14 @@ async fn the_operators_notices_say_they_fell_behind_without_a_count() {
     let rules = Rules::new(Deps {
         db: w.rules.unbound_db().clone(),
         swarm: SwarmId::main(),
-        events: Events::new(kkt_events::Settings { buffer: 1 }),
+        shutdown: kkt_shutdown::Shutdown::new(),
         clock: w.clock.clone(),
         entropy: Arc::new(SeqEntropy::new(7)),
         run_id: w.run_id,
-        settings: Settings::DEFAULT,
+        settings: Settings {
+            event_buffer: 1,
+            ..Settings::DEFAULT
+        },
         wording: Arc::new(DefaultWording),
     });
     let views: &dyn Views = &rules;
