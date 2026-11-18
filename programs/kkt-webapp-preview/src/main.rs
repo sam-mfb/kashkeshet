@@ -69,7 +69,7 @@ struct Args {
 /// library, and every `kkt-*` crate, whose module paths start with "kkt".
 const LOG_OWN_TARGETS: &[&str] = &["kashkeshet", "kkt"];
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> ExitCode {
     let log = TracingLog;
     // With no log there is nowhere to say why, so the exit code says the

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "05efb472",
+ "commit": "6c8675f7",
  "crates": [
   {
    "bins": [
@@ -4426,7 +4426,9 @@ window.KKT_GRAPH = {
    "crate_doc": "The current time, injected so tests can control it, and the time types that go with it.",
    "dev_only": false,
    "features": {
-    "testing": []
+    "testing": [
+     "dep:tokio"
+    ]
    },
    "foreign_implements": [],
    "holders": [],
@@ -4540,11 +4542,12 @@ window.KKT_GRAPH = {
    ],
    "released_program": false,
    "slots": [],
-   "testing_third_party": [],
+   "testing_third_party": [
+    "tokio"
+   ],
    "third_party": [
     "chrono",
-    "futures",
-    "tokio"
+    "futures"
    ]
   },
   {
@@ -8181,6 +8184,7 @@ window.KKT_GRAPH = {
       "configured_access_key",
       "database",
       "default_access_key",
+      "default_name_pack",
       "service_settings"
      ],
      "path": "ServeFacts"
@@ -24561,27 +24565,6 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
-    "Settings"
-   ],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [
-      "Settings"
-     ],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [],
-   "to": "kkt-rules"
-  },
-  {
-   "features": [],
-   "from": "kkt-install-commands",
-   "items": [
     "AccessKeyFrom",
     "AdoptSteps",
     "Answers",
@@ -27471,27 +27454,6 @@ window.KKT_GRAPH = {
   {
    "features": [],
    "from": "kkt-server",
-   "items": [],
-   "kind": "normal",
-   "optional": false,
-   "role": "uses",
-   "roles": [
-    {
-     "detail": [],
-     "role": "uses"
-    }
-   ],
-   "target": null,
-   "test_items": [
-    "AdminName",
-    "MAX_ADMIN_NAME_CHARS",
-    "OPERATOR"
-   ],
-   "to": "kkt-names"
-  },
-  {
-   "features": [],
-   "from": "kkt-server",
    "items": [
     "Build"
    ],
@@ -27792,6 +27754,31 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-log"
+  },
+  {
+   "features": [],
+   "from": "kkt-server",
+   "items": [
+    "AdminName",
+    "MAX_ADMIN_NAME_CHARS",
+    "OPERATOR"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "AdminName",
+      "MAX_ADMIN_NAME_CHARS",
+      "OPERATOR"
+     ],
+     "role": "uses"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-names"
   },
   {
    "features": [

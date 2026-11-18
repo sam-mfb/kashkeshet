@@ -42,6 +42,8 @@ pub trait ServeFacts {
     ) -> Result<PathBuf, String>;
     fn bind(&self) -> Result<std::net::SocketAddr, String>;
     fn default_access_key(&self) -> Option<PathBuf>;
+    /// The name pack `kkt serve` uses when its settings name none.
+    fn default_name_pack(&self) -> String;
     fn service_settings(
         &self,
         config: Option<PathBuf>,

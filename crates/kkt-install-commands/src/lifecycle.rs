@@ -123,7 +123,7 @@ pub async fn status<D: ServiceDefaults>(
                 .status(
                     &folder,
                     parts.container_configs,
-                    kkt_rules::Settings::DEFAULT.name_pack.name(),
+                    &parts.serve.default_name_pack(),
                     &kkt_config_file::config_file_in_home(),
                 )
                 .map_err(|e| e.to_string())?;
@@ -405,6 +405,10 @@ mod tests {
         fn default_access_key(&self) -> Option<PathBuf> {
             self.0.borrow_mut().push("default_access_key");
             None
+        }
+        fn default_name_pack(&self) -> String {
+            self.0.borrow_mut().push("default_name_pack");
+            "default".to_string()
         }
         fn service_settings(
             &self,

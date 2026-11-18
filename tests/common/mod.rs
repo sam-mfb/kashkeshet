@@ -10,8 +10,10 @@
 //! a database can only be handed to a server here, and `start_in_process`
 //! is for settings no program's files can say.
 
-// Each test file builds this module on its own, and none uses every helper.
-#![allow(dead_code)]
+#![expect(
+    dead_code,
+    reason = "each test file builds this module on its own, and none uses every helper"
+)]
 
 pub mod serving;
 use kashkeshet::machine::server_run::{RecordedSettings, new_server_run};

@@ -88,7 +88,7 @@ pub async fn run<D: crate::ServiceDefaults>(
             let state = parts.container.status(
                 &folder,
                 parts.container_configs,
-                kkt_rules::Settings::DEFAULT.name_pack.name(),
+                &parts.serve.default_name_pack(),
                 &kkt_config_file::config_file_in_home(),
             );
             let running = matches!(&state, Ok(state) if state.running);
