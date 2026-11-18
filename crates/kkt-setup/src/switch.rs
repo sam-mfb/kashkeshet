@@ -2,7 +2,7 @@
 //! back at the one that runs here, without the rest of `kkt setup`.
 
 use super::ask::{Ask, Question};
-use super::flow::{ClientKey, check_address, switch_note};
+use super::flow::{ClientKey, switch_note};
 use super::record::{Record, Server};
 use kkt_llm_agent_config::Client;
 use std::path::PathBuf;
@@ -20,8 +20,10 @@ pub trait SwitchSteps {
     /// Points `client` at the server `record`'s clients use
     /// ([`Record::for_clients`]). Returns what it did.
     fn connect(&self, client: Client, record: &Record) -> Result<String, String>;
-    /// Checks, changing nothing, that a server answers at `url` and accepts
-    /// its host name. Returns the problems found as an error.
+    /// Checks, changing nothing, that `url` is a server address a client
+    /// may be given, then that a server answers there and accepts its host
+    /// name. A refused address is refused before any server is asked.
+    /// Returns the problems found as an error.
     fn check_address(&self, url: &str) -> Result<(), String>;
     /// Checks, changing nothing, that the server at `url` accepts `key`.
     /// Returns the problems found as an error.
@@ -93,7 +95,8 @@ pub fn switch(
         Some(path) => ClientKey::File(path.clone()),
         None => ClientKey::None,
     };
-    check_address(&server.url, steps)
+    steps
+        .check_address(&server.url)
         .and_then(|()| steps.check_key(&server.url, &key))
         .map_err(|problem| {
             format!(

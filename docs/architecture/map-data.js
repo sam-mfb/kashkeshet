@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ad9c7e7e",
+ "commit": "74f7a9a8",
  "crates": [
   {
    "bins": [
@@ -347,6 +347,11 @@ window.KKT_GRAPH = {
       "new"
      ],
      "path": "machine::connection::ConnectionReads"
+    },
+    {
+     "doc": "The MCP endpoint a client of the serve settings reaches: `given`, as kkt-deployment's address rule takes it, or with none given the server on `bind`.",
+     "kind": "fn",
+     "path": "machine::connection::serve_endpoint"
     },
     {
      "doc": "The database file: opening it with the core's tables, what opening it would upgrade, and copying it.",
@@ -6695,6 +6700,18 @@ window.KKT_GRAPH = {
      "path": "connection"
     },
     {
+     "doc": "Why an address is not a server address a client may be given.",
+     "kind": "enum",
+     "path": "connection::AddressError",
+     "variants": [
+      "ControlCharacter",
+      "NotAbsolute",
+      "Credentials",
+      "Query",
+      "Fragment"
+     ]
+    },
+    {
      "doc": "",
      "fields": [
       "url",
@@ -6781,6 +6798,11 @@ window.KKT_GRAPH = {
      "doc": "How clients reach the server `kkt serve` would run with these settings.",
      "kind": "fn",
      "path": "connection::serve_connection"
+    },
+    {
+     "doc": "`given` as a server address a client may be given: an absolute http:// or https:// address with a host, and no control character, user name, password, query or fragment, so no secret is kept in it.",
+     "kind": "fn",
+     "path": "connection::server_address"
     },
     {
      "doc": "The per-user data directory: `~/Library/Application Support/kashkeshet` on macOS, and `kashkeshet` in the XDG data home (`Env::data_home`) elsewhere.",
@@ -6939,7 +6961,9 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
-    "semver"
+    "semver",
+    "thiserror",
+    "url"
    ]
   },
   {
@@ -7249,11 +7273,6 @@ window.KKT_GRAPH = {
      "doc": "The doctor's line about whether the web key's host copy is the key of kkt in Docker in `folder`, or why it could not be compared.",
      "kind": "fn",
      "path": "docker_web_key_check"
-    },
-    {
-     "doc": "Validate an HTTP MCP endpoint without allowing secrets in its URL.",
-     "kind": "fn",
-     "path": "endpoint"
     },
     {
      "doc": "`Inspector::server` on this machine.",
@@ -19369,6 +19388,7 @@ window.KKT_GRAPH = {
     "connection::ConnectionSource",
     "connection::RecordedServer",
     "connection::ServeConnection",
+    "connection::server_address",
     "default_db",
     "docker_folder"
    ],
@@ -19388,6 +19408,7 @@ window.KKT_GRAPH = {
       "connection::ConnectionOptions",
       "connection::RecordedServer",
       "connection::ServeConnection",
+      "connection::server_address",
       "default_db",
       "docker_folder"
      ],
@@ -19417,7 +19438,6 @@ window.KKT_GRAPH = {
     "Settings",
     "Status",
     "Unprobed",
-    "endpoint",
     "shell_word"
    ],
    "kind": "normal",
@@ -19443,7 +19463,6 @@ window.KKT_GRAPH = {
       "Settings",
       "Status",
       "Unprobed",
-      "endpoint",
       "shell_word"
      ],
      "role": "uses"
@@ -24245,6 +24264,7 @@ window.KKT_GRAPH = {
     "connection::client_connection",
     "connection::recorded_connection",
     "connection::serve_connection",
+    "connection::server_address",
     "docker_folder",
     "docker_url",
     "guard",
@@ -24275,6 +24295,7 @@ window.KKT_GRAPH = {
       "connection::client_connection",
       "connection::recorded_connection",
       "connection::serve_connection",
+      "connection::server_address",
       "docker_folder",
       "docker_url",
       "guard",
@@ -24373,7 +24394,8 @@ window.KKT_GRAPH = {
     "Answered",
     "Initialized",
     "KeyFile",
-    "Probing"
+    "Probing",
+    "testing::Memory"
    ],
    "to": "kkt-diagnostics"
   },
@@ -24724,6 +24746,42 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-containerized-service"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-install-commands",
+   "items": [
+    "Answered",
+    "Initialized",
+    "KeyFile",
+    "Prober",
+    "Probing",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Answered",
+      "Initialized",
+      "Probing"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-diagnostics"
   },
   {
    "features": [

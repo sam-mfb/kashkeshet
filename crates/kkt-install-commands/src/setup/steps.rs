@@ -402,9 +402,11 @@ fn connect(
     clients::configure(client, &setup, true, host, command)
 }
 
-/// Checks, changing nothing, that a server answers at `url` and accepts its
-/// host name.
+/// Checks, changing nothing, that `url` is a server address a client may be
+/// given (kkt-deployment's rule, before any server is asked), then that a
+/// server answers there and accepts its host name.
 fn check_address(prober: &dyn kkt_diagnostics::Prober, url: &str) -> Result<(), String> {
+    kkt_deployment::connection::server_address(url, None).map_err(|e| e.to_string())?;
     let mut checks =
         tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(prober, url))?;
     point_server_fix_at(
@@ -472,6 +474,29 @@ mod tests {
             hostname: None,
             tailnet: None,
         })
+    }
+
+    /// What setup and switch refuse as a server address, and how they say
+    /// so, before any server is asked: this test has no runtime, so asking a
+    /// server would panic.
+    #[test]
+    fn an_address_is_refused_before_any_server_is_asked() {
+        let prober = kkt_diagnostics::testing::Memory::new();
+        let absolute = "URL must be an absolute http:// or https:// address";
+        let secret = "put credentials in the key file, not in the URL; \
+                      query strings and fragments are not supported";
+        for (url, said) in [
+            ("ftp://h/mcp", absolute),
+            ("not a url", absolute),
+            ("h:7420/mcp", absolute),
+            ("http://h/\u{7}", "URL contains a control character"),
+            ("http://u:p@h/mcp", secret),
+            ("http://u@h/mcp", secret),
+            ("http://h/mcp?q=1", secret),
+            ("http://h/mcp#f", secret),
+        ] {
+            assert_eq!(check_address(&prober, url), Err(said.to_string()), "{url}");
+        }
     }
 
     #[test]

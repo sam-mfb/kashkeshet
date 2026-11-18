@@ -7,11 +7,23 @@ use crate::machine::native::NativeSetupFiles;
 use crate::machine::settings::ServeOptions;
 use crate::machine::settings::Sources;
 use crate::machine::settings::serve_settings_and_sources;
+/// The MCP endpoint a client of the serve settings reaches: `given`, as
+/// kkt-deployment's address rule takes it, or with none given the server on
+/// `bind`. A bare address is given `mcp_path`.
+pub fn serve_endpoint(
+    bind: std::net::SocketAddr,
+    given: Option<&str>,
+    mcp_path: &str,
+) -> Result<String, String> {
+    let default = format!("http://{bind}{mcp_path}");
+    kkt_deployment::connection::server_address(given.unwrap_or(&default), Some(mcp_path))
+        .map_err(|e| e.to_string())
+}
+
 #[cfg(test)]
 use kkt_deployment::connection::Connection;
 pub use kkt_deployment::connection::ConnectionOptions;
 use kkt_deployment::connection::{ConnectionSource, RecordedServer, ServeConnection};
-use kkt_diagnostics as diagnostics;
 use kkt_keys::AccessKey;
 use kkt_machine::{Env, Platform};
 use std::path::Path;
@@ -51,7 +63,7 @@ impl ConnectionSource for ConnectionReads<'_> {
                 ..ServeOptions::NONE
             },
         )?;
-        let url = diagnostics::endpoint(settings.bind, flags.url.as_deref(), kkt_mcp::MCP_PATH)?;
+        let url = serve_endpoint(settings.bind, flags.url.as_deref(), kkt_mcp::MCP_PATH)?;
         Ok(ServeConnection {
             url,
             access_key: settings.access_key,
