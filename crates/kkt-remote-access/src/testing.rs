@@ -57,10 +57,10 @@ mod tests {
         assert_eq!(sharing.served(server), Ok(None));
         sharing.serve(server).expect("share");
         assert_eq!(sharing.prepare(), Ok(node.clone()));
-        assert!(
-            sharing.serve(another).is_err(),
-            "do not replace another server"
-        );
+        let refused = sharing
+            .serve(another)
+            .expect_err("do not replace another server");
+        assert_eq!(refused.to_string(), "another server is already shared");
         sharing.stop(another).expect("leave another server alone");
         assert_eq!(sharing.served(server), Ok(Some(node)));
         assert_eq!(sharing.served(another), Ok(None));

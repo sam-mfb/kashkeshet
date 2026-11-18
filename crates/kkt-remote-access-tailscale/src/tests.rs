@@ -449,3 +449,115 @@ fn a_status_says_whether_the_node_runs_or_waits_for_a_login() {
     let starting = read("Starting");
     assert!(!starting.running() && !starting.needs_login());
 }
+
+/// Every message a person can be shown, pinned byte for byte: what `kkt
+/// setup` and the install commands print when sharing over Tailscale fails.
+#[test]
+fn every_sharing_message_says_what_it_always_said() {
+    let bad_json = || printed("{not json");
+    let logged_out = || reply(json!({"BackendState":"NeedsLogin"}));
+    let no_name =
+        || reply(json!({"BackendState":"Running","Self":{"DNSName":"nodot"},"CertDomains":[]}));
+    let no_https = || {
+        reply(
+            json!({"BackendState":"Running","Self":{"DNSName":"node.tail.ts.net"},"CertDomains":null}),
+        )
+    };
+    let status_failed = || {
+        Ok(Output {
+            success: false,
+            stdout: json!({"BackendState":"Running"}).to_string(),
+            stderr: "status broke".into(),
+        })
+    };
+    let refused = || {
+        Err(RunError {
+            missing: false,
+            said: "could not run Tailscale: refused; install Tailscale, start it and log in, then rerun `kkt setup`".into(),
+        })
+    };
+    let other_port = "127.0.0.1:7421".parse::<SocketAddr>().unwrap();
+    let said: Vec<String> = vec![
+        prepare(&Fake::new(vec![refused()]), RERUN).unwrap_err(),
+        prepare(&Fake::new(vec![bad_json()]), RERUN).unwrap_err(),
+        prepare(&Fake::new(vec![logged_out()]), RERUN).unwrap_err(),
+        prepare(&Fake::new(vec![status_failed()]), RERUN).unwrap_err(),
+        prepare(&Fake::new(vec![no_name()]), RERUN).unwrap_err(),
+        prepare(&Fake::new(vec![no_https()]), RERUN).unwrap_err(),
+        serve(&Fake::new(vec![]), "0.0.0.0:7420".parse().unwrap(), RERUN).unwrap_err(),
+        serve(
+            &Fake::new(vec![running(), failed("no serve")]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err(),
+        serve(&Fake::new(vec![running(), bad_json()]), DEFAULT_BIND, RERUN).unwrap_err(),
+        serve(
+            &Fake::new(vec![running(), reply(proxy("http://127.0.0.1:8888"))]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err(),
+        serve(
+            &Fake::new(vec![
+                running(),
+                reply(json!({"TCP":{"443":{"TCPForward":"x"}}})),
+            ]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err(),
+        serve(
+            &Fake::new(vec![
+                running(),
+                reply(json!({"AllowFunnel":{"my-mac-1.tail123.ts.net:443":true}})),
+            ]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err(),
+        serve(
+            &Fake::new(vec![running(), reply(json!({})), failed("not allowed")]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err(),
+        served(&Fake::new(vec![refused()]), DEFAULT_BIND).unwrap_err(),
+        served(&Fake::new(vec![failed("down")]), DEFAULT_BIND).unwrap_err(),
+        served(&Fake::new(vec![bad_json()]), DEFAULT_BIND).unwrap_err(),
+        stop(
+            &Fake::new(vec![running(), reply(proxy("http://127.0.0.1:7420"))]),
+            other_port,
+            RERUN,
+        )
+        .unwrap_err(),
+    ];
+    let expected = [
+        "could not run Tailscale: refused; install Tailscale, start it and log in, then rerun `kkt setup`",
+        "could not read Tailscale status; start Tailscale and log in, then rerun `kkt setup` (its output could not be read: syntax error at line 1 column 2)",
+        "Tailscale is NeedsLogin; open Tailscale and log in (or run `tailscale up`), then rerun `kkt setup`",
+        "Tailscale status failed; check `tailscale status` before rerunning `kkt setup` (Tailscale said: status broke)",
+        "Tailscale did not report a valid node DNS name; enable MagicDNS in https://login.tailscale.com/admin/dns and rerun `kkt setup`",
+        "Tailscale HTTPS certificates are not enabled for this node; open https://login.tailscale.com/admin/dns, enable MagicDNS, then under HTTPS Certificates select Enable HTTPS and accept the certificate transparency notice. Rerun `kkt setup` afterwards",
+        "host Tailscale sharing needs a loopback server address with a fixed port",
+        "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions (Tailscale said: no serve)",
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 2",
+        "Tailscale HTTPS root already serves something else; choose a different Tailscale node or remove that handler yourself",
+        "Tailscale already uses the HTTPS port for another TCP listener",
+        "Tailscale Funnel is enabled on this port; disable it before setting up private tailnet access",
+        "Tailscale Serve failed: not allowed; check `tailscale serve status` and permissions",
+        "could not run Tailscale: refused; install Tailscale, start it and log in, then rerun `kkt setup`",
+        "could not read Tailscale Serve's settings (down); start Tailscale and check `tailscale serve status`",
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 2",
+        "Tailscale HTTPS root now serves something else; left it unchanged",
+    ];
+    assert_eq!(said, expected);
+    assert_eq!(
+        Tailscale::read_status("{}"),
+        Err("no BackendState".to_string())
+    );
+    assert_eq!(
+        Tailscale::read_status("{not json"),
+        Err("syntax error at line 1 column 2".to_string())
+    );
+}
