@@ -1624,6 +1624,9 @@ dependencies = [
 [[package]]
 name = "kkt-remote-access"
 version = "0.10.0"
+dependencies = [
+ "thiserror",
+]
 
 [[package]]
 name = "kkt-remote-access-tailscale"
@@ -1632,6 +1635,7 @@ dependencies = [
  "kkt-remote-access",
  "serde",
  "serde_json",
+ "thiserror",
 ]
 
 [[package]]

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ad9c7e7e",
+ "commit": "b7a95a7e",
  "crates": [
   {
    "bins": [
@@ -14165,7 +14165,7 @@ window.KKT_GRAPH = {
      "trait": "RemoteAccess"
     }
    ],
-   "crate_doc": "Sharing this machine's server securely with clients on its private network, as a contract: `RemoteAccess`, `Node`, and a stand-in behind `testing`.",
+   "crate_doc": "Sharing this machine's server securely with clients on its private network, as a contract: `RemoteAccess`, `Node`, its errors (`SharingError`, with the kinds a caller can act on in `Sharing`), and a stand-in behind `testing`.",
    "dev_only": false,
    "features": {
     "testing": []
@@ -14201,6 +14201,33 @@ window.KKT_GRAPH = {
      "path": "RemoteAccess"
     },
     {
+     "doc": "The kinds of sharing failure.",
+     "kind": "enum",
+     "path": "Sharing",
+     "variants": [
+      "Unavailable",
+      "NotLoggedIn",
+      "NoName",
+      "NoHttps",
+      "NotLoopback",
+      "Occupied",
+      "Failed",
+      "Unreadable"
+     ]
+    },
+    {
+     "doc": "Why sharing could not be done: the kind, which a caller can act on, and what to tell the person, worded by the implementation, which knows its tool and the advice for it.",
+     "fields": [
+      "kind",
+      "said"
+     ],
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "SharingError"
+    },
+    {
      "doc": "Remote sharing in memory, for consumers' tests.",
      "feature": "testing",
      "kind": "mod",
@@ -14232,7 +14259,9 @@ window.KKT_GRAPH = {
    "released_program": false,
    "slots": [],
    "testing_third_party": [],
-   "third_party": []
+   "third_party": [
+    "thiserror"
+   ]
   },
   {
    "bins": [],
@@ -14268,6 +14297,15 @@ window.KKT_GRAPH = {
      "path": "Status"
     },
     {
+     "doc": "Why a status answer could not be read.",
+     "kind": "enum",
+     "path": "StatusError",
+     "variants": [
+      "NoBackendState",
+      "Unreadable"
+     ]
+    },
+    {
      "doc": "Shares this machine's server through its existing Tailscale login.",
      "kind": "struct",
      "methods": [
@@ -14292,7 +14330,8 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "serde",
-    "serde_json"
+    "serde_json",
+    "thiserror"
    ]
   },
   {
@@ -24545,7 +24584,9 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Node"
+    "Node",
+    "Sharing",
+    "SharingError"
    ],
    "to": "kkt-remote-access"
   },
@@ -26561,7 +26602,9 @@ window.KKT_GRAPH = {
    "from": "kkt-remote-access-tailscale",
    "items": [
     "Node",
-    "RemoteAccess"
+    "RemoteAccess",
+    "Sharing",
+    "SharingError"
    ],
    "kind": "normal",
    "optional": false,
@@ -26575,7 +26618,9 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
-      "Node"
+      "Node",
+      "Sharing",
+      "SharingError"
      ],
      "role": "uses"
     }

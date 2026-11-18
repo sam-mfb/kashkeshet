@@ -55,7 +55,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     ) -> Result<setup::Installed, String> {
         // Before anything changes: Tailscale must be logged in, with HTTPS.
         let node = match tailscale {
-            true => Some(self.parts.remote.prepare()?),
+            true => Some(self.parts.remote.prepare().map_err(|e| e.to_string())?),
             false => None,
         };
         if let Some(node) = &node {
@@ -78,7 +78,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             connection::serve_connection(self.parts.connection, ConnectionOptions::NONE, false)?;
         let url = match &node {
             Some(node) => {
-                self.parts.remote.serve(self.parts.serve.bind()?)?;
+                self.parts
+                    .remote
+                    .serve(self.parts.serve.bind()?)
+                    .map_err(|e| e.to_string())?;
                 format!("https://{}/mcp", node.dns_name)
             }
             None => connection.url,

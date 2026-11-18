@@ -12,9 +12,9 @@ pub(super) struct RunError {
     pub said: String,
 }
 
-impl From<RunError> for String {
-    fn from(error: RunError) -> String {
-        error.said
+impl From<RunError> for kkt_remote_access::SharingError {
+    fn from(error: RunError) -> kkt_remote_access::SharingError {
+        kkt_remote_access::SharingError::new(kkt_remote_access::Sharing::Unavailable, error.said)
     }
 }
 

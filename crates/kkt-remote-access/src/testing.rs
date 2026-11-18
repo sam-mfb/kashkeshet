@@ -1,6 +1,6 @@
 //! Remote sharing in memory, for consumers' tests.
 
-use crate::{Node, RemoteAccess};
+use crate::{Node, RemoteAccess, Sharing, SharingError};
 use std::cell::RefCell;
 use std::net::SocketAddr;
 
@@ -20,21 +20,24 @@ impl Memory {
 }
 
 impl RemoteAccess for Memory {
-    fn prepare(&self) -> Result<Node, String> {
+    fn prepare(&self) -> Result<Node, SharingError> {
         Ok(self.node.clone())
     }
-    fn serve(&self, bind: SocketAddr) -> Result<(), String> {
+    fn serve(&self, bind: SocketAddr) -> Result<(), SharingError> {
         let mut shared = self.shared.borrow_mut();
         if shared.is_some_and(|existing| existing != bind) {
-            return Err("another server is already shared".into());
+            return Err(SharingError::new(
+                Sharing::Occupied,
+                "another server is already shared",
+            ));
         }
         *shared = Some(bind);
         Ok(())
     }
-    fn served(&self, bind: SocketAddr) -> Result<Option<Node>, String> {
+    fn served(&self, bind: SocketAddr) -> Result<Option<Node>, SharingError> {
         Ok((*self.shared.borrow() == Some(bind)).then(|| self.node.clone()))
     }
-    fn stop(&self, bind: SocketAddr) -> Result<(), String> {
+    fn stop(&self, bind: SocketAddr) -> Result<(), SharingError> {
         if *self.shared.borrow() == Some(bind) {
             *self.shared.borrow_mut() = None;
         }
@@ -61,6 +64,7 @@ mod tests {
             .serve(another)
             .expect_err("do not replace another server");
         assert_eq!(refused.to_string(), "another server is already shared");
+        assert_eq!(refused.kind, Sharing::Occupied);
         sharing.stop(another).expect("leave another server alone");
         assert_eq!(sharing.served(server), Ok(Some(node)));
         assert_eq!(sharing.served(another), Ok(None));
