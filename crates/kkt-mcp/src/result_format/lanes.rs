@@ -301,7 +301,7 @@ fn lane_json(l: &Lane, description: Option<&Description>, text: Option<&str>) ->
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::MIN_RESPONSE_BYTES;
+    use crate::result_format::MIN_RESPONSE_BYTES;
     use kkt_api_agent::{LaneRetired, LaneVersion};
     use kkt_clock::testing::FixedClock;
     use kkt_names::MAX_ADMIN_NAME_CHARS;

@@ -275,13 +275,13 @@ class AssemblyWiring(unittest.TestCase):
     def test_a_value_of_a_holder_type_the_receiver_names_is_refused(self):
         slots = dict(self.SLOTS, **{"kkt-mcp": [
             {"at": "endpoint", "name": "fmt", "traits": [],
-             "holds": [{"crate": "kkt-result-format", "type": "Formatter", "traits": [{"crate": "kkt-clock", "trait": "Clock"}]}]}]})
-        items = dict(self.ITEMS, **{"kkt-result-format": {"Formatter": {}}})
+             "holds": [{"crate": "kkt-web", "type": "Sessions", "traits": [{"crate": "kkt-clock", "trait": "Clock"}]}]}]})
+        items = dict(self.ITEMS, **{"kkt-web": {"Sessions": {}}})
         assembly = {"programs": {"kkt": {"steps": [], "wiring": [
-            {"impl": "kkt-result-format::Formatter", "crate": "kkt-mcp", "to": [{"at": "endpoint", "param": "fmt"}]}]}}}
+            {"impl": "kkt-web::Sessions", "crate": "kkt-mcp", "to": [{"at": "endpoint", "param": "fmt"}]}]}}}
         with self.assertRaises(SystemExit) as stop:
-            generate.check_assembly(assembly, items, self.PACKAGES | {"kkt-mcp", "kkt-result-format"}, slots, {}, NO_PLACES, {}, {})
-        self.assertIn("kkt-result-format::Formatter is a value of a type kkt-mcp names directly", str(stop.exception))
+            generate.check_assembly(assembly, items, self.PACKAGES | {"kkt-mcp", "kkt-web"}, slots, {}, NO_PLACES, {}, {})
+        self.assertIn("kkt-web::Sessions is a value of a type kkt-mcp names directly", str(stop.exception))
 
     def test_a_factory_for_the_slots_contract_passes(self):
         slots = dict(self.SLOTS, **{"kkt-rules": [

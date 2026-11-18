@@ -1411,7 +1411,7 @@
       "kkt-files::Files",
       "kkt-config-file::parse_file",
       "kkt-rules::Settings",
-      "kkt-result-format::Settings",
+      "kkt-mcp::result_format::Settings",
       "kkt-web::Settings",
       "kkt-backup::Settings",
       "kkt-admission::server_keys::check"
@@ -1937,10 +1937,10 @@
      ]
     },
     {
-     "crate": "kkt-result-format",
+     "crate": "kkt-mcp",
      "to": [
       {
-       "at": "Formatter::new",
+       "at": "result_format::Formatter::new",
        "param": "clock"
       }
      ],
@@ -1951,7 +1951,7 @@
        "param": "clock"
       }
      ],
-     "note": "kkt-server builds the Formatter it hands kkt-mcp's endpoints; the Formatter is kkt-result-format's own type, so the injection is the clock that goes into it"
+     "note": "kkt-server builds the Formatter it hands kkt-mcp's endpoints; the Formatter is kkt-mcp's own type, so the injection is the clock that goes into it"
     },
     {
      "crate": "kkt-mcp",
@@ -2795,13 +2795,6 @@
    "at": "connection::admin_connection",
    "param": "source",
    "why": "it asks client_connection and serve_connection only"
-  },
-  {
-   "crate": "kkt-mcp",
-   "to": "kkt-result-format",
-   "at": "Formatter::new",
-   "param": "clock",
-   "why": "it takes a built Formatter; it builds one only in its own tests, with a fixed clock"
   },
   {
    "crate": "kkt-server",

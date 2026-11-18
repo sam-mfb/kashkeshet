@@ -3,6 +3,7 @@
 //! [`KeyMode`] acts in the one swarm.
 
 use crate::mcp_transport::Transport;
+use crate::result_format::Formatter;
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
@@ -16,7 +17,6 @@ use kkt_hosts::AllowedHosts;
 use kkt_identity::{Identified, Identify, Identifying};
 use kkt_identity_keymode::KeyMode;
 use kkt_log::{Level, Log, testing::CapturedLog};
-use kkt_result_format::Formatter;
 use kkt_rules::OperatorWording;
 use kkt_rules::Rules;
 use kkt_shutdown::Shutdown;
