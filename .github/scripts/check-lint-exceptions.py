@@ -3,7 +3,9 @@
 (RUST.md 9): an `expect` fails once the lint no longer fires, so a stale
 exception cannot stay. This check fails on any `allow` attribute in the
 Rust files git tracks, `#[allow(..)]`, `#![allow(..)]` and an `allow`
-inside `cfg_attr`, and on an `expect` without a reason.
+inside `cfg_attr`, and on an `expect` without a reason, wherever it is in
+the attribute. Each attribute is read whole, across lines, as rustfmt may
+split it.
 
 Usage: check-lint-exceptions.py [ROOT]   (the workspace root; default: here)
 Tested by test_check_lint_exceptions.py.
@@ -14,21 +16,51 @@ import subprocess
 import sys
 from pathlib import Path
 
-ALLOW = re.compile(r"#!?\[\s*(?:allow\s*\(|cfg_attr\s*\(.*\ballow\s*\()")
-# An `expect` attribute, up to its closing `)]`, which may span lines.
-EXPECT = re.compile(r"#!?\[\s*expect\s*\((.*?)\)\s*\]", re.DOTALL)
+ALLOW = re.compile(r"\ballow\s*\(")
+EXPECT = re.compile(r"\bexpect\s*\(")
+ATTRIBUTE_START = re.compile(r"#!?\[")
+
+
+def closing(text, start, open_mark, close_mark):
+    """The index just past the mark that closes the one at `start`, skipping
+    strings; the end of `text` if it never closes."""
+    depth, i = 0, start
+    while i < len(text):
+        c = text[i]
+        if c == '"':
+            i += 1
+            while i < len(text) and text[i] != '"':
+                i += 2 if text[i] == "\\" else 1
+        elif c == open_mark:
+            depth += 1
+        elif c == close_mark:
+            depth -= 1
+            if depth == 0:
+                return i + 1
+        i += 1
+    return len(text)
+
+
+def attributes(text):
+    """Each attribute in `text`, whole, across lines: (its first line, its
+    text). Comment lines are left out, so an example in a doc is not read."""
+    code = "\n".join("" if line.lstrip().startswith("//") else line for line in text.split("\n"))
+    for found in ATTRIBUTE_START.finditer(code):
+        bracket = found.end() - 1
+        yield code.count("\n", 0, found.start()) + 1, code[found.start():closing(code, bracket, "[", "]")]
 
 
 def problems_in(text, where):
     """The allow attributes and reasonless expects in one file's text."""
     found = []
-    for number, line in enumerate(text.split("\n"), start=1):
-        if ALLOW.search(line) and not line.lstrip().startswith("//"):
-            found.append(f"{where}:{number}: use #[expect(.., reason = \"..\")], not allow: {line.strip()[:80]}")
-    for attribute in EXPECT.finditer(text):
-        if not re.search(r"\breason\s*=", attribute.group(1)):
-            number = text.count("\n", 0, attribute.start()) + 1
-            found.append(f"{where}:{number}: an expect gives no reason: {attribute.group(0).strip()[:80]}")
+    for number, attribute in attributes(text):
+        shown = " ".join(attribute.split())[:80]
+        if ALLOW.search(attribute):
+            found.append(f"{where}:{number}: use #[expect(.., reason = \"..\")], not allow: {shown}")
+        for expect in EXPECT.finditer(attribute):
+            arguments = attribute[expect.end() - 1:closing(attribute, expect.end() - 1, "(", ")")]
+            if not re.search(r"\breason\s*=", arguments):
+                found.append(f"{where}:{number}: an expect gives no reason: {shown}")
     return found
 
 
