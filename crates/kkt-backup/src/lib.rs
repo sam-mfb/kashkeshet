@@ -7,6 +7,7 @@
 //! ([`backup_keys`]), and where backups go ([`upgrade_backup_folder`],
 //! [`service_backup_folder`]).
 
+mod error;
 mod folders;
 mod keys;
 mod settings;
@@ -14,6 +15,7 @@ mod source;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 
+pub use error::{BackupError, BackupOfError, FileAction, FolderError, InspectError};
 pub use folders::{service_backup_folder, upgrade_backup_folder};
 pub use keys::{AccessKeyFrom, BackupKeys, FileThere, backup_keys};
 pub use settings::{Problem, Settings};
@@ -29,11 +31,11 @@ pub trait Backups {
     /// the layout's partial name, renamed to its name only when complete.
     /// Refuses if a backup of that name is already there; a failed write
     /// leaves no partial folder. Returns the backup written.
-    fn write(&self, folder: &Path, layout: &Layout<'_>) -> Result<PathBuf, String>;
+    fn write(&self, folder: &Path, layout: &Layout<'_>) -> Result<PathBuf, BackupError>;
     /// Removes the backups in `folder` that [`old_names`] picks to go,
     /// keeping the newest `keep`. A missing folder has no backups. Returns
     /// the backups removed, oldest first.
-    fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, String>;
+    fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError>;
 }
 
 /// The database's name within a backup folder.

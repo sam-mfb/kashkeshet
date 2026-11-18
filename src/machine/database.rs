@@ -61,7 +61,8 @@ pub fn pending_upgrade(path: &Path) -> Result<Option<PendingUpgrade>, String> {
 }
 
 /// Writes a consistent copy of the database file at `from` to the new file
-/// `to`, even while a server writes to `from`.
-pub fn copy(from: &Path, to: &Path) -> Result<(), String> {
-    copy_database(from, to, Options::DEFAULT.busy_timeout).map_err(|e| e.to_string())
+/// `to`, even while a server writes to `from`. A failure is the database's
+/// own error, for the backup to give as its cause.
+pub fn copy(from: &Path, to: &Path) -> Result<(), kkt_backup_os::CopyError> {
+    Ok(copy_database(from, to, Options::DEFAULT.busy_timeout)?)
 }

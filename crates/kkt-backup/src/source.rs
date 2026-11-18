@@ -2,6 +2,7 @@
 //! kkt in Docker in its managed folder, or the local database `kkt serve`
 //! would use. A client machine has no server to act on.
 
+use crate::BackupOfError;
 use std::path::{Path, PathBuf};
 
 /// Where this machine's server is, as the caller reads it from how the
@@ -38,26 +39,20 @@ pub fn backup_of(
     server: &ServerHere,
     into: Option<&Path>,
     local_options: bool,
-) -> Result<BackupOf, String> {
+) -> Result<BackupOf, BackupOfError> {
     match server {
         ServerHere::InDocker { folder } => {
             if local_options {
-                return Err(
-                    "Docker backup uses the configured container; --db and --config \
-                            apply only to a local service"
-                        .into(),
-                );
+                return Err(BackupOfError::DockerTakesNoLocalOptions);
             }
             Ok(BackupOf::Docker {
                 folder: folder.clone(),
                 into: into.map(Path::to_path_buf),
             })
         }
-        ServerHere::Elsewhere => {
-            Err("this machine is a client; back up the server on the machine where it runs".into())
-        }
+        ServerHere::Elsewhere => Err(BackupOfError::OnAClient),
         ServerHere::ThisMachine => {
-            let into = into.ok_or("a local backup needs FOLDER; run `kkt backup <folder>`")?;
+            let into = into.ok_or(BackupOfError::NoFolder)?;
             Ok(BackupOf::Local {
                 into: into.to_path_buf(),
             })
@@ -93,7 +88,7 @@ mod tests {
         );
         assert_eq!(
             backup_of(&docker(), Some(Path::new("out")), true),
-            Err("Docker backup uses the configured container; --db and --config apply only to a local service".into())
+            Err(BackupOfError::DockerTakesNoLocalOptions)
         );
     }
 
@@ -106,17 +101,14 @@ mod tests {
                 into: PathBuf::from("out")
             })
         );
-        assert_eq!(
-            backup_of(&here, None, false),
-            Err("a local backup needs FOLDER; run `kkt backup <folder>`".into())
-        );
+        assert_eq!(backup_of(&here, None, false), Err(BackupOfError::NoFolder));
     }
 
     #[test]
     fn a_backup_is_refused_on_a_client() {
         assert_eq!(
             backup_of(&ServerHere::Elsewhere, Some(Path::new("out")), false),
-            Err("this machine is a client; back up the server on the machine where it runs".into())
+            Err(BackupOfError::OnAClient)
         );
     }
 }
