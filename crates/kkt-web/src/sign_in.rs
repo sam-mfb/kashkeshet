@@ -76,7 +76,7 @@ pub async fn login(
             page(
                 log.as_ref(),
                 LoginPage {
-                    error: Some(reason),
+                    error: Some(reason.to_string()),
                     sign_out: false,
                     form_token: String::new(),
                 },

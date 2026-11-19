@@ -844,7 +844,7 @@ async fn a_signed_in_viewer_is_key_modes_web_operator() {
     );
     assert_eq!(
         gate.sign_in("0123456789abcdef0123456789abcdeX"),
-        SignIn::Refused("the access key is wrong".into())
+        SignIn::Refused(kkt_web::SignInRefused::new("the access key is wrong"))
     );
     let SignIn::Admitted(principal) = gate.sign_in(KEY) else {
         panic!("the web key signs in");

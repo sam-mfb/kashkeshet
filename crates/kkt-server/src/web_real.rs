@@ -59,7 +59,7 @@ impl Gate for AdmissionGate {
     fn sign_in(&self, key: &str) -> SignIn<Principal> {
         match self.admission.sign_in(&Credentials::from_key(key)) {
             Decision::Admitted(principal) => SignIn::Admitted(principal),
-            Decision::Refused(refusal) => SignIn::Refused(refusal.to_string()),
+            Decision::Refused(refusal) => SignIn::Refused(kkt_web::SignInRefused::new(refusal)),
         }
     }
 }

@@ -55,5 +55,38 @@ pub enum SignIn<T> {
     /// The key lets the viewer in; their session holds this.
     Admitted(T),
     /// The key was wrong, for this reason.
-    Refused(String),
+    Refused(SignInRefused),
 }
+
+/// Why a [`Gate`] refused a key: its own error, passed on unread; the page
+/// shows what it says. Shared, so a [`SignIn`] can be copied; two are equal
+/// when they say the same.
+#[derive(Debug, Clone)]
+pub struct SignInRefused(pub std::sync::Arc<dyn std::error::Error + Send + Sync>);
+
+impl SignInRefused {
+    /// `reason`, as why the key was refused.
+    pub fn new(reason: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> SignInRefused {
+        SignInRefused(std::sync::Arc::from(reason.into()))
+    }
+}
+
+impl std::fmt::Display for SignInRefused {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(f)
+    }
+}
+
+impl std::error::Error for SignInRefused {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.0.source()
+    }
+}
+
+impl PartialEq for SignInRefused {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_string() == other.to_string()
+    }
+}
+
+impl Eq for SignInRefused {}

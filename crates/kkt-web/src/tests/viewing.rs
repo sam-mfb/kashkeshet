@@ -55,7 +55,7 @@ impl Gate for Named {
     }
 
     fn sign_in(&self, _key: &str) -> SignIn<String> {
-        SignIn::Refused("no sign-in here".into())
+        SignIn::Refused(crate::SignInRefused::new("no sign-in here"))
     }
 }
 

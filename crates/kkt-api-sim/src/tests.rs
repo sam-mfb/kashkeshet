@@ -235,7 +235,7 @@ async fn the_preview_gate_refuses_a_wrong_key() {
     for wrong in ["", "guess", &PREVIEW_KEY[1..], &format!("{PREVIEW_KEY}x")] {
         assert_eq!(
             gate.sign_in(wrong),
-            SignIn::Refused("the access key is wrong".into()),
+            SignIn::Refused(kkt_web::SignInRefused::new("the access key is wrong")),
             "{wrong:?}"
         );
     }

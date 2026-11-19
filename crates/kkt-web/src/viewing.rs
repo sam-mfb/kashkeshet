@@ -83,7 +83,7 @@ pub(crate) trait Forms: Send + Sync {
 
     /// Checks the key a viewer typed and, if the gate lets them in, starts
     /// a session: its ID and how long it lasts, or the gate's reason.
-    fn sign_in(&self, key: &str) -> Result<(String, Duration), String>;
+    fn sign_in(&self, key: &str) -> Result<(String, Duration), crate::SignInRefused>;
 
     /// Ends a session.
     fn sign_out(&self, session_id: &str);
@@ -116,7 +116,7 @@ impl<S: Held> Forms for GateForms<S> {
         })
     }
 
-    fn sign_in(&self, key: &str) -> Result<(String, Duration), String> {
+    fn sign_in(&self, key: &str) -> Result<(String, Duration), crate::SignInRefused> {
         match self.gate.sign_in(key) {
             SignIn::Admitted(holder) => Ok((self.sessions.start(holder), self.sessions.lifetime())),
             SignIn::Refused(reason) => Err(reason),
