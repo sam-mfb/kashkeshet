@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "041356e1",
+ "commit": "fb230037",
  "crates": [
   {
    "bins": [
@@ -4326,6 +4326,11 @@ window.KKT_GRAPH = {
     }
    ],
    "items": [
+    {
+     "doc": "Why the maker handed to `Service::add_key` could not make the key file: its own error, passed on unread.",
+     "kind": "struct",
+     "path": "KeyError"
+    },
     {
      "doc": "An answer that comes after waiting, such as for the service manager to load a service, on the clock it is given.",
      "kind": "type",
@@ -23318,6 +23323,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-bare-service-launchd",
    "items": [
+    "KeyError",
     "Pending",
     "SERVICE_RESTART_DELAY",
     "SERVICE_STOP_TIMEOUT",
@@ -23341,6 +23347,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "KeyError",
       "Pending",
       "SERVICE_RESTART_DELAY",
       "SERVICE_STOP_TIMEOUT",
@@ -23420,6 +23427,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-bare-service-systemd",
    "items": [
+    "KeyError",
     "Pending",
     "SERVICE_RESTART_DELAY",
     "SERVICE_STOP_TIMEOUT",
@@ -23443,6 +23451,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "KeyError",
       "Pending",
       "SERVICE_RESTART_DELAY",
       "SERVICE_STOP_TIMEOUT",
@@ -25478,6 +25487,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
+    "KeyError",
     "Service",
     "ServiceError",
     "Settings",
@@ -25489,6 +25499,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "KeyError",
       "Service",
       "ServiceError",
       "Settings",
@@ -26153,6 +26164,7 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-install-commands",
    "items": [
+    "KeyError",
     "Pending",
     "Service",
     "ServiceError",
@@ -26167,6 +26179,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "KeyError",
       "Pending",
       "ServiceError"
      ],
@@ -26334,6 +26347,7 @@ window.KKT_GRAPH = {
     "KeyFileAction",
     "KeyFileError",
     "KeyFiles",
+    "admin_key_path",
     "testing::Memory"
    ],
    "kind": "dev",
@@ -26344,7 +26358,8 @@ window.KKT_GRAPH = {
      "detail": [
       "AccessKey",
       "KeyFileAction",
-      "KeyFileError"
+      "KeyFileError",
+      "admin_key_path"
      ],
      "role": "uses"
     },

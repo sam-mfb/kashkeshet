@@ -830,7 +830,9 @@ fn a_new_key_is_made_and_the_service_restarted_to_read_it() {
     let made = std::cell::Cell::new(0);
     let make = |path: &Path| {
         made.set(made.get() + 1);
-        system.write_file(path, "key").map_err(|e| e.to_string())
+        system
+            .write_file(path, "key")
+            .map_err(|e| kkt_bare_service::KeyError(e.into()))
     };
     assert!(
         mac()

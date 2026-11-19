@@ -324,7 +324,7 @@ impl Agent {
         &self,
         system: &dyn System,
         key: &Path,
-        make: &dyn Fn(&Path) -> Result<(), String>,
+        make: &dyn Fn(&Path) -> Result<(), kkt_bare_service::KeyError>,
     ) -> Result<bool, ServiceError> {
         let made = !exists(system, key)?;
         if made {

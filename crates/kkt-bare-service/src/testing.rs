@@ -124,7 +124,7 @@ impl Service for Memory {
     fn add_key(
         &self,
         key: &Path,
-        make: &dyn Fn(&Path) -> Result<(), String>,
+        make: &dyn Fn(&Path) -> Result<(), crate::KeyError>,
     ) -> Result<bool, ServiceError> {
         // A key it gave the server before is not made again, but the
         // restart runs, as a real service manager's does.
@@ -186,6 +186,27 @@ mod tests {
         assert_eq!(service.done(), ["stop", "start", "uninstall"]);
         assert!(!service.state().expect("state").installed);
         assert!(matches!(service.start(), Err(ServiceError::NotInstalled)));
+    }
+
+    /// The maker's error comes back as it was made, its type kept.
+    #[test]
+    fn a_key_the_maker_cannot_make_gives_back_its_error() {
+        let service = Memory::installed(vec!["serve".into()], true);
+        let make = |_: &Path| {
+            Err(crate::KeyError(Box::new(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "refused",
+            ))))
+        };
+        match service.add_key(Path::new("/k/admin-key"), &make) {
+            Err(ServiceError::Key(e)) => {
+                assert_eq!(e.to_string(), "refused");
+                let cause = e.0.downcast_ref::<std::io::Error>().expect("an io error");
+                assert_eq!(cause.kind(), std::io::ErrorKind::PermissionDenied);
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(service.done().is_empty(), "{:?}", service.done());
     }
 
     #[test]
