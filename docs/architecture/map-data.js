@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "38f96abc",
+ "commit": "01dc7819",
  "crates": [
   {
    "bins": [
@@ -9213,6 +9213,77 @@ window.KKT_GRAPH = {
      "doc": "An install's lifecycle: `kkt status`, `kkt upgrade`, `kkt uninstall` and `kkt backup`.",
      "kind": "mod",
      "path": "lifecycle"
+    },
+    {
+     "doc": "Why `kkt backup` failed: each kind is a source's own error.",
+     "kind": "enum",
+     "path": "lifecycle::BackupCommandError",
+     "variants": [
+      "Read",
+      "Of",
+      "Container",
+      "Local"
+     ]
+    },
+    {
+     "doc": "Why the local database could not be backed up.",
+     "kind": "enum",
+     "path": "lifecycle::LocalBackupError",
+     "variants": [
+      "NoDatabase",
+      "Config",
+      "Database",
+      "Keys",
+      "Write"
+     ]
+    },
+    {
+     "doc": "Why `kkt status` failed: a source's own error, or the key file it could not look at.",
+     "kind": "enum",
+     "path": "lifecycle::StatusError",
+     "variants": [
+      "KeyThere",
+      "KeyRead",
+      "Read",
+      "Find",
+      "AdminName",
+      "Unknown",
+      "Config",
+      "Service",
+      "Container"
+     ]
+    },
+    {
+     "doc": "Why `kkt uninstall` failed: a source's own error, or no home to find the setup record in.",
+     "kind": "enum",
+     "path": "lifecycle::UninstallError",
+     "variants": [
+      "NoHome",
+      "Recorded",
+      "Container",
+      "Bind",
+      "Sharing",
+      "Service",
+      "Write",
+      "Remove"
+     ]
+    },
+    {
+     "doc": "Why `kkt upgrade` failed: a source's own error, or a service whose new version was installed but not recorded.",
+     "kind": "enum",
+     "path": "lifecycle::UpgradeCommandError",
+     "variants": [
+      "Recorded",
+      "Version",
+      "Container",
+      "Plan",
+      "BackupFolder",
+      "Backup",
+      "Key",
+      "Ready",
+      "Install",
+      "Write"
+     ]
     },
     {
      "doc": "`kkt backup`: backs up the Docker server through its container, or the database `kkt serve` would use (or `db`), with the config file and existing keys it would read, into `folder` or the default folder.",
@@ -25229,10 +25300,14 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "AccessKeyFrom",
+    "BackupError",
     "BackupKeys",
     "BackupOf",
+    "BackupOfError",
     "Backups",
     "Contents",
+    "FolderError",
+    "InspectError",
     "ServerHere",
     "backup_keys",
     "backup_of",
@@ -25246,10 +25321,14 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AccessKeyFrom",
+      "BackupError",
       "BackupKeys",
       "BackupOf",
+      "BackupOfError",
       "Backups",
       "Contents",
+      "FolderError",
+      "InspectError",
       "ServerHere",
       "backup_keys",
       "backup_of",
@@ -25261,7 +25340,6 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "BackupError",
     "FileAction",
     "Layout"
    ],
@@ -25390,6 +25468,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
+    "AdminNameLineError",
     "BindError",
     "Deployment",
     "DeploymentEndpoint",
@@ -25413,6 +25492,7 @@ window.KKT_GRAPH = {
     "UnfinishedSetup",
     "Unknown",
     "UnrecordedDeployment",
+    "UpgradeError",
     "admin_key_collision",
     "admin_name_line",
     "admin_name_written",
@@ -25452,6 +25532,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "AdminNameLineError",
       "BindError",
       "Deployment",
       "DeploymentEndpoint",
@@ -25473,6 +25554,7 @@ window.KKT_GRAPH = {
       "UnfinishedSetup",
       "Unknown",
       "UnrecordedDeployment",
+      "UpgradeError",
       "admin_key_collision",
       "admin_name_line",
       "admin_name_written",
