@@ -90,10 +90,10 @@ impl ConnectionSource for ConnectionReads<'_> {
     }
 }
 
-/// This program's reads still say why in words: kkt-deployment's contract
-/// carries them as they are.
-fn source_error(said: String) -> SourceError {
-    SourceError(said.into())
+/// This program's reads' own errors, as kkt-deployment's contract carries
+/// them: unread.
+fn source_error(error: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> SourceError {
+    SourceError(error.into())
 }
 
 /// How clients reach the server `kkt serve` would run with these settings,

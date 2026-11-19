@@ -207,6 +207,7 @@ name = "kkt"
 path = "src/bin/kkt/main.rs"
 
 [dependencies]
+thiserror.workspace = true
 clap.workspace = true
 futures.workspace = true
 kkt-admission = { path = "crates/kkt-admission" }

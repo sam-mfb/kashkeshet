@@ -2,10 +2,28 @@
 //! would upgrade, and copying it. The file is SQLite's (`kkt-db-sqlite`);
 //! the store sees only the database it opens.
 
-use kkt_db::Upgrade;
+use kkt_db::{DbError, Upgrade};
 use kkt_db_sqlite::{Options, SqlitePlace, copy_database};
 use kkt_rules::Db;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+/// Why the database file could not be opened.
+#[derive(Debug, thiserror::Error)]
+#[error("could not open {}: {source}", path.display())]
+pub struct OpenError {
+    pub path: PathBuf,
+    #[source]
+    pub source: DbError,
+}
+
+/// Why the upgrade opening the database file would make could not be read.
+#[derive(Debug, thiserror::Error)]
+#[error("could not read {}: {source}", path.display())]
+pub struct PendingError {
+    pub path: PathBuf,
+    #[source]
+    pub source: DbError,
+}
 
 fn place(path: &Path) -> SqlitePlace {
     SqlitePlace::new(path, Options::DEFAULT).adopting(kkt_rules::legacy(TOO_OLD.into()))
@@ -25,20 +43,26 @@ pub struct PendingUpgrade {
 
 /// Opens the database file at `path`, creating it if needed, and brings its
 /// tables up to date.
-pub fn open(path: &Path) -> Result<Db, String> {
+pub fn open(path: &Path) -> Result<Db, OpenError> {
     place(path)
         .open(&[kkt_rules::schema()])
         .map(Db::new)
-        .map_err(|e| format!("could not open {}: {e}", path.display()))
+        .map_err(|source| OpenError {
+            path: path.to_path_buf(),
+            source,
+        })
 }
 
 /// The upgrade opening the file at `path` would make to tables already
 /// there, adopting a database from before kkt-db included. `None` when
 /// there is no file, it has no tables yet, or they are up to date.
 /// Changes nothing.
-pub fn pending_upgrade(path: &Path) -> Result<Option<PendingUpgrade>, String> {
+pub fn pending_upgrade(path: &Path) -> Result<Option<PendingUpgrade>, PendingError> {
     let place = place(path);
-    let unreadable = |e| format!("could not read {}: {e}", path.display());
+    let unreadable = |source| PendingError {
+        path: path.to_path_buf(),
+        source,
+    };
     let upgrades = place.pending(&[kkt_rules::schema()]).map_err(unreadable)?;
     let core = |u: &Upgrade| format!("{} {}", u.set, u.to);
     if let Some(old) = place.adoption().map_err(unreadable)? {
