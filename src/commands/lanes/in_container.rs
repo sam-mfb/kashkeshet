@@ -4,6 +4,7 @@
 
 use kkt_container::Folder;
 use kkt_containerized_service::{Arg, Carry, ConfigReader, InServer, ServiceContainer};
+use kkt_operator_commands::PartError;
 use kkt_operator_commands::lanes::{Carried, RunArg, ServerInContainer};
 use std::path::Path;
 
@@ -21,7 +22,7 @@ impl ServerInContainer for LanesInContainer<'_> {
         args: &[RunArg],
         folder_prefix: &str,
         carry: Carried,
-    ) -> Result<String, String> {
+    ) -> Result<String, PartError> {
         let args: Vec<Arg> = args
             .iter()
             .map(|arg| match arg {
@@ -42,25 +43,26 @@ impl ServerInContainer for LanesInContainer<'_> {
                     carry,
                 },
             )
-            .map_err(String::from)
+            .map_err(|e| PartError(Box::new(e)))
     }
 
     fn installed(&self) -> bool {
         self.container.has_settings(&self.folder)
     }
 
-    fn config_file(&self) -> Result<String, String> {
+    fn config_file(&self) -> Result<String, PartError> {
         self.container
             .config_home_file(&self.folder, &kkt_config_file::config_file_in_home())
-            .map_err(String::from)
+            .map_err(|e| PartError(Box::new(e)))
     }
 
     /// Only the lane limit is used, so the paths are not, and a `~/` path
     /// need only be read as one: the home given is a stand-in for the
     /// container's.
-    fn lane_limit_in(&self, text: &str) -> Result<Option<usize>, String> {
+    fn lane_limit_in(&self, text: &str) -> Result<Option<usize>, PartError> {
         self.configs
             .settings(text, Path::new("/"), Some(Path::new("/")))
             .map(|settings| settings.max_lane_chars)
+            .map_err(|said| PartError(said.into()))
     }
 }
