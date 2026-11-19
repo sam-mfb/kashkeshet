@@ -220,21 +220,28 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
         )
         .await
         .expect("lane");
+    let command_line = Operator::new(
+        kkt_api_agent::Permissions::of(&[kkt_api_agent::Permission::Change]),
+        kkt_api_agent::Audit::CommandLine,
+    );
     operator
-        .import_lanes(kkt_rules::LaneImport {
-            lanes: vec![kkt_api_operator::LaneSave {
-                name: "reviewer".into(),
-                description: "Reviews.".into(),
-                text: "Read twice.".into(),
-            }],
-            source: kkt_api_agent::LaneSource {
-                folder: "/home/sam/lanes".into(),
-                commit: Some("abc123-dirty".into()),
+        .import_lanes(
+            &command_line,
+            kkt_rules::LaneImport {
+                lanes: vec![kkt_api_operator::LaneSave {
+                    name: "reviewer".into(),
+                    description: "Reviews.".into(),
+                    text: "Read twice.".into(),
+                }],
+                source: kkt_api_agent::LaneSource {
+                    folder: "/home/sam/lanes".into(),
+                    commit: Some("abc123-dirty".into()),
+                },
+                retire_missing: false,
+                skipped_files: Vec::new(),
+                max_lane_chars: kkt_rules::Settings::DEFAULT.max_lane_chars,
             },
-            retire_missing: false,
-            skipped_files: Vec::new(),
-            max_lane_chars: kkt_rules::Settings::DEFAULT.max_lane_chars,
-        })
+        )
         .await
         .expect("import");
     let (_, page) = get(&site(source, rules_gate()), "/lanes/reviewer").await;
