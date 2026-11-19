@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "01dc7819",
+ "commit": "93dea499",
  "crates": [
   {
    "bins": [
@@ -25341,7 +25341,8 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "FileAction",
-    "Layout"
+    "Layout",
+    "testing::Memory"
    ],
    "to": "kkt-backup"
   },
@@ -25395,7 +25396,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Time"
+    "Time",
+    "testing::FixedClock"
    ],
    "to": "kkt-clock"
   },
@@ -25976,6 +25978,30 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-install-commands",
    "items": [
+    "Backups",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "wires",
+   "roles": [
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-backup"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-install-commands",
+   "items": [
     "Pending",
     "Service",
     "ServiceError",
@@ -26005,6 +26031,37 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-bare-service"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-install-commands",
+   "items": [
+    "Clock",
+    "Time",
+    "testing::FixedClock"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Time"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::FixedClock"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-clock"
   },
   {
    "features": [
