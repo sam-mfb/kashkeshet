@@ -40,6 +40,11 @@ pub enum KeyError {
     Write(#[from] kkt_keys::KeyFileError),
     #[error(transparent)]
     NameNotWritten(#[from] NameNotWritten),
+    #[error(
+        "there is no web key at {}; pass --key-file <path> if it is elsewhere, or run `kkt key create --web` to make one",
+        path.display()
+    )]
+    NoWebKey { path: PathBuf },
     #[error("could not read key file {}: {source}", path.display())]
     Read {
         path: PathBuf,
@@ -103,6 +108,9 @@ pub fn show(
                 path.display()
             ));
             return Ok(std::process::ExitCode::from(kkt_keys::NO_ADMIN_KEY_EXIT));
+        }
+        Err(e) if kind == KeyKind::Web && e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(KeyError::NoWebKey { path });
         }
         Err(source) => return Err(KeyError::Read { path, source }),
     };
@@ -493,6 +501,16 @@ mod tests {
             .map(|_| ())
             .map_err(|e| e.to_string()),
             Err("could not read key file /k/refused: refused".to_string())
+        );
+        assert_eq!(
+            show(&parts(&here, &files), None, KeyKind::Web)
+                .map(|_| ())
+                .map_err(|e| e.to_string()),
+            Err(
+                "there is no web key at /k/web-key; pass --key-file <path> if it is elsewhere, \
+                 or run `kkt key create --web` to make one"
+                    .to_string()
+            )
         );
 
         let keys_off = machine(None, None, false);

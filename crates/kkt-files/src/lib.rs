@@ -1,8 +1,9 @@
 //! General file access on this machine: reading and writing whole files
 //! (a file that may be missing, and a write that replaces a file only once
 //! the new text is whole), listing a folder's file names, making folders,
-//! renaming and removing, whether a path exists or is a file, creating a file only its owner can read and
-//! restricting one to its owner, and absolute and canonical paths. A caller
+//! renaming and removing, whether a path exists or is a file, creating a file only its owner can read,
+//! restricting one to its owner, telling and setting a file's permission
+//! bits, and absolute and canonical paths. A caller
 //! adapts [`Files`] to the file contract it needs.
 
 use std::fs::{self, OpenOptions};
@@ -117,6 +118,35 @@ impl Files {
         let mut file = options.open(path)?;
         file.write_all(text.as_bytes())?;
         file.sync_all()
+    }
+
+    /// The file's permission bits at `path`; `None` on a system that has
+    /// none. An error when the file cannot be looked at.
+    pub fn mode(&self, path: &Path) -> io::Result<Option<u32>> {
+        let metadata = fs::metadata(path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            Ok(Some(metadata.permissions().mode() & 0o777))
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = metadata;
+            Ok(None)
+        }
+    }
+
+    /// Sets the file's permission bits at `path` (on Unix; elsewhere it
+    /// does nothing).
+    pub fn set_mode(&self, path: &Path, mode: u32) -> io::Result<()> {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(path, fs::Permissions::from_mode(mode))?;
+        }
+        #[cfg(not(unix))]
+        let _ = (path, mode);
+        Ok(())
     }
 
     /// Lets only the file's owner read and write the file at `path` (on
@@ -303,6 +333,20 @@ mod tests {
         fs::set_permissions(&open, fs::Permissions::from_mode(0o644)).expect("opened");
         Files.restrict(&open).expect("restricted");
         assert_eq!(mode(&open), 0o600);
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_files_mode_is_told_and_set() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch::Dir::new("files-mode-set");
+        let path = dir.join("open");
+        Files.write(&path, "x").expect("written");
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o644)).expect("opened");
+        assert_eq!(Files.mode(&path).expect("told"), Some(0o644));
+        Files.set_mode(&path, 0o640).expect("set");
+        assert_eq!(Files.mode(&path).expect("told again"), Some(0o640));
+        assert!(Files.mode(&dir.join("missing")).is_err());
     }
 
     #[test]

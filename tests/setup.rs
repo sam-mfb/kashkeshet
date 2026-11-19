@@ -236,7 +236,7 @@ async fn a_client_machine_is_set_up_from_flags_alone() {
     let (ok, said) = kkt(&home, &["status"]).await;
     assert!(ok, "{said}");
     assert!(
-        said.contains("Client only; the server runs on another machine."),
+        said.contains("Client only; no server is managed on this machine."),
         "{said}"
     );
     assert!(!said.contains("Name pack"), "{said}");

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "41fbc289",
+ "commit": "3d8fcdff",
  "crates": [
   {
    "bins": [
@@ -4570,6 +4570,7 @@ window.KKT_GRAPH = {
      "process::Command::new",
      "process::Stdio",
      "process::Stdio::null",
+     "eprintln!",
      "Path::try_exists"
     ]
    },
@@ -7197,7 +7198,7 @@ window.KKT_GRAPH = {
      "path": "ServiceSettings"
     },
     {
-     "doc": "What `kkt status` says after the key lines, and what it does next.",
+     "doc": "What `kkt status` says about this machine, and what it does next.",
      "fields": [
       "lines",
       "then"
@@ -8601,12 +8602,14 @@ window.KKT_GRAPH = {
       "exists",
       "file_names",
       "is_file",
+      "mode",
       "read",
       "read_if_present",
       "remove_file",
       "remove_if_present",
       "rename",
       "restrict",
+      "set_mode",
       "write",
       "write_by_rename"
      ],
@@ -8621,6 +8624,7 @@ window.KKT_GRAPH = {
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
      "fs::create_dir_all",
+     "fs::metadata",
      "fs::read_dir",
      "fs::read_to_string",
      "fs::remove_file",
@@ -12579,11 +12583,13 @@ window.KKT_GRAPH = {
       "create_dir_all",
       "create_private",
       "exists",
+      "mode",
       "process_id",
       "read",
       "remove_file",
       "rename",
-      "restrict"
+      "restrict",
+      "set_mode"
      ],
      "path": "Host"
     },
@@ -14127,6 +14133,7 @@ window.KKT_GRAPH = {
       "Collision",
       "Write",
       "NameNotWritten",
+      "NoWebKey",
       "Read",
       "Exists",
       "Resolve",
@@ -25842,6 +25849,7 @@ window.KKT_GRAPH = {
     "guard",
     "new_key_file",
     "plan",
+    "recorded_key",
     "running_version",
     "status",
     "status_looks_for_unrecorded",
@@ -25906,6 +25914,7 @@ window.KKT_GRAPH = {
       "guard",
       "new_key_file",
       "plan",
+      "recorded_key",
       "running_version",
       "status",
       "status_looks_for_unrecorded",
@@ -25955,6 +25964,7 @@ window.KKT_GRAPH = {
     "server_fix",
     "service_check",
     "setup_wait",
+    "shell_word",
     "tailscale_login_check",
     "unrecorded_check",
     "until_reachable",
@@ -25991,6 +26001,7 @@ window.KKT_GRAPH = {
       "server_fix",
       "service_check",
       "setup_wait",
+      "shell_word",
       "tailscale_login_check",
       "unrecorded_check",
       "until_reachable",

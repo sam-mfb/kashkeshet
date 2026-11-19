@@ -959,6 +959,12 @@ mod tests {
         fn restrict(&self, _: &Path) -> std::io::Result<()> {
             unreachable!("clients")
         }
+        fn mode(&self, _: &Path) -> std::io::Result<Option<u32>> {
+            unreachable!("clients")
+        }
+        fn set_mode(&self, _: &Path, _: u32) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
         fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
             unreachable!("clients")
         }
