@@ -55,7 +55,8 @@ pub trait SwitchSteps {
     /// The clients whose config has a kkt entry now, whatever server it
     /// names.
     fn connected_clients(&self) -> Result<Vec<Client>, StepError>;
-    /// The kkt server URL currently in `client`'s config, if known.
+    /// The kkt server URL currently in `client`'s config, if known and safe
+    /// to print (no credentials, query, fragment, or control characters).
     fn client_url(&self, client: Client) -> Result<Option<String>, StepError>;
     /// The setup record, if there is one.
     fn recorded(&self) -> Result<Option<Record>, StepError>;
@@ -158,7 +159,7 @@ pub fn switch(
         let previous = steps.client_url(*client).ok().flatten();
         match steps.connect(*client, &switched) {
             Ok(done) => match previous {
-                Some(prev) => ask.tell(&format!("{done} (before: {prev})")),
+                Some(prev) => ask.tell(&with_previous(&done, &prev)),
                 None => ask.tell(&done),
             },
             Err(e) => {
@@ -188,6 +189,16 @@ pub fn switch(
         after.url
     ));
     Ok(switched)
+}
+
+/// Places `(before: <previous>)` on the first line of `done` (the
+/// `Configured: <path>` line), leaving any following lines (such as a key
+/// permissions note) intact.
+fn with_previous(done: &str, previous: &str) -> String {
+    match done.split_once('\n') {
+        Some((first, rest)) => format!("{first} (before: {previous})\n{rest}"),
+        None => format!("{done} (before: {previous})"),
+    }
 }
 
 /// The client setup command for a URL on a machine without a record.

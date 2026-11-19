@@ -3127,3 +3127,134 @@ async fn switch_local_reports_each_clients_real_previous_url() {
     local.kill().await.expect("stop local");
     other.kill().await.expect("stop other");
 }
+
+#[tokio::test]
+async fn switch_omits_unsafe_previous_urls_and_still_switches() {
+    let (_new_home, mut new_server, new_url, new_key) = keyed_server("switch-unsafe-new").await;
+    let home = temp_home("switch-unsafe-before");
+
+    // Record a client setup so `kkt switch` runs.
+    let (ok, said) = setup_client(&home, &new_url, &new_key, &["--clients", "none"]).await;
+    assert!(ok, "{said}");
+
+    // Plant three client configs with unsafe previous URLs: credentials, query token, and ESC.
+    let codex_path = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &codex_path,
+        "[mcp_servers.kkt]\nurl = \"http://alice:s3cr3t@old.example/mcp\"\n",
+    )
+    .unwrap();
+
+    let opencode_path = home.join(".config/opencode/opencode.json");
+    std::fs::create_dir_all(opencode_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &opencode_path,
+        r#"{"mcp":{"kkt":{"type":"remote","url":"https://old.example/mcp?token=secret_query_tok"}}}"#,
+    )
+    .unwrap();
+
+    let agy_path = home.join(".gemini/antigravity/mcp_config.json");
+    std::fs::create_dir_all(agy_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &agy_path,
+        "{\"mcpServers\":{\"kkt\":{\"serverUrl\":\"https://old.example/mcp\\u001b[31m\"}}}",
+    )
+    .unwrap();
+
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "switch",
+            &new_url,
+            "--key-file",
+            arg(&new_key),
+            "--clients",
+            "codex,opencode,agy",
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(!said.contains("alice"), "{said}");
+    assert!(!said.contains("s3cr3t"), "{said}");
+    assert!(!said.contains("secret_query_tok"), "{said}");
+    assert!(!said.contains('\x1b'), "{said}");
+    assert!(!said.contains("(before:"), "{said}");
+    assert!(codex_config(&home).contains(&new_url));
+    assert!(
+        std::fs::read_to_string(&opencode_path)
+            .unwrap()
+            .contains(&new_url)
+    );
+    assert!(
+        std::fs::read_to_string(&agy_path)
+            .unwrap()
+            .contains(&new_url)
+    );
+
+    new_server.kill().await.expect("stop new");
+}
+
+#[tokio::test]
+async fn switch_puts_previous_url_on_configured_line_for_keyed_agy_and_muse_code() {
+    let (_new_home, mut new_server, new_url, new_key) = keyed_server("switch-multiline-new").await;
+    let home = temp_home("switch-multiline-before");
+
+    let (ok, said) = setup_client(&home, &new_url, &new_key, &["--clients", "none"]).await;
+    assert!(ok, "{said}");
+
+    let previous = "https://previous.example/mcp";
+    let agy_path = home.join(".gemini/antigravity/mcp_config.json");
+    std::fs::create_dir_all(agy_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &agy_path,
+        format!(r#"{{"mcpServers":{{"kkt":{{"serverUrl":"{previous}"}}}}}}"#),
+    )
+    .unwrap();
+
+    let muse_path = home.join(".config/muse/settings.json");
+    std::fs::create_dir_all(muse_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &muse_path,
+        format!(
+            r#"{{"schema_version":1,"mcpServers":{{"kkt":{{"transport":"streamable_http","url":"{previous}"}}}}}}"#
+        ),
+    )
+    .unwrap();
+
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "switch",
+            &new_url,
+            "--key-file",
+            arg(&new_key),
+            "--clients",
+            "agy,muse-code",
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    let lines: Vec<&str> = said.lines().collect();
+    assert!(
+        lines
+            .contains(&format!("Configured: {} (before: {previous})", agy_path.display()).as_str()),
+        "{said}"
+    );
+    assert!(
+        lines.contains(&"Antigravity stores the key in this file; permissions are 0600."),
+        "{said}"
+    );
+    assert!(
+        lines.contains(
+            &format!("Configured: {} (before: {previous})", muse_path.display()).as_str()
+        ),
+        "{said}"
+    );
+    assert!(
+        lines.contains(&"Muse Code stores the key in this file; permissions are 0600."),
+        "{said}"
+    );
+
+    new_server.kill().await.expect("stop new");
+}
