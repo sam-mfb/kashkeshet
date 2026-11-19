@@ -207,8 +207,25 @@ impl LaneServer for LocalLanes<'_> {
         ))
     }
     fn lane_limit(&self) -> Result<usize, String> {
-        Ok(self.parts.serve.config(self.config.clone())?.max_lane_chars)
+        Ok(self
+            .parts
+            .serve
+            .config(self.config.clone())
+            .map_err(|e| e.to_string())?
+            .max_lane_chars)
     }
+}
+
+/// Why the local database could not be used: where it is could not be
+/// worked out, there is none there, or it could not be opened.
+#[derive(Debug, thiserror::Error)]
+pub enum DatabaseError {
+    #[error(transparent)]
+    Path(crate::PartError),
+    #[error("no database at {}; pass --db with the server's database file", path.display())]
+    Missing { path: PathBuf },
+    #[error(transparent)]
+    Open(crate::PartError),
 }
 
 /// The database file `kkt serve` would use given the config file's `db`,
@@ -217,13 +234,13 @@ pub fn existing_db(
     parts: &LaneParts<'_>,
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
-) -> Result<PathBuf, String> {
-    let path = parts.serve.database(db, config_db)?;
+) -> Result<PathBuf, DatabaseError> {
+    let path = parts
+        .serve
+        .database(db, config_db)
+        .map_err(DatabaseError::Path)?;
     if !parts.database.exists(&path) {
-        return Err(format!(
-            "no database at {}; pass --db with the server's database file",
-            path.display()
-        ));
+        return Err(DatabaseError::Missing { path });
     }
     Ok(path)
 }
@@ -236,10 +253,10 @@ pub fn local_operator(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(DirectAccess, usize), String> {
-    let from_file = parts.serve.config(config)?;
+    let from_file = parts.serve.config(config).map_err(|e| e.to_string())?;
     let max_lane_chars = from_file.max_lane_chars;
-    let path = existing_db(parts, db, from_file.db)?;
-    let db = parts.database.open(&path)?;
+    let path = existing_db(parts, db, from_file.db).map_err(|e| e.to_string())?;
+    let db = parts.database.open(&path).map_err(|e| e.to_string())?;
     // Key mode: the one swarm. Lanes belong to the server, not to a swarm.
     Ok((
         DirectAccess::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone()),
@@ -323,7 +340,11 @@ fn lane_saves(files: Vec<lane_files::LaneFile>) -> Vec<LaneSave> {
 
 /// The lane limit from this machine's default serve config, else the owner's default.
 pub fn local_lane_limit(parts: &LaneParts<'_>) -> Result<usize, String> {
-    Ok(parts.serve.config(None)?.max_lane_chars)
+    Ok(parts
+        .serve
+        .config(None)
+        .map_err(|e| e.to_string())?
+        .max_lane_chars)
 }
 
 /// Reads the lane files in `folder` and checks them as `kkt lanes import`
