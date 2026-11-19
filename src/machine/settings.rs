@@ -588,6 +588,133 @@ mod tests {
     use crate::scratch;
     use kkt_server::ServerSettings;
 
+    /// The sentences the program words itself when a config file, the
+    /// database's folder, a key file or the database file cannot be used,
+    /// word for word up to the source's own error, which the platform words.
+    #[test]
+    fn the_programs_own_refusals_are_pinned() {
+        let home = scratch::Dir::new("program-refusals");
+        let env = test_env(Some(&home));
+
+        // A config file named that cannot be read.
+        let missing = home.join("missing.toml");
+        let said = read_config(&env, Some(missing.clone()))
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused");
+        assert!(
+            said.starts_with(&format!(
+                "invalid setting: config could not be read from {}: ",
+                missing.display()
+            )),
+            "{said}"
+        );
+
+        // A config file with a bad value.
+        let bad = home.join("bad.toml");
+        std::fs::write(&bad, "max_limit = \"many\"\n").expect("config file");
+        let value = parse_config("max_limit = \"many\"\n", &home, Some(&home))
+            .map(|_| ())
+            .expect_err("a bad value")
+            .to_string();
+        assert_eq!(
+            read_config(&env, Some(bad.clone()))
+                .map(|_| ())
+                .map_err(|e| e.to_string()),
+            Err(format!("invalid setting: {value} (in {})", bad.display()))
+        );
+
+        // The default database's folder cannot be made: the data home is a
+        // file.
+        let file = home.join("data-is-a-file");
+        std::fs::write(&file, "").expect("a file");
+        let blocked = Env {
+            xdg_data_home: Some(file.clone()),
+            ..test_env(Some(&home))
+        };
+        let said = database(
+            &blocked,
+            TEST_PLATFORM,
+            None,
+            DefaultDb::Made(NO_HOME_TO_KEEP_DB),
+        )
+        .map_err(|e| e.to_string())
+        .expect_err("refused");
+        assert!(said.starts_with("could not create "), "{said}");
+        assert!(said.contains(&file.display().to_string()), "{said}");
+
+        // Key files that cannot be read: a folder where each file should be.
+        let folder = home.join("a-folder");
+        std::fs::create_dir_all(&folder).expect("a folder");
+        let sources = Sources {
+            flags: ServeOptions::NONE,
+            file: None,
+        };
+        let unreadable = |setting: &str| {
+            format!(
+                "invalid setting: {setting} could not be read from {}: ",
+                folder.display()
+            )
+        };
+        let said = crate::machine::keys::read_key(&folder, &sources)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused");
+        assert!(said.starts_with(&unreadable("access_key_file")), "{said}");
+        let access = home.join("access-key");
+        std::fs::write(&access, "0123456789abcdef0123456789abcdef\n").expect("access key");
+        let keys = |web: &Path, admin: Option<&Path>| {
+            crate::machine::keys::read_server_keys(
+                &AccessKey::File(access.clone()),
+                &AccessKey::File(web.to_path_buf()),
+                admin,
+                &sources,
+            )
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused")
+        };
+        let said = keys(&folder, None);
+        assert!(said.starts_with(&unreadable("web_key_file")), "{said}");
+        let web = home.join("web-key");
+        std::fs::write(&web, "fedcba9876543210fedcba9876543210\n").expect("web key");
+        let said = keys(&web, Some(&folder));
+        assert!(said.starts_with(&unreadable("admin_key_file")), "{said}");
+        let admin = home.join("admin-key");
+        std::fs::write(&admin, "abcdefabcdefabcdefabcdefabcdefab\n").expect("admin key");
+        let names = kkt_keys::admin_name_path(&admin);
+        std::fs::create_dir_all(&names).expect("a folder for the name file");
+        let said = keys(&web, Some(&admin));
+        assert!(
+            said.starts_with(&format!(
+                "invalid setting: the admin name could not be read from {}: ",
+                names.display()
+            )),
+            "{said}"
+        );
+
+        // A database file that cannot be opened, and one whose upgrade
+        // cannot be read.
+        let said = crate::machine::database::open(&folder)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused");
+        assert!(
+            said.starts_with(&format!("could not open {}: ", folder.display())),
+            "{said}"
+        );
+        let not_a_db = home.join("not-a-database");
+        std::fs::write(&not_a_db, "this is not a database file, only text\n").expect("a file");
+        let said = crate::machine::database::pending_upgrade(&not_a_db)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused");
+        assert!(
+            said.starts_with(&format!("could not read {}: ", not_a_db.display())),
+            "{said}"
+        );
+    }
+
     /// Which bad setting the startup checks report, of all those given, as
     /// `check_settings` asks it.
     fn first_reported(problems: Vec<(&'static str, &'static str, String)>) -> String {

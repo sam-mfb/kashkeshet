@@ -1012,6 +1012,29 @@ mod tests {
         args.iter().map(|s| s.to_string()).collect()
     }
 
+    /// The command line's own refusals, word for word.
+    #[test]
+    fn the_command_lines_refusals_are_pinned() {
+        let switch = Command::Switch {
+            url: None,
+            local: false,
+            key_file: None,
+            clients: None,
+        };
+        assert_eq!(
+            switch.task().map(|_| ()).map_err(|e| e.to_string()),
+            Err("give the new server's address, or --local".to_string())
+        );
+        assert_eq!(
+            clients_flag(Some("codex,bogus")).map_err(|e| e.to_string()),
+            Err(
+                "unknown client \"bogus\" in --clients: use claude-code, codex, opencode, agy, \
+                 muse-code or none"
+                    .to_string()
+            )
+        );
+    }
+
     #[test]
     fn serve_args_reads_a_service_files_arguments() {
         let parsed = serve_args(&words(&[
