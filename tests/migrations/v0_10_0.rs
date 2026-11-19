@@ -699,7 +699,7 @@ async fn a_v0_10_0_database_with_something_unknown_is_refused_unchanged() {
         let before = std::fs::read(&path).expect("read the file");
         let err = match kashkeshet::machine::database::open(&path) {
             Ok(_) => panic!("{test}: adopted"),
-            Err(e) => e,
+            Err(e) => e.to_string(),
         };
         assert!(err.contains(refusal), "{test}: {err}");
         assert!(

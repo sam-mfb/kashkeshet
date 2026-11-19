@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "088222e1",
+ "commit": "ca31f8d2",
  "crates": [
   {
    "bins": [
@@ -296,6 +296,26 @@ window.KKT_GRAPH = {
      "path": "commands::serve"
     },
     {
+     "doc": "Why `kkt serve` stopped or did not start: a source's own error, or the step here that failed.",
+     "kind": "enum",
+     "path": "commands::serve::ServeError",
+     "variants": [
+      "Settings",
+      "Key",
+      "Database",
+      "Pending",
+      "Log",
+      "Logging",
+      "RecordRun",
+      "Signals",
+      "Listen",
+      "Address",
+      "Server",
+      "BackupFolder",
+      "BackupFirst"
+     ]
+    },
+    {
      "doc": "`kkt serve`: flags over the config file over the defaults, with the database in the per-user data directory unless one is given.",
      "kind": "fn",
      "path": "commands::serve::run"
@@ -365,6 +385,24 @@ window.KKT_GRAPH = {
      "path": "machine::database"
     },
     {
+     "doc": "Why the database file could not be opened.",
+     "fields": [
+      "path",
+      "source"
+     ],
+     "kind": "struct",
+     "path": "machine::database::OpenError"
+    },
+    {
+     "doc": "Why the upgrade opening the database file would make could not be read.",
+     "fields": [
+      "path",
+      "source"
+     ],
+     "kind": "struct",
+     "path": "machine::database::PendingError"
+    },
+    {
      "doc": "An upgrade opening the file would make, for the log and the backup before it: from what, to what.",
      "fields": [
       "from",
@@ -407,6 +445,43 @@ window.KKT_GRAPH = {
      "doc": "The server's key reads, for `kkt serve` and the service check: the key files its settings name, checked as kkt-admission checks them, and the default key made if it is missing.",
      "kind": "mod",
      "path": "machine::keys"
+    },
+    {
+     "doc": "A key setting whose file the server reads.",
+     "kind": "enum",
+     "path": "machine::keys::KeySetting",
+     "variants": [
+      "Access",
+      "Web",
+      "Admin"
+     ]
+    },
+    {
+     "doc": "Why the text of a key file or of the admin name file could not be read.",
+     "kind": "enum",
+     "path": "machine::keys::KeyTextError",
+     "variants": [
+      "Key",
+      "AdminName"
+     ]
+    },
+    {
+     "doc": "Why the access key in a file could not be used.",
+     "kind": "enum",
+     "path": "machine::keys::ReadKeyError",
+     "variants": [
+      "Text",
+      "Invalid"
+     ]
+    },
+    {
+     "doc": "Why the server's keys were refused: a file that could not be read, or kkt-admission's refusal of what it holds, in kkt-admission's words.",
+     "kind": "enum",
+     "path": "machine::keys::ServerKeysError",
+     "variants": [
+      "Text",
+      "Refused"
+     ]
     },
     {
      "doc": "The install's and the operator's commands' parts on this machine: the program's native providers and its serving settings, adapted to each.",
@@ -525,6 +600,24 @@ window.KKT_GRAPH = {
      "path": "machine::settings::Checked"
     },
     {
+     "doc": "What a command needs the database for, when there is no home directory for the default one: to keep it, or to find an existing one.",
+     "kind": "enum",
+     "path": "machine::settings::DbHome",
+     "variants": [
+      "Keep",
+      "Find"
+     ]
+    },
+    {
+     "doc": "A setting an owner's check refused: \"invalid setting: \u2026\", naming the config file when that is where it was set.",
+     "fields": [
+      "problem",
+      "set_in"
+     ],
+     "kind": "struct",
+     "path": "machine::settings::Invalid"
+    },
+    {
      "doc": "The targets of kkt's own code, logged at kkt's own level: the library, the `kkt` binary, and every `kkt-*` crate, whose module paths start with \"kkt\" (check-crates.sh makes every crate name start with `kkt-`).",
      "kind": "const",
      "path": "machine::settings::LOG_OWN_TARGETS"
@@ -541,6 +634,11 @@ window.KKT_GRAPH = {
       "sources"
      ],
      "path": "machine::settings::Loaded"
+    },
+    {
+     "doc": "Why the log file `kkt serve` writes to could not be opened, worded with the settings it comes from.",
+     "kind": "struct",
+     "path": "machine::settings::LogFileError"
     },
     {
      "doc": "Reads the arguments a service file gives `kkt` as a `kkt serve` command: the config file it names and the settings it gives.",
@@ -603,6 +701,22 @@ window.KKT_GRAPH = {
      "path": "machine::settings::ServeSettings"
     },
     {
+     "doc": "Why the settings `kkt serve` would run with could not be worked out.",
+     "kind": "enum",
+     "path": "machine::settings::SettingsError",
+     "variants": [
+      "NoHome",
+      "CreateFolder",
+      "ConfigUnread",
+      "ConfigInvalid",
+      "Invalid",
+      "Bare",
+      "Instructions",
+      "Keys",
+      "ServeArgs"
+     ]
+    },
+    {
      "doc": "Where a server's settings came from, so a bad one can be traced to the config file when that is where it was set.",
      "kind": "struct",
      "methods": [
@@ -625,11 +739,6 @@ window.KKT_GRAPH = {
      "doc": "Reads the config file `kkt serve` would read, and puts it with `flags`.",
      "kind": "fn",
      "path": "machine::settings::load_serve_options"
-    },
-    {
-     "doc": "Why the log file `kkt serve` writes to could not be opened, worded with the settings it comes from.",
-     "kind": "fn",
-     "path": "machine::settings::log_file_refusal"
     },
     {
      "doc": "The config file to use (`config`, else the default one if it exists), and what it gives.",
@@ -660,6 +769,11 @@ window.KKT_GRAPH = {
      "doc": "This program's path, as this machine gives it, and how kkt words a failure to find it.",
      "kind": "mod",
      "path": "process"
+    },
+    {
+     "doc": "Why this program's path could not be found.",
+     "kind": "struct",
+     "path": "process::KktPathError"
     },
     {
      "doc": "This program's absolute path, for client configurations that run it.",
@@ -865,6 +979,7 @@ window.KKT_GRAPH = {
    "third_party": [
     "clap",
     "futures",
+    "thiserror",
     "tokio"
    ]
   },
@@ -19861,10 +19976,12 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "AdminAdmission",
+    "KeyRefused",
     "ServerKey",
     "SharedKey",
     "key_refusal",
     "server_keys",
+    "server_keys::KeyRefusal",
     "server_keys::KeyTexts",
     "server_keys::ServerKeys",
     "server_keys::check"
@@ -19882,10 +19999,12 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AdminAdmission",
+      "KeyRefused",
       "ServerKey",
       "SharedKey",
       "key_refusal",
       "server_keys",
+      "server_keys::KeyRefusal",
       "server_keys::ServerKeys",
       "server_keys::check"
      ],
@@ -20068,8 +20187,10 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "BackupError",
     "Backups",
     "Contents",
+    "FolderError",
     "Settings",
     "layout",
     "upgrade_backup_folder"
@@ -20080,8 +20201,10 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "BackupError",
       "Backups",
       "Contents",
+      "FolderError",
       "Settings",
       "layout",
       "upgrade_backup_folder"
@@ -20423,6 +20546,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "DbError",
     "Upgrade"
    ],
    "kind": "normal",
@@ -20431,6 +20555,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "DbError",
       "Upgrade"
      ],
      "role": "uses"
@@ -20792,6 +20917,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "AccessKey",
+    "KeyFileError",
     "KeyFiles",
     "KeyText",
     "NEW_KEY_ALPHABET",
@@ -20811,6 +20937,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AccessKey",
+      "KeyFileError",
       "KeyFiles",
       "KeyText",
       "NEW_KEY_ALPHABET",
@@ -20829,7 +20956,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "KeyFileAction",
-    "KeyFileError",
     "WEB_KEY_COPY_FILE_NAME",
     "bound_to"
    ],
@@ -20998,6 +21124,7 @@ window.KKT_GRAPH = {
    "items": [
     "DEFAULT_DEPENDENCY_LOG_LEVEL",
     "DEFAULT_LOG_LEVEL",
+    "LoggingError",
     "SettingError",
     "TracingLog",
     "init_logging",
@@ -21013,6 +21140,7 @@ window.KKT_GRAPH = {
      "detail": [
       "DEFAULT_DEPENDENCY_LOG_LEVEL",
       "DEFAULT_LOG_LEVEL",
+      "LoggingError",
       "SettingError",
       "init_logging",
       "init_stderr_logging",
@@ -21374,6 +21502,7 @@ window.KKT_GRAPH = {
     "NewServerRun",
     "Settings",
     "Startup",
+    "StoreError",
     "legacy",
     "schema",
     "start"
@@ -21386,6 +21515,7 @@ window.KKT_GRAPH = {
      "detail": [
       "CORE",
       "Settings",
+      "StoreError",
       "legacy",
       "schema"
      ],
@@ -21827,6 +21957,7 @@ window.KKT_GRAPH = {
     "Rules",
     "Settings",
     "Startup",
+    "StoreError",
     "schema",
     "start",
     "testing",
@@ -21846,6 +21977,7 @@ window.KKT_GRAPH = {
       "DirectAccess",
       "Rules",
       "Settings",
+      "StoreError",
       "schema",
       "testing",
       "testing::every_store_read",

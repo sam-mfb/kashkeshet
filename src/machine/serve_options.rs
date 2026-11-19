@@ -36,6 +36,8 @@ impl BadValue {
     }
 }
 
+impl std::error::Error for BadValue {}
+
 impl std::fmt::Display for BadValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} {}", self.name, self.rule)

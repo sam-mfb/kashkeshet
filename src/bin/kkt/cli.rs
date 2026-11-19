@@ -23,25 +23,48 @@ const DOCKER_PROJECT: &str = "kkt";
 /// Log lines `kkt service logs` shows when not told how many.
 const DEFAULT_LOG_LINES: usize = 100;
 
+/// Why the command line could not be read into a command.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum CliError {
+    /// A service file's arguments do not parse as a command line: the
+    /// first line of clap's own account.
+    #[error("`kkt serve` does not take them ({0})")]
+    NotServeArgs(String),
+    #[error("they are not a `kkt serve` command")]
+    NotServeCommand,
+    #[error("give the new server's address, or --local")]
+    NoServerAddress,
+    #[error(
+        "unknown client {name:?} in --clients: use claude-code, codex, opencode, agy, muse-code \
+         or none"
+    )]
+    UnknownClient { name: String },
+    #[error("could not resolve {}: {source}", path.display())]
+    Resolve {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+}
+
 /// This run's command, from the command line, with its flags as plain
 /// values. Exits, as clap does, on a command line it cannot parse or on
 /// `--help` or `--version`. An error is a flag whose value is not usable.
-pub(crate) fn task() -> Result<Task, String> {
+pub(crate) fn task() -> Result<Task, CliError> {
     Cli::parse().command.task()
 }
 
 /// Reads `args`, the arguments a service file gives `kkt`, as a `kkt serve`
 /// command: the config file it names and the settings it gives. It parses
 /// them exactly as the command line is parsed.
-pub(crate) fn serve_args(args: &[String]) -> Result<(Option<PathBuf>, ServeOptions), String> {
+pub(crate) fn serve_args(args: &[String]) -> Result<(Option<PathBuf>, ServeOptions), CliError> {
     let words = std::iter::once("kkt".to_string()).chain(args.iter().cloned());
     let cli = Cli::try_parse_from(words).map_err(|e| {
         let said = e.to_string();
-        let first = said.lines().next().unwrap_or_default();
-        format!("`kkt serve` does not take them ({first})")
+        CliError::NotServeArgs(said.lines().next().unwrap_or_default().to_string())
     })?;
     let Command::Serve { config, flags, .. } = cli.command else {
-        return Err("they are not a `kkt serve` command".into());
+        return Err(CliError::NotServeCommand);
     };
     Ok((config, flags.options()))
 }
@@ -273,7 +296,7 @@ enum Command {
 
 impl Command {
     /// The command, with its flags as plain values.
-    fn task(self) -> Result<Task, String> {
+    fn task(self) -> Result<Task, CliError> {
         Ok(match self {
             Command::Status => Task::Status,
             Command::Upgrade { allow_downgrade } => Task::Upgrade { allow_downgrade },
@@ -325,7 +348,7 @@ impl Command {
                     (true, _) => setup::Target::Local,
                     (false, Some(url)) => setup::Target::Url(url),
                     (false, None) => {
-                        return Err("give the new server's address, or --local".into());
+                        return Err(CliError::NoServerAddress);
                     }
                 };
                 Task::Switch(setup::Switch {
@@ -544,7 +567,7 @@ impl SetupFlags {
         }
     }
 
-    fn answers(self) -> Result<setup::Answers, String> {
+    fn answers(self) -> Result<setup::Answers, CliError> {
         let clients = clients_flag(self.clients.as_deref())?;
         let key_file = absolute_flag(self.key_file)?;
         let ts_authkey_file = absolute_flag(self.ts_authkey_file)?;
@@ -588,33 +611,30 @@ impl SetupFlags {
 }
 
 /// The clients `--clients` names: `None` without it, none for `none`.
-fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, String> {
+fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, CliError> {
     Ok(match list {
         None => None,
         Some("none") => Some(Vec::new()),
         Some(list) => Some(
             list.split(',')
                 .map(|name| {
-                    Client::from_name(name.trim()).ok_or_else(|| {
-                        format!(
-                            "unknown client {name:?} in --clients: use claude-code, codex, \
-                             opencode, agy, muse-code or none"
-                        )
+                    Client::from_name(name.trim()).ok_or_else(|| CliError::UnknownClient {
+                        name: name.to_string(),
                     })
                 })
-                .collect::<Result<Vec<_>, String>>()?,
+                .collect::<Result<Vec<_>, CliError>>()?,
         ),
     })
 }
 
 /// A path given as a flag, made absolute, as setup and switch may record it
 /// and use it from elsewhere.
-fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, String> {
+fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, CliError> {
     match path {
         Some(path) => kkt_files::Files
             .absolute(&path)
             .map(Some)
-            .map_err(|e| format!("could not resolve {}: {e}", path.display())),
+            .map_err(|source| CliError::Resolve { path, source }),
         None => Ok(None),
     }
 }
@@ -1012,6 +1032,43 @@ mod tests {
         args.iter().map(|s| s.to_string()).collect()
     }
 
+    /// A flag's path that cannot be made absolute, word for word, on the
+    /// kind that words it: the failure cannot be made to happen here.
+    #[test]
+    fn an_unresolvable_path_is_pinned() {
+        assert_eq!(
+            CliError::Resolve {
+                path: PathBuf::from("lanes"),
+                source: std::io::Error::other("refused"),
+            }
+            .to_string(),
+            "could not resolve lanes: refused"
+        );
+    }
+
+    /// The command line's own refusals, word for word.
+    #[test]
+    fn the_command_lines_refusals_are_pinned() {
+        let switch = Command::Switch {
+            url: None,
+            local: false,
+            key_file: None,
+            clients: None,
+        };
+        assert_eq!(
+            switch.task().map(|_| ()).map_err(|e| e.to_string()),
+            Err("give the new server's address, or --local".to_string())
+        );
+        assert_eq!(
+            clients_flag(Some("codex,bogus")).map_err(|e| e.to_string()),
+            Err(
+                "unknown client \"bogus\" in --clients: use claude-code, codex, opencode, agy, \
+                 muse-code or none"
+                    .to_string()
+            )
+        );
+    }
+
     #[test]
     fn serve_args_reads_a_service_files_arguments() {
         let parsed = serve_args(&words(&[
@@ -1023,7 +1080,8 @@ mod tests {
             "/srv/kkt/kashkeshet.db",
             "--access-key-file",
             "/srv/kkt/access-key",
-        ]));
+        ]))
+        .map_err(|e| e.to_string());
         assert_eq!(
             parsed,
             Ok((
@@ -1035,7 +1093,8 @@ mod tests {
                 }
             ))
         );
-        let parsed = serve_args(&words(&["serve", "--ignore-setup", "--no-access-key"]));
+        let parsed = serve_args(&words(&["serve", "--ignore-setup", "--no-access-key"]))
+            .map_err(|e| e.to_string());
         assert_eq!(
             parsed,
             Ok((
@@ -1051,15 +1110,15 @@ mod tests {
     #[test]
     fn serve_args_refuses_what_serve_does_not_take() {
         assert_eq!(
-            serve_args(&words(&["serve", "--ignore-setup", "--bogus"])),
+            serve_args(&words(&["serve", "--ignore-setup", "--bogus"])).map_err(|e| e.to_string()),
             Err(
                 "`kkt serve` does not take them (error: unexpected argument '--bogus' found)"
-                    .into()
+                    .to_string()
             )
         );
         assert_eq!(
-            serve_args(&words(&["status"])),
-            Err("they are not a `kkt serve` command".into())
+            serve_args(&words(&["status"])).map_err(|e| e.to_string()),
+            Err("they are not a `kkt serve` command".to_string())
         );
     }
 }
