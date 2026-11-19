@@ -14,6 +14,9 @@ pub enum SwitchError {
     /// There is no setup record to switch.
     #[error("there is no recorded local server for --local; run `kkt setup` first")]
     NotSetUp,
+    /// The address or key path cannot be used in a client setup command.
+    #[error(transparent)]
+    InvalidArgument(StepError),
     /// A URL was supplied on a machine without a setup record.
     #[error("this machine has no setup record; run `{command}`")]
     ClientSetup { command: String },
@@ -65,6 +68,8 @@ pub trait SwitchSteps {
     /// Points `client` at the server `record`'s clients use
     /// ([`Record::for_clients`]). Returns what it did.
     fn connect(&self, client: Client, record: &Record) -> Result<String, StepError>;
+    /// Checks the address syntax without contacting the server.
+    fn validate_address(&self, url: &str) -> Result<(), StepError>;
     /// Checks, changing nothing, that `url` is a server address a client
     /// may be given, then that a server answers there and accepts its host
     /// name. A refused address is refused before any server is asked.
@@ -114,7 +119,11 @@ pub fn switch(
     steps: &dyn SwitchSteps,
 ) -> Result<Record, SwitchError> {
     let Some(record) = steps.recorded().map_err(SwitchError::Record)? else {
-        return Err(no_record(how, steps).map_err(SwitchError::Clients)?);
+        let Target::Url(url) = &how.to else {
+            return Err(SwitchError::NotSetUp);
+        };
+        let command = client_setup_command(url, how, steps)?;
+        return Err(SwitchError::ClientSetup { command });
     };
     let before = record.for_clients();
     let server = match &how.to {
@@ -202,19 +211,28 @@ fn with_previous(done: &str, previous: &str) -> String {
 }
 
 /// The client setup command for a URL on a machine without a record.
-fn no_record(how: &Switch, steps: &dyn SwitchSteps) -> Result<SwitchError, StepError> {
-    let Target::Url(url) = &how.to else {
-        return Ok(SwitchError::NotSetUp);
-    };
-    let clients = match &how.clients {
-        Some(clients) => clients.clone(),
-        None => steps.connected_clients()?,
-    };
+fn client_setup_command(
+    url: &str,
+    how: &Switch,
+    steps: &dyn SwitchSteps,
+) -> Result<String, SwitchError> {
+    steps
+        .validate_address(url)
+        .map_err(SwitchError::InvalidArgument)?;
     let quote = |word: &str| format!("'{}'", word.replace('\'', "'\\''"));
     let mut command = format!("kkt setup --mode client --url {}", quote(url.trim()));
     if let Some(path) = &how.key_file {
-        command.push_str(&format!(" --key-file {}", quote(&path.to_string_lossy())));
+        let Some(path) = path.to_str() else {
+            return Err(SwitchError::InvalidArgument(StepError(
+                kkt_llm_agent_config::Text::KeyPath.into(),
+            )));
+        };
+        command.push_str(&format!(" --key-file {}", quote(path)));
     }
+    let clients = match &how.clients {
+        Some(clients) => clients.clone(),
+        None => steps.connected_clients().map_err(SwitchError::Clients)?,
+    };
     let names = if clients.is_empty() {
         "none".to_owned()
     } else {
@@ -225,7 +243,7 @@ fn no_record(how: &Switch, steps: &dyn SwitchSteps) -> Result<SwitchError, StepE
             .join(",")
     };
     command.push_str(&format!(" --clients {names} --no-allow-kkt"));
-    Ok(SwitchError::ClientSetup { command })
+    Ok(command)
 }
 
 /// The key file for a new server: `--key-file`, else asked at a terminal
