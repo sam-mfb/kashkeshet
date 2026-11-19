@@ -182,11 +182,25 @@ async fn a_client_can_back_up_and_import_lanes_on_an_explicit_local_database() {
     for args in [
         vec!["backup", "out"],
         vec!["lanes", "import", "lanes"],
-        vec!["lanes", "export", "lanes", "--db", db.to_str().unwrap()],
+        vec!["lanes", "export", "lanes"],
     ] {
         let (ok, said) = kkt(&home, &args).await;
         assert!(!ok && said.contains("this machine is a client"), "{said}");
     }
+    let exported = home.join("exported");
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "lanes",
+            "export",
+            exported.to_str().unwrap(),
+            "--db",
+            db.to_str().unwrap(),
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(exported.join("work.md").exists());
     assert_eq!(record_text(&home), CLIENT);
 }
 
@@ -496,9 +510,9 @@ async fn kkt_switch_moves_a_client_machine_to_another_server() {
 
     let (ok, said) = kkt(&home, &["switch", &new_url, "--key-file", arg(&new_key)]).await;
     assert!(ok, "{said}");
-    assert!(said.contains("Configured: "), "{said}");
+    assert!(said.contains(&format!("(before: {old_url})")), "{said}");
     assert!(
-        said.contains(&format!("clients now use {new_url} (before: {old_url})")),
+        said.contains(&format!("clients now use {new_url}.")),
         "{said}"
     );
     assert!(codex_config(&home).contains(&new_url));
@@ -2918,4 +2932,198 @@ async fn a_retained_project_and_an_unreachable_docker_daemon_are_distinguished()
         );
         assert!(!said.contains("Found a kkt server"), "{said}");
     }
+}
+
+#[tokio::test]
+async fn client_backup_with_only_db_skips_default_config_and_keys_and_lanes_export_works() {
+    let (_server_home, mut server, url, key) = keyed_server("client-db-only").await;
+    let home = temp_home("client-db-only-home");
+    let (ok, said) = setup_client(&home, &url, &key, &["--clients", "none"]).await;
+    assert!(ok, "{said}");
+
+    // Plant unrelated leftover default config.toml and access-key on the client.
+    let default_config = home.join(".config/kkt/config.toml");
+    let default_access_key = home.join(".config/kkt/access-key");
+    std::fs::write(&default_config, "bind = \"127.0.0.1:17999\"\n").expect("default config");
+    std::fs::write(
+        &default_access_key,
+        "leftover-default-key-0123456789abcdef\n",
+    )
+    .expect("default key");
+
+    // Create a local test database (with one lane) and a separate config file.
+    let init_home = temp_home("client-db-only-init");
+    starts(serve(&init_home, &[])).await;
+    let local_dir = home.join("local-server");
+    std::fs::create_dir_all(&local_dir).expect("local dir");
+    let local_db = init_home.join("kkt.db");
+    let local_cfg = local_dir.join("config.toml");
+    let local_key = local_dir.join("access-key");
+    std::fs::write(&local_key, "local-server-key-0123456789abcdef0123\n").expect("local key");
+    std::fs::write(
+        &local_cfg,
+        format!(
+            "db = \"{}\"\naccess_key_file = \"{}\"\n",
+            local_db.display(),
+            local_key.display()
+        ),
+    )
+    .expect("local cfg");
+
+    // Seed the local database by importing a lane with --config.
+    let lanes_in = home.join("lanes-in");
+    std::fs::create_dir_all(&lanes_in).expect("lanes-in");
+    std::fs::write(
+        lanes_in.join("builder.md"),
+        "---\nname: builder\ndescription: Builds things\n---\nBuild it.\n",
+    )
+    .expect("lane file");
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "lanes",
+            "import",
+            arg(&lanes_in),
+            "--config",
+            arg(&local_cfg),
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+
+    // V2: `kkt lanes export` with --config and --db works on a client; bare export refuses.
+    let lanes_out_cfg = home.join("lanes-out-cfg");
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "lanes",
+            "export",
+            arg(&lanes_out_cfg),
+            "--config",
+            arg(&local_cfg),
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(lanes_out_cfg.join("builder.md").exists());
+
+    let lanes_out_db = home.join("lanes-out-db");
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "lanes",
+            "export",
+            arg(&lanes_out_db),
+            "--db",
+            arg(&local_db),
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(lanes_out_db.join("builder.md").exists());
+
+    let (ok, said) = kkt(&home, &["lanes", "export", arg(&home.join("lanes-bare"))]).await;
+    assert!(!ok, "{said}");
+    assert!(said.contains("this machine is a client"), "{said}");
+
+    // V1a: `kkt backup DIR --db X` on a client copies only the database, not default config/keys.
+    let db_only_backups = home.join("backups-db-only");
+    let (ok, said) = kkt(
+        &home,
+        &["backup", arg(&db_only_backups), "--db", arg(&local_db)],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains("Backed up only the database: no --config was given on a client machine"),
+        "{said}"
+    );
+    let saved = std::fs::read_dir(&db_only_backups)
+        .expect("dir")
+        .next()
+        .expect("one backup")
+        .expect("entry")
+        .path();
+    assert!(saved.join("kashkeshet.db").exists());
+    assert!(!saved.join("config.toml").exists());
+    assert!(!saved.join("access-key").exists());
+
+    // V1b: `kkt backup DIR --config Y` copies Y and Y's key, never the client's default key.
+    let cfg_backups = home.join("backups-cfg");
+    let (ok, said) = kkt(
+        &home,
+        &["backup", arg(&cfg_backups), "--config", arg(&local_cfg)],
+    )
+    .await;
+    assert!(ok, "{said}");
+    let saved_cfg = std::fs::read_dir(&cfg_backups)
+        .expect("dir")
+        .next()
+        .expect("one backup")
+        .expect("entry")
+        .path();
+    assert!(saved_cfg.join("kashkeshet.db").exists());
+    assert!(saved_cfg.join("config.toml").exists());
+    assert_eq!(
+        std::fs::read_to_string(saved_cfg.join("access-key")).expect("backed up key"),
+        "local-server-key-0123456789abcdef0123\n"
+    );
+
+    // V1c: `--config` with no `access_key_file` on a client still does not fall back to default key.
+    let keyless_cfg = local_dir.join("keyless.toml");
+    std::fs::write(&keyless_cfg, format!("db = \"{}\"\n", local_db.display())).expect("keyless");
+    let keyless_backups = home.join("backups-keyless");
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "backup",
+            arg(&keyless_backups),
+            "--config",
+            arg(&keyless_cfg),
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    let saved_keyless = std::fs::read_dir(&keyless_backups)
+        .expect("dir")
+        .next()
+        .expect("one backup")
+        .expect("entry")
+        .path();
+    assert!(saved_keyless.join("config.toml").exists());
+    assert!(!saved_keyless.join("access-key").exists());
+
+    server.kill().await.expect("stop kkt");
+}
+
+#[tokio::test]
+async fn switch_local_reports_each_clients_real_previous_url() {
+    let (_local_home, mut local, local_url, local_key) = keyed_server("switch-local-srv").await;
+    let (_other_home, mut other, other_url, other_key) = keyed_server("switch-other-srv").await;
+    let home = temp_home("switch-local-before");
+
+    // Record a service pointing at local_url, while Codex's config actually points at other_url.
+    let (ok, said) = setup_client(&home, &other_url, &other_key, &["--clients", "codex"]).await;
+    assert!(ok, "{said}");
+    std::fs::write(
+        home.join(".config/kkt/setup.toml"),
+        format!(
+            "format = 1\nmode = \"service\"\nwritten_by = \"1.0.0\"\nurl = \"{local_url}\"\nkey_file = \"{}\"\n\n[service]\ntailscale = false\n",
+            local_key.display()
+        ),
+    )
+    .expect("service record");
+
+    let (ok, said) = kkt(&home, &["switch", "--local"]).await;
+    assert!(ok, "{said}");
+    // Codex's line reports its real previous address (other_url), not local_url.
+    assert!(said.contains(&format!("(before: {other_url})")), "{said}");
+    assert!(!said.contains(&format!("(before: {local_url})")), "{said}");
+    assert!(
+        said.contains(&format!("This machine's clients now use {local_url}.")),
+        "{said}"
+    );
+
+    local.kill().await.expect("stop local");
+    other.kill().await.expect("stop other");
 }

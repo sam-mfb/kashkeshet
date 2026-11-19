@@ -394,6 +394,12 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
         connected_clients(self.env, self.parts.clients).map_err(step_error)
     }
 
+    fn client_url(&self, client: Client) -> Result<Option<String>, setup::StepError> {
+        client
+            .configured_url(self.env, self.parts.clients)
+            .map_err(step_error)
+    }
+
     fn recorded(&self) -> Result<Option<setup::Record>, setup::StepError> {
         read_setup(self.parts.serve, self.parts.setup_files).map_err(step_error)
     }
@@ -433,6 +439,12 @@ pub(super) struct OsSwitchSteps<'a, 'p, C: ConnectionSource, D> {
 impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> {
     fn connected_clients(&self) -> Result<Vec<Client>, setup::StepError> {
         connected_clients(self.env, self.parts.clients).map_err(step_error)
+    }
+
+    fn client_url(&self, client: Client) -> Result<Option<String>, setup::StepError> {
+        client
+            .configured_url(self.env, self.parts.clients)
+            .map_err(step_error)
     }
 
     fn recorded(&self) -> Result<Option<setup::Record>, setup::StepError> {
