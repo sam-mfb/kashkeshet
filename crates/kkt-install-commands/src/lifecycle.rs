@@ -5,17 +5,140 @@
 use crate::deployment;
 use crate::keys::{KeyKind, admin_name_line, local_operator_key, local_web_key, new_key_file};
 use crate::record::{
-    read_setup, read_unfinished, read_unrecorded, recorded_setup, write_setup_record,
+    ReadError, RecordedError, WriteError, read_setup, read_unfinished, read_unrecorded,
+    recorded_setup, write_setup_record,
 };
-use crate::service::{self, ServiceAction, ServiceInstall, service_plan};
-use crate::{InstallParts, ServeFacts, ServiceDefaults};
+use crate::service::{
+    self, ServiceAction, ServiceCommandError, ServiceInstall, ServicePlanError, service_plan,
+};
+use crate::{InstallParts, PartError, ServeFacts, ServiceDefaults};
 use kkt_backup as backup;
 use kkt_bare_service::ServiceError;
+use kkt_containerized_service::ContainerError;
 use kkt_deployment::connection::ConnectionSource;
 use kkt_machine::{Env, Platform};
 use kkt_provenance::Build;
 use kkt_setup as setup;
 use std::path::{Path, PathBuf};
+
+/// Why the local database could not be backed up.
+#[derive(Debug, thiserror::Error)]
+pub enum LocalBackupError {
+    #[error("no database at {}; pass --db with the server's database file", path.display())]
+    NoDatabase { path: PathBuf },
+    /// The serve config could not be read.
+    #[error(transparent)]
+    Config(PartError),
+    /// Where the database is could not be worked out.
+    #[error(transparent)]
+    Database(PartError),
+    #[error(transparent)]
+    Keys(#[from] backup::InspectError),
+    #[error(transparent)]
+    Write(#[from] backup::BackupError),
+}
+
+/// Why `kkt backup` failed: each kind is a source's own error.
+#[derive(Debug, thiserror::Error)]
+pub enum BackupCommandError {
+    #[error(transparent)]
+    Read(#[from] ReadError),
+    #[error(transparent)]
+    Of(#[from] backup::BackupOfError),
+    #[error(transparent)]
+    Container(Box<ContainerError>),
+    #[error(transparent)]
+    Local(#[from] LocalBackupError),
+}
+
+/// Why `kkt status` failed: a source's own error, or the key file it could
+/// not look at.
+#[derive(Debug, thiserror::Error)]
+pub enum StatusError {
+    #[error("could not tell whether the key file {} is there: {source}", path.display())]
+    KeyThere {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("could not read key file {}: {source}", path.display())]
+    KeyRead {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error(transparent)]
+    Read(#[from] ReadError),
+    #[error(transparent)]
+    Find(#[from] kkt_deployment::FindKeyError),
+    #[error(transparent)]
+    AdminName(#[from] kkt_deployment::AdminNameLineError),
+    /// Why what this machine runs is not known, as the status facts say.
+    #[error(transparent)]
+    Unknown(#[from] kkt_deployment::Unknown),
+    #[error(transparent)]
+    Config(PartError),
+    #[error(transparent)]
+    Service(#[from] ServiceCommandError),
+    #[error(transparent)]
+    Container(Box<ContainerError>),
+}
+
+/// Why `kkt upgrade` failed: a source's own error, or a service whose new
+/// version was installed but not recorded.
+#[derive(Debug, thiserror::Error)]
+pub enum UpgradeCommandError {
+    #[error(transparent)]
+    Recorded(#[from] RecordedError),
+    #[error(transparent)]
+    Version(#[from] kkt_deployment::UpgradeError),
+    #[error(transparent)]
+    Container(Box<ContainerError>),
+    #[error(transparent)]
+    Plan(#[from] ServicePlanError),
+    #[error(transparent)]
+    BackupFolder(#[from] backup::FolderError),
+    #[error(transparent)]
+    Backup(#[from] LocalBackupError),
+    #[error(transparent)]
+    Key(#[from] kkt_keys::KeyFileError),
+    /// The service manager could not be asked.
+    #[error(transparent)]
+    Ready(ServiceError),
+    /// Installing the new service failed. When it is installed but would
+    /// not load, the upgrade is recorded only when `kkt upgrade` runs again.
+    #[error(
+        "{}",
+        service_upgrade_error(&.0.to_string(), matches!(.0, ServiceError::ReloadFailed { .. }))
+    )]
+    Install(#[source] ServiceError),
+    #[error(transparent)]
+    Write(#[from] WriteError),
+}
+
+/// Why `kkt uninstall` failed: a source's own error, or no home to find the
+/// setup record in.
+#[derive(Debug, thiserror::Error)]
+pub enum UninstallError {
+    #[error("set HOME to find the setup record")]
+    NoHome,
+    #[error(transparent)]
+    Recorded(#[from] RecordedError),
+    #[error(transparent)]
+    Container(Box<ContainerError>),
+    /// Where the shared service listens could not be read.
+    #[error(transparent)]
+    Bind(PartError),
+    #[error(transparent)]
+    Sharing(#[from] kkt_remote_access::SharingError),
+    #[error(transparent)]
+    Service(#[from] ServiceCommandError),
+    #[error(transparent)]
+    Write(#[from] WriteError),
+    /// The setup record could not be removed.
+    #[error(transparent)]
+    Remove(PartError),
+}
 
 /// `kkt backup`: backs up the Docker server through its container, or the
 /// database `kkt serve` would use (or `db`), with the config file and
@@ -25,28 +148,24 @@ pub fn backup<D>(
     folder: Option<&Path>,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
-) -> Result<(), String> {
-    let mode = read_setup(parts.serve, parts.setup_files)
-        .map_err(|e| e.to_string())?
-        .map(|record| record.mode);
+) -> Result<(), BackupCommandError> {
+    let mode = read_setup(parts.serve, parts.setup_files)?.map(|record| record.mode);
     match backup::backup_of(
         &server_here(mode.as_ref()),
         folder,
         db.is_some() || config.is_some(),
-    )
-    .map_err(|e| e.to_string())?
-    {
+    )? {
         backup::BackupOf::Docker { folder, into } => {
             let written = parts
                 .container
                 .backup(&kkt_container::Folder(folder), into.as_deref())
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| BackupCommandError::Container(Box::new(e)))?;
             parts
                 .output
                 .output(format_args!("Backed up to {}\n", written.display()));
             Ok(())
         }
-        backup::BackupOf::Local { into } => local_backup(parts, &into, db, config),
+        backup::BackupOf::Local { into } => Ok(local_backup(parts, &into, db, config)?),
     }
 }
 
@@ -64,13 +183,13 @@ fn server_here(mode: Option<&setup::Mode>) -> backup::ServerHere {
 }
 
 /// Whether the key file at `path` is there, or why that cannot be told.
-fn key_file_there(files: &dyn kkt_keys::KeyFiles, path: &Path) -> Result<bool, String> {
-    files.try_exists(path).map_err(|e| {
-        format!(
-            "could not tell whether the key file {} is there: {e}",
-            path.display()
-        )
-    })
+fn key_file_there(files: &dyn kkt_keys::KeyFiles, path: &Path) -> Result<bool, StatusError> {
+    files
+        .try_exists(path)
+        .map_err(|source| StatusError::KeyThere {
+            path: path.to_path_buf(),
+            source,
+        })
 }
 
 /// `kkt status`: how this machine is set up, its web and admin keys, and
@@ -79,7 +198,7 @@ pub async fn status<D: ServiceDefaults>(
     parts: &InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
-) -> Result<(), String> {
+) -> Result<(), StatusError> {
     // The reasons a read failed are kept as they are, to say in the lines.
     let unfinished = read_unfinished(
         parts.serve,
@@ -88,7 +207,7 @@ pub async fn status<D: ServiceDefaults>(
         parts.service,
     )
     .map_err(kkt_deployment::Unknown::new);
-    let recorded = read_setup(parts.serve, parts.setup_files).map_err(|e| e.to_string())?;
+    let recorded = read_setup(parts.serve, parts.setup_files)?;
     let unrecorded = if kkt_deployment::status_looks_for_unrecorded(recorded.as_ref(), &unfinished)
     {
         read_unrecorded(parts, env, platform).map_err(|(_, e)| kkt_deployment::Unknown::new(e))
@@ -97,13 +216,10 @@ pub async fn status<D: ServiceDefaults>(
     };
     let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
     let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
-    if let Some(path) =
-        local_web_key(parts, found_unfinished, found_unrecorded).map_err(|e| e.to_string())?
-    {
+    if let Some(path) = local_web_key(parts, found_unfinished, found_unrecorded)? {
         parts.output.output(format_args!("{}", web_key_line(&path)));
     }
-    let admin_key = local_operator_key(parts, found_unfinished, found_unrecorded, KeyKind::Admin)
-        .map_err(|e| e.to_string())?;
+    let admin_key = local_operator_key(parts, found_unfinished, found_unrecorded, KeyKind::Admin)?;
     let admin_key = match admin_key {
         Some(path) if !key_file_there(parts.key_files, &path)? => None,
         other => other,
@@ -115,10 +231,11 @@ pub async fn status<D: ServiceDefaults>(
         let key = parts
             .key_files
             .read(&path)
-            .map_err(|e| format!("could not read key file {}: {e}", path.display()))?;
-        if let Some(line) = admin_name_line(parts.key_files, &path, &key, "Admin name")
-            .map_err(|e| e.to_string())?
-        {
+            .map_err(|source| StatusError::KeyRead {
+                path: path.clone(),
+                source,
+            })?;
+        if let Some(line) = admin_name_line(parts.key_files, &path, &key, "Admin name")? {
             parts.output.output(format_args!("{line}\n"));
         }
     }
@@ -130,18 +247,16 @@ pub async fn status<D: ServiceDefaults>(
     for line in &said.lines {
         parts.output.output(format_args!("{line}\n"));
     }
-    match said.then.map_err(|e| e.to_string())? {
+    match said.then? {
         kkt_deployment::StatusThen::Service => {
             // Status reads local configuration, not a running server's
             // command line.
-            let config = parts.serve.config(None).map_err(|e| e.to_string())?;
+            let config = parts.serve.config(None).map_err(StatusError::Config)?;
             parts.output.output(format_args!(
                 "{}",
                 configured_name_pack_line(&config.name_pack)
             ));
-            service::run(parts, ServiceAction::Status)
-                .await
-                .map_err(|e| e.to_string())
+            Ok(service::run(parts, ServiceAction::Status).await?)
         }
         kkt_deployment::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
@@ -153,7 +268,7 @@ pub async fn status<D: ServiceDefaults>(
                     &parts.serve.default_name_pack(),
                     &parts.serve.config_file_in_home(),
                 )
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| StatusError::Container(Box::new(e)))?;
             for line in docker_status_lines(&state, folder.path()) {
                 parts.output.output(format_args!("{line}"));
             }
@@ -171,18 +286,20 @@ pub async fn upgrade<D: ServiceDefaults>(
     env: &Env,
     platform: Platform,
     allow_downgrade: bool,
-) -> Result<(), String> {
-    let record = recorded_setup(parts, env, platform).map_err(|e| e.to_string())?;
+) -> Result<(), UpgradeCommandError> {
+    let record = recorded_setup(parts, env, platform)?;
     let recorded = deployment::recorded(&record);
-    let running = match kkt_deployment::running_version(&recorded).map_err(|e| e.to_string())? {
-        kkt_deployment::RunningVersion::DockerSettings(folder) => {
-            deployment::server_version(&parts.container.version(&kkt_container::Folder(folder))?)
-        }
+    let running = match kkt_deployment::running_version(&recorded)? {
+        kkt_deployment::RunningVersion::DockerSettings(folder) => deployment::server_version(
+            &parts
+                .container
+                .version(&kkt_container::Folder(folder))
+                .map_err(|e| UpgradeCommandError::Container(Box::new(e)))?,
+        ),
         kkt_deployment::RunningVersion::Recorded(version) => version,
     };
     let plan =
-        kkt_deployment::upgrade_plan(&recorded, &running, Build::CURRENT.version, allow_downgrade)
-            .map_err(|e| e.to_string())?;
+        kkt_deployment::upgrade_plan(&recorded, &running, Build::CURRENT.version, allow_downgrade)?;
     let Some(how) = plan.replace else {
         parts.output.output(format_args!("{}\n", plan.said));
         return Ok(());
@@ -201,24 +318,22 @@ pub async fn upgrade<D: ServiceDefaults>(
                         .as_ref(),
                 )
                 .await
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| UpgradeCommandError::Container(Box::new(e)))?;
         }
         kkt_deployment::Replace::Service => {
             // Validate the replacement service before doing anything. Its
             // program is this one, the binary just installed by the user.
-            let service = service_plan(parts, ServiceInstall::NONE).map_err(|e| e.to_string())?;
-            let folder = backup::service_backup_folder(parts.serve.config_dir())
-                .map_err(|e| e.to_string())?;
+            let service = service_plan(parts, ServiceInstall::NONE)?;
+            let folder = backup::service_backup_folder(parts.serve.config_dir())?;
             local_backup(parts, &folder, None, None)?;
             if let Some(key) = &service.new_web_key {
-                new_key_file(parts.key_files, parts.entropy, key, false)
-                    .map_err(|e| e.to_string())?;
+                new_key_file(parts.key_files, parts.entropy, key, false)?;
                 parts.output.output(format_args!(
                     "Created a new web key at {}. Read it with `kkt key show --web`.\n",
                     key.display()
                 ));
             }
-            parts.service.ready().map_err(|e| e.to_string())?;
+            parts.service.ready().map_err(UpgradeCommandError::Ready)?;
             for line in parts
                 .service
                 .install(
@@ -227,7 +342,7 @@ pub async fn upgrade<D: ServiceDefaults>(
                     &service.spec,
                 )
                 .await
-                .map_err(unrecorded_upgrade)?
+                .map_err(UpgradeCommandError::Install)?
             {
                 parts.output.output(format_args!("{line}\n"));
             }
@@ -236,20 +351,9 @@ pub async fn upgrade<D: ServiceDefaults>(
     // The record now names the version the server runs.
     let mut record = record;
     record.written_by = Build::CURRENT.version.to_string();
-    write_setup_record(parts.serve, parts.setup_files, &record).map_err(|e| e.to_string())?;
+    write_setup_record(parts.serve, parts.setup_files, &record)?;
     parts.output.output(format_args!("{}\n", plan.said));
     Ok(())
-}
-
-/// What `kkt upgrade` says when installing the service fails. The record
-/// is written only after the install, so when the new service would not
-/// load (`kkt service start` finishes that), the upgrade is recorded only
-/// when `kkt upgrade` is run again.
-fn unrecorded_upgrade(error: ServiceError) -> String {
-    service_upgrade_error(
-        &error.to_string(),
-        matches!(error, ServiceError::ReloadFailed { .. }),
-    )
 }
 
 /// `kkt uninstall`: stops and removes the recorded server, then removes the
@@ -258,39 +362,34 @@ pub async fn uninstall<D: ServiceDefaults>(
     parts: &InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
-) -> Result<(), String> {
-    let record = recorded_setup(parts, env, platform).map_err(|e| e.to_string())?;
+) -> Result<(), UninstallError> {
+    let record = recorded_setup(parts, env, platform)?;
     let stays_client = uninstall_record(&record, Build::CURRENT.version);
     match record.mode {
         setup::Mode::Docker(install) => {
             parts
                 .container
                 .down(&kkt_container::Folder(install.folder), false)
-                .map_err(|e| e.to_string())?;
+                .map_err(|e| UninstallError::Container(Box::new(e)))?;
         }
         setup::Mode::Service { tailscale: shared } => {
             stop_sharing(shared, parts.serve, parts.remote)?;
-            service::run(parts, ServiceAction::Uninstall)
-                .await
-                .map_err(|e| e.to_string())?;
+            service::run(parts, ServiceAction::Uninstall).await?;
         }
         setup::Mode::Client => {}
     }
     if let Some(client) = stays_client {
-        write_setup_record(parts.serve, parts.setup_files, &client).map_err(|e| e.to_string())?;
+        write_setup_record(parts.serve, parts.setup_files, &client)?;
         parts
             .output
             .output(format_args!("{}", uninstall_line(Some(&client))));
         return Ok(());
     }
-    let config_dir = parts
-        .serve
-        .config_dir()
-        .ok_or("set HOME to find the setup record")?;
+    let config_dir = parts.serve.config_dir().ok_or(UninstallError::NoHome)?;
     parts
         .setup_files
         .remove_record(&config_dir)
-        .map_err(|e| e.to_string())?;
+        .map_err(UninstallError::Remove)?;
     parts
         .output
         .output(format_args!("{}", uninstall_line(None)));
@@ -304,11 +403,9 @@ fn stop_sharing(
     shared: bool,
     serve: &dyn ServeFacts,
     remote: &dyn kkt_remote_access::RemoteAccess,
-) -> Result<(), String> {
+) -> Result<(), UninstallError> {
     if shared {
-        remote
-            .stop(serve.bind().map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
+        remote.stop(serve.bind().map_err(UninstallError::Bind)?)?;
     }
     Ok(())
 }
@@ -319,16 +416,13 @@ fn existing_db<D>(
     parts: &InstallParts<'_, impl ConnectionSource, D>,
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
-) -> Result<PathBuf, String> {
+) -> Result<PathBuf, LocalBackupError> {
     let path = parts
         .serve
         .database(db, config_db)
-        .map_err(|e| e.to_string())?;
+        .map_err(LocalBackupError::Database)?;
     if !parts.database.exists(&path) {
-        return Err(format!(
-            "no database at {}; pass --db with the server's database file",
-            path.display()
-        ));
+        return Err(LocalBackupError::NoDatabase { path });
     }
     Ok(path)
 }
@@ -340,8 +434,11 @@ fn local_backup<D>(
     folder: &Path,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
-) -> Result<(), String> {
-    let config = parts.serve.config(config).map_err(|e| e.to_string())?;
+) -> Result<(), LocalBackupError> {
+    let config = parts
+        .serve
+        .config(config)
+        .map_err(LocalBackupError::Config)?;
     let database = existing_db(parts, db, config.db.clone())?;
     let default_access_key = parts.serve.default_access_key();
     let backup::BackupKeys {
@@ -356,8 +453,7 @@ fn local_backup<D>(
             default: default_access_key.as_deref(),
         },
         &mut |path| parts.key_files.try_exists(path),
-    )
-    .map_err(|e| e.to_string())?;
+    )?;
     let contents = backup::Contents {
         database: &database,
         config: config.file.as_deref(),
@@ -367,10 +463,7 @@ fn local_backup<D>(
         admin_name: admin_name.as_deref(),
     };
     let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
-    let written = parts
-        .backups
-        .write(folder, &layout)
-        .map_err(|e| e.to_string())?;
+    let written = parts.backups.write(folder, &layout)?;
     let out = parts.output;
     out.output(format_args!("Backed up to {}\n", written.display()));
     out.output(format_args!("  database {}\n", database.display()));
@@ -612,7 +705,7 @@ mod tests {
              start` to load the new one, and `kkt service status` to check."
                 .to_string(),
         );
-        let said = unrecorded_upgrade(error);
+        let said = UpgradeCommandError::Install(error).to_string();
         assert!(
             said.starts_with(
                 "`launchctl bootstrap gui/501 kkt.plist` failed on each of 141 tries over 35 seconds, \
@@ -631,7 +724,7 @@ mod tests {
         );
         // Other install errors are said as they are.
         assert_eq!(
-            unrecorded_upgrade(ServiceError::NotInstalled),
+            UpgradeCommandError::Install(ServiceError::NotInstalled).to_string(),
             ServiceError::NotInstalled.to_string()
         );
     }
@@ -727,8 +820,8 @@ mod tests {
     fn uninstalling_a_shared_service_asks_where_it_listens_then_tailscale() {
         let (serve, remote) = (Asked::default(), Tailscale::default());
         assert_eq!(
-            stop_sharing(true, &serve, &remote),
-            Err("tailscale is not here".into())
+            stop_sharing(true, &serve, &remote).map_err(|e| e.to_string()),
+            Err("tailscale is not here".to_string())
         );
         assert_eq!(*serve.0.borrow(), ["bind"]);
         assert_eq!(remote.0.borrow().len(), 1);
@@ -2251,18 +2344,20 @@ mod tests {
                 lines: &untouched,
                 config_file: &untouched,
             };
-            let done = match command {
-                "status" => futures::executor::block_on(status(&parts, &env, Platform::Xdg)),
+            match command {
+                "status" => futures::executor::block_on(status(&parts, &env, Platform::Xdg))
+                    .map_err(|e| e.to_string()),
                 "backup" => backup(
                     &parts,
                     Some(Path::new("/backups")),
                     Some(PathBuf::from("/data/kkt.db")),
                     None,
-                ),
-                "uninstall" => futures::executor::block_on(uninstall(&parts, &env, Platform::Xdg)),
+                )
+                .map_err(|e| e.to_string()),
+                "uninstall" => futures::executor::block_on(uninstall(&parts, &env, Platform::Xdg))
+                    .map_err(|e| e.to_string()),
                 other => panic!("no command {other}"),
-            };
-            done.map_err(|e| e.to_string())
+            }
         };
         let service_record = RecordOf(setup::Mode::Service { tailscale: false });
         let refusing = kkt_keys::testing::Memory::new().failing("/home/k/.config/kkt/admin-key");
@@ -2298,7 +2393,7 @@ mod tests {
         // A service upgrade whose new service would not load, whole.
         let reload = ServiceError::ReloadFailed("The new service is not loaded.".to_string());
         assert_eq!(
-            unrecorded_upgrade(reload),
+            UpgradeCommandError::Install(reload).to_string(),
             "The new service is not loaded. This upgrade is not recorded yet: once the service \
              is loaded, run `kkt upgrade` again to record the new version."
         );
