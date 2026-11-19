@@ -610,6 +610,9 @@ mod flow {
             .map_err(|said| StepError(said.into()))
         }
         fn save_unfinished(&self, unfinished: &Unfinished) -> Result<(), StepError> {
+            if self.fails_once("note") {
+                return Err(StepError("could not write the note".into()));
+            }
             {
                 let done: Result<(), String> = {
                     let clients: Vec<_> = unfinished.clients.iter().map(|c| c.name()).collect();
@@ -1356,6 +1359,80 @@ mod flow {
             Err(unanswered(question))
         }
         fn tell(&self, _: &str) {}
+    }
+
+    /// A server install that cannot be noted first is not started, and says
+    /// so, pinned exactly.
+    #[test]
+    fn an_install_that_cannot_be_noted_first_is_not_started() {
+        let steps = Fake {
+            fail_once: RefCell::new(vec!["note"]),
+            ..Fake::default()
+        };
+        let answers = Answers {
+            purpose: Some(Purpose::Service),
+            tailscale: Some(false),
+            allow_hosts: Some(Vec::new()),
+            clients: Some(Vec::new()),
+            ..Answers::default()
+        };
+        let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
+            .expect_err("not noted")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error,
+            "could not write the note\nsetup notes the install before starting it, so nothing was changed"
+        );
+        assert!(
+            !steps.done().iter().any(|d| d.starts_with("install")),
+            "{:?}",
+            steps.done()
+        );
+    }
+
+    /// At a terminal, a failed step offers to try again; when that question
+    /// gets no answer, both are said, pinned exactly.
+    #[test]
+    fn a_failed_step_whose_retry_question_gets_no_answer_says_both() {
+        /// At a terminal, but with no answer to give.
+        struct NoAnswer;
+        impl Ask for NoAnswer {
+            fn interactive(&self) -> bool {
+                true
+            }
+            fn choose(&self, question: Question, _: &[&str], _: usize) -> Result<usize, AskError> {
+                Err(unanswered(question))
+            }
+            fn confirm(&self, question: Question) -> Result<bool, AskError> {
+                Err(unanswered(question))
+            }
+            fn text(&self, question: Question, _: &str) -> Result<String, AskError> {
+                Err(unanswered(question))
+            }
+            fn tell(&self, _: &str) {}
+        }
+        let steps = Fake {
+            fail_install: true,
+            ..Fake::default()
+        };
+        let answers = Answers {
+            purpose: Some(Purpose::Service),
+            tailscale: Some(false),
+            allow_hosts: Some(Vec::new()),
+            clients: Some(Vec::new()),
+            allow_kkt: Some(false),
+            admin_key: Some(false),
+            ..Answers::default()
+        };
+        let error = run(&answers, "0.4.0", "/mcp", &NoAnswer, &steps)
+            .expect_err("unanswered")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error,
+            "launchctl failed\nTry again? No terminal to ask on.\nAn earlier `kkt setup` began to install a server here as a service, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."
+        );
     }
 
     #[test]
