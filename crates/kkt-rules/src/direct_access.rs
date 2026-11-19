@@ -1,8 +1,8 @@
 //! What the operator can read and change on the database file directly,
-//! with no server, while a server may be running on it: list agents and
-//! revoke an agent's token, as an [`Operator`] whose permissions are
-//! checked like every other change's. Importing and exporting lanes is in
-//! `lane_import.rs`.
+//! with no server, while a server may be running on it: list agents,
+//! revoke an agent's token, and export and import lanes (in
+//! `lane_import.rs`), each as an [`Operator`] whose permissions are checked
+//! like every other read's and change's.
 //!
 //! A running server looks a token up in the database on every call and
 //! keeps no copy, so a revocation takes effect on the agent's next call.

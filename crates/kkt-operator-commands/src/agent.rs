@@ -1,5 +1,5 @@
 //! The operator's list and revoke commands, on the local server database.
-use crate::lanes::{DatabaseError, existing_db};
+use crate::lanes::{DatabaseError, command_line_operator, existing_db};
 use crate::{OperatorParts, PartError};
 use kkt_api_agent::RuleError;
 use kkt_rules::{DirectAccess, Revoked};
@@ -40,15 +40,7 @@ pub async fn run(
     let db = parts.database.open(&path).map_err(DatabaseError::Open)?;
     // Key mode: the one swarm, which every avatar is in.
     let access = DirectAccess::new(db, kkt_api_agent::SwarmId::main(), parts.clock.clone());
-    // Whoever can open the database file may do anything to it already.
-    let operator = kkt_api_agent::Operator::new(
-        kkt_api_agent::Permissions::of(&[
-            kkt_api_agent::Permission::Read,
-            kkt_api_agent::Permission::Change,
-            kkt_api_agent::Permission::IssueRecoveryCodes,
-        ]),
-        kkt_api_agent::Audit::CommandLine,
-    );
+    let operator = command_line_operator();
     match command {
         AgentAction::List => {
             let agents = access.agents(&operator).await?;

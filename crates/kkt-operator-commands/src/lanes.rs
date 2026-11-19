@@ -226,8 +226,8 @@ impl LaneServer for LocalLanes<'_> {
     fn export<'a>(&'a self, dest: &'a Path) -> LaneFuture<'a, ()> {
         Box::pin(async move {
             let parts = &self.parts;
-            let (operator, _) = local_operator(parts, self.db.clone(), self.config.clone())?;
-            let lanes = operator.current_lanes().await?;
+            let (access, _) = local_operator(parts, self.db.clone(), self.config.clone())?;
+            let lanes = access.current_lanes(&command_line_operator()).await?;
             let files: Vec<lane_files::LaneFile> = lanes
                 .iter()
                 .map(|l| lane_files::LaneFile {
@@ -323,6 +323,20 @@ pub fn local_operator(
     ))
 }
 
+/// The operator of a command run against the database file: every
+/// permission, since whoever can open the file may do anything to it
+/// already, recorded as the command line.
+pub(crate) fn command_line_operator() -> kkt_api_agent::Operator {
+    kkt_api_agent::Operator::new(
+        kkt_api_agent::Permissions::of(&[
+            kkt_api_agent::Permission::Read,
+            kkt_api_agent::Permission::Change,
+            kkt_api_agent::Permission::IssueRecoveryCodes,
+        ]),
+        kkt_api_agent::Audit::CommandLine,
+    )
+}
+
 /// Imports the lanes `read` from a folder into the local database. The
 /// source recorded is `source` if given, else the folder and its git
 /// commit. Returns the report to print.
@@ -334,21 +348,24 @@ async fn local_import_lanes(
     retire_missing: bool,
     source: Option<LaneSource>,
 ) -> Result<String, LaneError> {
-    let (operator, max_lane_chars) = local_operator(parts, db, config)?;
+    let (access, max_lane_chars) = local_operator(parts, db, config)?;
     let skipped_files = read.skipped_names();
     let source = source.unwrap_or_else(|| LaneSource {
         folder: read.folder.display().to_string(),
         commit: read.commit,
     });
     let lanes = lane_saves(read.lanes);
-    let done = operator
-        .import_lanes(kkt_rules::LaneImport {
-            lanes,
-            source: source.clone(),
-            retire_missing,
-            skipped_files,
-            max_lane_chars,
-        })
+    let done = access
+        .import_lanes(
+            &command_line_operator(),
+            kkt_rules::LaneImport {
+                lanes,
+                source: source.clone(),
+                retire_missing,
+                skipped_files,
+                max_lane_chars,
+            },
+        )
         .await?;
     Ok(import_report(&done, &source))
 }
