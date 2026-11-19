@@ -407,6 +407,7 @@ mod flow {
     struct Fake {
         done: RefCell<Vec<String>>,
         clients: Vec<Client>,
+        client_urls: Vec<(Client, &'static str)>,
         fail_install: bool,
         fail_connect: Option<Client>,
         /// A client whose permission rules cannot be written.
@@ -710,6 +711,13 @@ mod flow {
         fn connected_clients(&self) -> Result<Vec<Client>, StepError> {
             Ok(self.connected.clone())
         }
+        fn client_url(&self, client: Client) -> Result<Option<String>, StepError> {
+            Ok(self
+                .client_urls
+                .iter()
+                .find(|(c, _)| *c == client)
+                .map(|(_, url)| (*url).to_string()))
+        }
         fn recorded(&self) -> Result<Option<Record>, StepError> {
             self.earlier
                 .clone()
@@ -745,6 +753,10 @@ mod flow {
         /// Refuses an address that is not http:// or https://, as the
         /// program's steps do with kkt-deployment's rule, before any server
         /// is asked.
+        fn validate_address(&self, _: &str) -> Result<(), StepError> {
+            Ok(())
+        }
+
         fn check_address(&self, url: &str) -> Result<(), StepError> {
             if !(url.starts_with("http://") || url.starts_with("https://")) {
                 return Err(StepError(
@@ -3381,7 +3393,9 @@ mod flow {
             };
             assert_eq!(
                 said(&to(OTHER), &Fake::default()),
-                "this machine is not set up yet; run `kkt setup` first"
+                format!(
+                    "this machine has no setup record; run `kkt setup --mode client --url '{OTHER}' --clients none --no-allow-kkt`"
+                )
             );
             let local = Switch {
                 to: Target::Local,
@@ -3465,9 +3479,47 @@ mod flow {
             );
             let told = told(&ask);
             assert!(
-                told.contains(&format!(
-                    "clients now use {OTHER} (before: https://old.example/mcp)"
-                )),
+                told.contains(&format!("clients now use {OTHER}.")),
+                "{told}"
+            );
+            assert!(!told.contains("(before:"), "{told}");
+        }
+
+        #[test]
+        fn switch_reports_each_clients_own_previous_url_and_omits_unknown() {
+            let service = crate::tests::record(Mode::Service { tailscale: false });
+            let steps = Fake {
+                connected: vec![Client::ClaudeCode, Client::Codex],
+                client_urls: vec![(Client::Codex, "https://mfb.example/mcp")],
+                ..on(service)
+            };
+            let ask = Script::default();
+            switch(
+                &Switch {
+                    to: Target::Local,
+                    key_file: None,
+                    clients: None,
+                },
+                "1.0.0",
+                &ask,
+                &steps,
+            )
+            .expect("switch --local");
+            let told = told(&ask);
+            // Codex gets its real previous URL (not the record's URL).
+            assert!(
+                told.contains("connected codex (before: https://mfb.example/mcp)"),
+                "{told}"
+            );
+            // Claude Code had no prior URL, so no "(before: ...)" is claimed.
+            assert!(!told.contains("connected claude-code (before:"), "{told}");
+            // Summary line does not claim the record's URL as "(before: ...)".
+            assert!(
+                told.contains("This machine's clients now use https://kkt.tail1234.ts.net/mcp."),
+                "{told}"
+            );
+            assert!(
+                !told.contains("(before: https://kkt.tail1234.ts.net/mcp)"),
                 "{told}"
             );
         }
@@ -3572,12 +3624,20 @@ mod flow {
         }
 
         #[test]
-        fn a_machine_with_no_record_is_told_to_run_setup() {
-            let steps = Fake::default();
+        fn setup_advice_selects_clients_with_existing_entries() {
+            let steps = Fake {
+                connected: vec![Client::OpenCode, Client::Agy],
+                ..Fake::default()
+            };
             let error = switch(&to(OTHER), "0.8.0", &Script::default(), &steps)
                 .expect_err("none")
                 .to_string();
-            assert!(error.contains("run `kkt setup` first"), "{error}");
+            assert_eq!(
+                error,
+                format!(
+                    "this machine has no setup record; run `kkt setup --mode client --url '{OTHER}' --clients opencode,agy --no-allow-kkt`"
+                )
+            );
             assert!(steps.done().is_empty());
         }
 

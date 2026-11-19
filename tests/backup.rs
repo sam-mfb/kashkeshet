@@ -215,6 +215,211 @@ async fn backups_taken_while_agents_write_restore_to_a_working_server() {
     server.child.kill().await.expect("stop kkt");
 }
 
+/// A home whose server has three messages, then stopped: its database
+/// path, with the messages in it. The config names the database beside
+/// it, so the path is the same on every platform.
+async fn messaged_home(name: &str) -> (scratch::Dir, PathBuf) {
+    let home = temp_home(name);
+    let config_dir = home.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).expect("config dir");
+    std::fs::write(
+        config_dir.join("config.toml"),
+        "db = \"test.db\"\nno_access_key = true\n",
+    )
+    .expect("config file");
+    let mut server = start(kkt(&home, &["serve"])).await;
+    let client = common::connect_new_at(&server.base()).await;
+    let token = field(&ok(&client, "register", json!({})).await, "token");
+    let created = ok(
+        &client,
+        "create_channel",
+        json!({"token": token, "name": "counted", "open": true, "format": "json"}),
+    )
+    .await;
+    let channel: Value = serde_json::from_str(&created).expect("json");
+    let channel_id = channel["id"].as_str().expect("channel id").to_string();
+    for i in 0..3 {
+        ok(
+            &client,
+            "send",
+            json!({"token": token, "channel_id": channel_id, "body": format!("m{i}")}),
+        )
+        .await;
+    }
+    server.child.kill().await.expect("stop kkt");
+    let db = home.join(".config/kkt/test.db");
+    (home, db)
+}
+
+#[tokio::test]
+async fn a_backups_about_file_records_the_highest_message_id() {
+    let (home, db) = messaged_home("highest").await;
+    let folder = home.join("backups");
+    let (success, text) = finish(kkt(
+        &home,
+        &[
+            "backup",
+            &folder.display().to_string(),
+            "--db",
+            &db.display().to_string(),
+        ],
+    ))
+    .await;
+    assert!(success, "{text}");
+    let backup = backups_in(&folder).pop().expect("one backup");
+    let (count, highest) = messages_in(&backup.join("kashkeshet.db"));
+    assert_eq!((count, highest), (3, 3));
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert!(
+        about.contains(&format!("highest message ID: {highest}\n")),
+        "{about}"
+    );
+}
+
+/// A backup destination whose name is not valid UTF-8 still records
+/// the ID: the copied database's path is percent-encoded from its own
+/// bytes, not through UTF-8. Linux only: macOS requires file names in
+/// UTF-8, so a folder ending in byte 0xff cannot be created there and
+/// this case cannot arise on macOS.
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn a_backup_to_a_non_utf8_folder_records_the_highest_id() {
+    use std::os::unix::ffi::OsStringExt;
+    let (home, db) = messaged_home("non-utf8").await;
+    let folder = home.join(std::ffi::OsString::from_vec(b"backups-\xff".to_vec()));
+    let mut command = kkt(&home, &["backup"]);
+    command.arg(&folder).arg("--db").arg(&db);
+    let (success, text) = finish(command).await;
+    assert!(success, "{text}");
+    let backup = backups_in(&folder).pop().expect("one backup");
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert!(about.contains("highest message ID: 3\n"), "{about}");
+}
+
+/// The highest ID is optional: a source the backup cannot read for it
+/// (locked, read-only, empty, or from before this storage) still backs
+/// up, byte for byte unchanged, with the reason printed in one line.
+#[tokio::test]
+async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
+    async fn run_backup(home: &Path, db: &Path) -> (PathBuf, (bool, String)) {
+        let folder = home.join("backups");
+        let out = finish(kkt(
+            home,
+            &[
+                "backup",
+                &folder.display().to_string(),
+                "--db",
+                &db.display().to_string(),
+            ],
+        ))
+        .await;
+        (folder, out)
+    }
+    let files_in = |dir: &Path| {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .expect("list")
+            .map(|e| e.expect("entry").file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    };
+    let beside = |db: &Path| {
+        let mut names: Vec<String> = std::fs::read_dir(db.parent().expect("parent"))
+            .expect("list")
+            .map(|e| e.expect("entry").file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    };
+
+    // A writer holding BEGIN IMMEDIATE on a rollback-journal database.
+    {
+        let (home, db) = messaged_home("locked").await;
+        let conn = Connection::open(&db).expect("writer");
+        conn.pragma_update(None, "journal_mode", "DELETE")
+            .expect("rollback journal");
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .expect("hold the writer");
+        let before = std::fs::read(&db).expect("bytes before");
+        let (folder, (success, text)) = run_backup(&home, &db).await;
+        assert!(success, "{text}");
+        assert_eq!(std::fs::read(&db).expect("bytes after"), before);
+        let backup = backups_in(&folder).pop().expect("one backup");
+        assert_eq!(
+            files_in(&backup),
+            ["about.txt", "config.toml", "kashkeshet.db"]
+        );
+        let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+        assert!(about.contains("highest message ID: 3\n"), "{about}");
+        conn.execute_batch("ROLLBACK").expect("release");
+    }
+
+    // A read-only database file.
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let (home, db) = messaged_home("readonly").await;
+        let before = std::fs::read(&db).expect("bytes before");
+        let beside_before = beside(&db);
+        std::fs::set_permissions(&db, std::fs::Permissions::from_mode(0o444)).expect("read-only");
+        let (folder, (success, text)) = run_backup(&home, &db).await;
+        assert!(success, "{text}");
+        std::fs::set_permissions(&db, std::fs::Permissions::from_mode(0o644)).expect("restore");
+        assert_eq!(std::fs::read(&db).expect("bytes after"), before);
+        assert_eq!(beside(&db), beside_before);
+        let backup = backups_in(&folder).pop().expect("one backup");
+        assert_eq!(
+            files_in(&backup),
+            ["about.txt", "config.toml", "kashkeshet.db"]
+        );
+        let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+        assert!(about.contains("highest message ID: 3\n"), "{about}");
+    }
+
+    // A zero-byte file: still zero bytes afterwards, nothing beside it.
+    {
+        let home = temp_home("empty");
+        let data = home.join("data");
+        std::fs::create_dir_all(&data).expect("data dir");
+        let db = data.join("empty.db");
+        std::fs::write(&db, "").expect("empty");
+        let (folder, (success, text)) = run_backup(&home, &db).await;
+        assert!(success, "{text}");
+        assert!(
+            text.contains("Highest message ID not recorded in about.txt"),
+            "{text}"
+        );
+        assert_eq!(std::fs::read(&db).expect("still empty").len(), 0);
+        assert_eq!(beside(&db), ["empty.db"]);
+        let backup = backups_in(&folder).pop().expect("one backup");
+        assert_eq!(files_in(&backup), ["about.txt", "kashkeshet.db"]);
+        let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+        assert!(!about.contains("highest message ID"), "{about}");
+    }
+
+    // A database at 0.10.0's schema, before this storage.
+    {
+        let home = temp_home("old-schema");
+        let data = home.join("data");
+        std::fs::create_dir_all(&data).expect("data dir");
+        let db = data.join("old.db");
+        make_v0_10_0(&db);
+        let before = std::fs::read(&db).expect("bytes before");
+        let beside_before = beside(&db);
+        let (folder, (success, text)) = run_backup(&home, &db).await;
+        assert!(success, "{text}");
+        assert!(
+            text.contains("Highest message ID not recorded in about.txt"),
+            "{text}"
+        );
+        assert_eq!(std::fs::read(&db).expect("bytes after"), before);
+        assert_eq!(beside(&db), beside_before);
+        let backup = backups_in(&folder).pop().expect("one backup");
+        assert_eq!(files_in(&backup), ["about.txt", "kashkeshet.db"]);
+        let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+        assert!(!about.contains("highest message ID"), "{about}");
+    }
+}
+
 #[tokio::test]
 async fn a_backup_keeps_both_keys_private_and_restores_them() {
     let home = temp_home("key");
@@ -612,4 +817,76 @@ async fn a_new_database_needs_no_backup() {
     server.child.kill().await.expect("stop kkt");
     assert!(!server.log.contains("backed up"), "{}", server.log);
     assert!(!home.join("upgrade-backups").exists());
+}
+
+#[tokio::test]
+async fn client_db_only_backup_records_highest_id_when_readable_and_omits_when_not() {
+    let (_source_home, db) = messaged_home("client-db-only-highest").await;
+    let client_home = temp_home("client-db-only-highest-home");
+    let config_dir = client_home.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).expect("config dir");
+    std::fs::write(
+        config_dir.join("setup.toml"),
+        "format = 1\nmode = \"client\"\nwritten_by = \"1.0.0\"\nurl = \"https://example.invalid/mcp\"\n",
+    )
+    .expect("client record");
+
+    // Readable messages: about.txt records highest message ID.
+    let folder_ok = client_home.join("backups-ok");
+    let (success, text) = finish(kkt(
+        &client_home,
+        &[
+            "backup",
+            &folder_ok.display().to_string(),
+            "--db",
+            &db.display().to_string(),
+        ],
+    ))
+    .await;
+    assert!(success, "{text}");
+    assert!(
+        text.contains("Backed up only the database: no --config was given on a client machine"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("Highest message ID not recorded in about.txt"),
+        "{text}"
+    );
+    let backup = backups_in(&folder_ok).pop().expect("one backup");
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert!(about.contains("highest message ID: 3\n"), "{about}");
+    assert!(!backup.join("config.toml").exists());
+    assert!(!backup.join("access-key").exists());
+
+    // Unreadable messages table (bare SQLite DB): backup still succeeds,
+    // omits the line in about.txt, and prints the plain reason.
+    let bare_db = client_home.join("bare.db");
+    Connection::open(&bare_db)
+        .expect("open bare")
+        .execute("CREATE TABLE other (id INTEGER)", [])
+        .expect("create table");
+    let folder_unreadable = client_home.join("backups-unreadable");
+    let (success, text) = finish(kkt(
+        &client_home,
+        &[
+            "backup",
+            &folder_unreadable.display().to_string(),
+            "--db",
+            &bare_db.display().to_string(),
+        ],
+    ))
+    .await;
+    assert!(success, "{text}");
+    assert!(
+        text.contains("Backed up only the database: no --config was given on a client machine"),
+        "{text}"
+    );
+    assert!(
+        text.contains("Highest message ID not recorded in about.txt:"),
+        "{text}"
+    );
+    let backup = backups_in(&folder_unreadable).pop().expect("one backup");
+    assert!(backup.join("kashkeshet.db").exists());
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert!(!about.contains("highest message ID"), "{about}");
 }

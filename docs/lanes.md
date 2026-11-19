@@ -145,8 +145,9 @@ uncommitted changes). A lane's page on the web shows this.
 
 Both commands use the database `kkt serve` uses; `--db` and `--config` name
 others, as for `kkt agent`. For kkt in Docker they work inside the
-container, copying the files in or out. On a client machine, import requires
-`--db` or `--config` to select a local database. Run export on the server.
+container, copying the files in or out. On a client machine, both export and
+import require `--db` or `--config` to select a local database; with neither
+flag, run them on the server machine.
 
 `kkt setup --lanes <folder>` imports a folder once the server is set up.
 Setup does not ask about lanes; without the flag it imports none. Setup

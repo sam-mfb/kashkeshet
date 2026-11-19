@@ -272,7 +272,6 @@ pub struct HereLanes<'n, 'a, D> {
 impl<D> LaneServers for HereLanes<'_, '_, D> {
     fn here(
         &self,
-        action: &kkt_operator_commands::lanes::LanesAction,
         db: Option<PathBuf>,
         config: Option<PathBuf>,
     ) -> Result<Box<dyn LaneServer + '_>, kkt_operator_commands::PartError> {
@@ -280,7 +279,6 @@ impl<D> LaneServers for HereLanes<'_, '_, D> {
         let on = kkt_operator_commands::lanes::lanes_on(
             deployment.as_ref(),
             db.is_some() || config.is_some(),
-            action,
         )
         .map_err(operator_part)?;
         Ok(self.native.lanes_on(on, db, config))
@@ -751,6 +749,12 @@ struct NativeDatabases;
 impl kkt_install_commands::Databases for NativeDatabases {
     fn exists(&self, path: &Path) -> bool {
         kkt_db_sqlite::SqlitePlace::exists(path)
+    }
+    fn highest_message_id(
+        &self,
+        path: &Path,
+    ) -> Result<Option<i64>, kkt_install_commands::PartError> {
+        super::database::highest_message_id(path).map_err(install_part)
     }
 }
 impl kkt_operator_commands::Databases for NativeDatabases {

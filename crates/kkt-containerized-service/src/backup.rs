@@ -2,9 +2,9 @@
 //! the managed backups folder, and a copy of the new backup wherever the
 //! person asks.
 
-use crate::ContainerError;
 use crate::here;
 use crate::in_server::{SERVER, host};
+use crate::{ContainerError, Tell};
 use kkt_container::{Folder, Output, Project, Projects, User};
 use std::path::{Path, PathBuf};
 
@@ -25,10 +25,11 @@ pub(crate) fn backups(folder: &Folder) -> PathBuf {
 pub(crate) fn backup(
     projects: &dyn Projects,
     project: &Project,
+    tell: &dyn Tell,
     working_dir: Result<&Path, &crate::NoWorkingDir>,
     dest: Option<&Path>,
 ) -> Result<PathBuf, ContainerError> {
-    let name = backup_in_container(projects, project)?;
+    let name = backup_in_container(projects, project, tell)?;
     let Some(dest) = dest else {
         return Ok(backups(project.folder).join(name));
     };
@@ -47,10 +48,18 @@ pub(crate) fn backup(
     Ok(dest.join(name))
 }
 
+/// The line `kkt backup` prints when the highest message ID was not
+/// recorded in the backup's about file.
+const NOT_RECORDED: &str = "Highest message ID not recorded in about.txt:";
+
 /// Runs `kkt backup` in the container and returns the new folder's name.
+/// The line saying the highest message ID was not recorded, when the
+/// in-container backup printed one, is told to the person here, as the
+/// in-container command had no terminal of the person's to print it on.
 pub(crate) fn backup_in_container(
     projects: &dyn Projects,
     project: &Project,
+    tell: &dyn Tell,
 ) -> Result<String, ContainerError> {
     let said = projects
         .exec(
@@ -62,6 +71,9 @@ pub(crate) fn backup_in_container(
         )
         .and_then(|ran| ran.succeeded())
         .map_err(|e| ContainerError::from_tool(projects, e))?;
+    if let Some(line) = said.lines().find(|l| l.starts_with(NOT_RECORDED)) {
+        tell.say(line);
+    }
     let line = said
         .lines()
         .find_map(|l| l.strip_prefix("Backed up to "))

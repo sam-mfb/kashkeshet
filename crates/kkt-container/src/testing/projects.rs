@@ -272,6 +272,11 @@ impl Projects for MemoryProjects {
         }
     }
 
+    fn has_container(&self, _: &Project, service: &str) -> Result<bool, ProjectError> {
+        self.command(&["ps", "--all", "--quiet", service]);
+        Ok(self.running.borrow().contains(service))
+    }
+
     fn running(&self, _project: &Project) -> Result<Vec<String>, ProjectError> {
         self.command(&["ps", "--status", "running", "--services"]);
         Ok(self.running.borrow().iter().cloned().collect())

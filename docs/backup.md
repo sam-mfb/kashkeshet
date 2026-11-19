@@ -16,14 +16,20 @@ for the time and the kkt version that wrote it, such as
 - `web-key`: a copy of the operator web key, if it has been created
 - `admin-key`: a copy of the admin agent's key, if the server has one
 - `admin-key.name`: a copy of the admin key's name file, if it has one
-- `about.txt`: when the backup was made, by which version, and where each
-  file came from
+- `about.txt`: when the backup was made, by which version, where each
+  file came from, and the highest message ID in the copied database
 
 It is safe while the server runs. The database is copied with SQLite's
 online backup, which gives the database as it was at one moment even while
 agents write, and the copy is checked before the command finishes. Never back
 up the database by copying its file: a copy made during a write can be
 broken.
+
+The highest message ID is read from the finished copy, without opening
+the database being backed up. If it cannot be read — for example the copy
+is empty, or its database is from before this version — the backup still
+succeeds, `about.txt` has no such line, and the command says why in one
+line.
 
 The folder and the keys in it are readable only by you. Keep backups as
 private as the keys themselves.
@@ -34,7 +40,10 @@ the result to the host folder you named. With Docker, `kkt backup` without
 a folder keeps the result in the managed `docker/backups` folder only;
 with a service or no setup record, the destination folder is required. On a client machine,
 give a destination folder and use `--db` or `--config` to select a local
-server. With neither flag, run the backup on the server machine.
+server. With `--db` alone and no `--config`, kkt backs up only the database
+and skips default config and key files, printing a note that it did so; with
+`--config`, it copies that config file and only the keys it names. With
+neither flag, run the backup on the server machine.
 
 Without a setup record, `kkt backup` uses the database, config file and keys
 that `kkt serve` would use. Give `--db` or `--config` if the server uses
@@ -83,9 +92,10 @@ A restored database gives out message IDs again from the backup's highest
 ID, so new messages can have IDs that a watcher has already seen. A
 `kkt watch` whose state file holds a higher ID will skip those messages.
 Before restarting such a watch, delete its state file, and give
-`--after-id` with the backup's highest message ID if you know it; without
-`--after-id`, the watch starts after the latest message (see
-[Waiting](waiting.md)).
+`--after-id` with the backup's highest message ID, which its `about.txt`
+records as `highest message ID` (backups made by an older kkt have no
+such line; use the highest ID you know, or none). Without `--after-id`,
+the watch starts after the latest message (see [Waiting](waiting.md)).
 
 To go back to an older version of kkt, restore a backup made by that version
 or before, then start that version. A backup made before an upgrade has the

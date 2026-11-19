@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a0eb8942",
+ "commit": "73507e03",
  "crates": [
   {
    "bins": [
@@ -390,6 +390,15 @@ window.KKT_GRAPH = {
      "path": "machine::database"
     },
     {
+     "doc": "Why the highest message ID in a database could not be read.",
+     "kind": "enum",
+     "path": "machine::database::HighestError",
+     "variants": [
+      "Open",
+      "Read"
+     ]
+    },
+    {
      "doc": "Why the database file could not be opened.",
      "fields": [
       "path",
@@ -420,6 +429,11 @@ window.KKT_GRAPH = {
      "doc": "Writes a consistent copy of the database file at `from` to the new file `to`, even while a server writes to `from`.",
      "kind": "fn",
      "path": "machine::database::copy"
+    },
+    {
+     "doc": "The highest message ID in the database at `path`, for a backup's about file, read read-only: the file is not created, initialised, migrated or put into a journal mode by this read, and any of those being needed (or the file being locked,...",
+     "kind": "fn",
+     "path": "machine::database::highest_message_id"
     },
     {
      "doc": "Opens the database file at `path`, creating it if needed, and brings its tables up to date.",
@@ -3984,6 +3998,11 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
+     "doc": "The about file's name within a backup folder.",
+     "kind": "const",
+     "path": "ABOUT_FILE"
+    },
+    {
      "doc": "Where the access key may be, from the serve config and the defaults.",
      "fields": [
       "configured",
@@ -4042,6 +4061,7 @@ window.KKT_GRAPH = {
      "kind": "trait",
      "methods": [
       "prune",
+      "record_highest",
       "write"
      ],
      "path": "Backups"
@@ -4167,6 +4187,11 @@ window.KKT_GRAPH = {
      "doc": "What `kkt backup` backs up, given where this machine's server is (`server`), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
      "kind": "fn",
      "path": "backup_of"
+    },
+    {
+     "doc": "The about file's line recording the highest message ID in the copied database, as `Backups::record_highest` writes it.",
+     "kind": "fn",
+     "path": "highest_line"
     },
     {
      "doc": "The names, copies, metadata and privacy for a backup, without reading or writing its files.",
@@ -5206,6 +5231,7 @@ window.KKT_GRAPH = {
       "down",
       "exec",
       "file",
+      "has_container",
       "has_volume",
       "inspect",
       "make_folders",
@@ -5778,6 +5804,7 @@ window.KKT_GRAPH = {
       "provision",
       "reuses_data",
       "run_in_server",
+      "server_present",
       "settings_file",
       "sharing_key",
       "status",
@@ -6854,6 +6881,7 @@ window.KKT_GRAPH = {
       "exists",
       "new",
       "open",
+      "open_read_only",
       "pending"
      ],
      "path": "SqlitePlace"
@@ -9234,7 +9262,8 @@ window.KKT_GRAPH = {
      "doc": "The local database chosen by the program.",
      "kind": "trait",
      "methods": [
-      "exists"
+      "exists",
+      "highest_message_id"
      ],
      "path": "Databases"
     },
@@ -9593,6 +9622,7 @@ window.KKT_GRAPH = {
      "path": "record::UnrecordedError",
      "variants": [
       "DockerUnreadable",
+      "DockerPresence",
       "KeyCopyMissing",
       "ServiceState",
       "ServiceFile",
@@ -12463,6 +12493,7 @@ window.KKT_GRAPH = {
      "methods": [
       "can_allow_kkt",
       "check_name",
+      "configured_url",
       "connected",
       "copies_key",
       "display_name",
@@ -12714,6 +12745,26 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
+    {
+     "at": "Client::configured_url",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "Client::configured_url",
+     "kind": "param",
+     "name": "host",
+     "traits": [
+      {
+       "crate": "kkt-llm-agent-config",
+       "trait": "Host"
+      }
+     ]
+    },
     {
      "at": "Client::connected",
      "kind": "param",
@@ -16079,6 +16130,7 @@ window.KKT_GRAPH = {
      "methods": [
       "agents",
       "current_lanes",
+      "highest_message_id",
       "import_lanes",
       "new",
       "revoke"
@@ -17736,6 +17788,8 @@ window.KKT_GRAPH = {
      "path": "SwitchError",
      "variants": [
       "NotSetUp",
+      "InvalidArgument",
+      "ClientSetup",
       "LocalOnClient",
       "CheckFailed",
       "NotConnected",
@@ -17750,9 +17804,11 @@ window.KKT_GRAPH = {
      "methods": [
       "check_address",
       "check_key",
+      "client_url",
       "connect",
       "connected_clients",
       "recorded",
+      "validate_address",
       "write_record"
      ],
      "path": "SwitchSteps"
@@ -20234,6 +20290,11 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Audit",
+    "Operator",
+    "Permission",
+    "Permissions",
+    "RuleError",
     "SwarmId"
    ],
    "kind": "normal",
@@ -20242,6 +20303,11 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Audit",
+      "Operator",
+      "Permission",
+      "Permissions",
+      "RuleError",
       "SwarmId"
      ],
      "role": "uses"
@@ -20250,12 +20316,8 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "Actor",
-    "Audit",
     "Code",
-    "NewChannel",
-    "Operator",
-    "Permission",
-    "Permissions"
+    "NewChannel"
    ],
    "to": "kkt-api-agent"
   },
@@ -21608,6 +21670,7 @@ window.KKT_GRAPH = {
     "CORE",
     "Db",
     "DefaultWording",
+    "DirectAccess",
     "NewServerRun",
     "Settings",
     "Startup",
@@ -21634,6 +21697,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Db",
       "DefaultWording",
+      "DirectAccess",
       "start"
      ],
      "role": "wires"
@@ -21641,7 +21705,6 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "DirectAccess",
     "Rules",
     "testing",
     "testing::Memory",
@@ -23386,11 +23449,13 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-backup-os",
    "items": [
+    "ABOUT_FILE",
     "BackupError",
     "Backups",
     "DATABASE_FILE",
     "FileAction",
     "Layout",
+    "highest_line",
     "old_names"
    ],
    "kind": "normal",
@@ -23405,10 +23470,12 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "ABOUT_FILE",
       "BackupError",
       "DATABASE_FILE",
       "FileAction",
       "Layout",
+      "highest_line",
       "old_names"
      ],
      "role": "uses"
@@ -25638,6 +25705,7 @@ window.KKT_GRAPH = {
     "BackupOfError",
     "Backups",
     "Contents",
+    "DATABASE_FILE",
     "FolderError",
     "InspectError",
     "ServerHere",
@@ -25659,6 +25727,7 @@ window.KKT_GRAPH = {
       "BackupOfError",
       "Backups",
       "Contents",
+      "DATABASE_FILE",
       "FolderError",
       "InspectError",
       "ServerHere",
@@ -29781,7 +29850,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
-    "Client"
+    "Client",
+    "Text"
    ],
    "kind": "normal",
    "optional": false,
@@ -29789,7 +29859,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Client"
+      "Client",
+      "Text"
      ],
      "role": "uses"
     }
@@ -31521,6 +31592,23 @@ window.KKT_ASSEMBLY = {
      "from": [
       {
        "at": "InstallParts",
+       "param": "clients"
+      }
+     ],
+     "note": "kkt uninstall",
+     "passes_on": "the client configs' host the program gave InstallParts",
+     "to": [
+      {
+       "at": "Client::configured_url",
+       "param": "host"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-llm-agent-config",
+     "from": [
+      {
+       "at": "InstallParts",
        "param": "client_command"
       }
      ],
@@ -31664,6 +31752,23 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "Setup",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-llm-agent-config",
+     "from": [
+      {
+       "at": "lifecycle::uninstall",
+       "param": "env"
+      }
+     ],
+     "note": "kkt uninstall",
+     "passes_on": "the Env the program gave each command",
+     "to": [
+      {
+       "at": "Client::configured_url",
        "param": "env"
       }
      ]
@@ -32430,6 +32535,20 @@ window.KKT_ASSEMBLY = {
    "param": "sessions",
    "to": "kkt-server",
    "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
+  },
+  {
+   "at": "Client::configured_url",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "uninstall reads the configured address through kkt-install-commands"
+  },
+  {
+   "at": "Client::configured_url",
+   "crate": "kashkeshet",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "uninstall reads the configured address through kkt-install-commands"
   }
  ],
  "not_passed_on": [
@@ -32495,6 +32614,20 @@ window.KKT_ASSEMBLY = {
    "param": "prober",
    "to": "kkt-diagnostics",
    "why": "only the program's tests call inspect_admin_key"
+  },
+  {
+   "at": "Client::configured_url",
+   "crate": "kkt-agent-commands",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "agent commands configure clients but do not read their configured addresses"
+  },
+  {
+   "at": "Client::configured_url",
+   "crate": "kkt-agent-commands",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "agent commands configure clients but do not read their configured addresses"
   }
  ],
  "programs": {
@@ -32704,6 +32837,17 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "Startup",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "impl": "kkt-clock-system::SystemClock",
+     "note": "the highest message ID read for a backup's about file",
+     "to": [
+      {
+       "at": "DirectAccess::new",
        "param": "clock"
       }
      ]

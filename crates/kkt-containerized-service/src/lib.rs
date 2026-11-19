@@ -233,6 +233,11 @@ impl<P: Projects> ServiceContainer for Containerized<P> {
             config_file,
         )
     }
+    fn server_present(&self, folder: &Folder) -> Result<bool, ContainerError> {
+        Ok(self
+            .projects
+            .has_container(&self.project(folder), in_server::SERVER)?)
+    }
     fn existing(&self, folder: &Folder) -> Result<Option<Existing>, ContainerError> {
         reads::existing(&self.projects, &self.project(folder))
     }
@@ -253,6 +258,7 @@ impl<P: Projects> ServiceContainer for Containerized<P> {
         backup::backup(
             &self.projects,
             &self.project(folder),
+            &*self.tell,
             self.working_dir.as_deref(),
             dest,
         )

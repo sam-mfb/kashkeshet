@@ -3,7 +3,7 @@
 //! and removing the old backup folders kkt-backup picks. It is given the
 //! database copy, which is the program's.
 
-use kkt_backup::{BackupError, Backups, DATABASE_FILE, FileAction, Layout};
+use kkt_backup::{ABOUT_FILE, BackupError, Backups, DATABASE_FILE, FileAction, Layout};
 use std::error::Error;
 use std::fs::{DirBuilder, OpenOptions};
 use std::io::Write;
@@ -30,6 +30,16 @@ where
 {
     fn write(&self, folder: &Path, layout: &Layout<'_>) -> Result<PathBuf, BackupError> {
         write(folder, layout, &self.copy_database)
+    }
+
+    fn record_highest(&self, backup: &Path, highest: i64) -> Result<(), BackupError> {
+        let about = backup.join(ABOUT_FILE);
+        let mut file = OpenOptions::new()
+            .append(true)
+            .open(&about)
+            .map_err(|e| BackupError::file(FileAction::Write, &about, e))?;
+        file.write_all(kkt_backup::highest_line(highest).as_bytes())
+            .map_err(|e| BackupError::file(FileAction::Write, &about, e))
     }
 
     fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {

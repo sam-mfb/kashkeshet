@@ -73,7 +73,67 @@ fn every_command_says_why_it_failed_and_exits_with_one() {
     );
     assert_eq!(
         printed(&["switch", "--local"]),
-        on_stderr("this machine is not set up yet; run `kkt setup` first")
+        on_stderr("there is no recorded local server for --local; run `kkt setup` first")
+    );
+    assert_eq!(
+        printed(&[
+            "switch",
+            "https://example.invalid/mcp?demo=1",
+            "--clients",
+            "none"
+        ]),
+        on_stderr(
+            "put credentials in the key file, not in the URL; query strings and fragments are not supported"
+        )
+    );
+    assert_eq!(
+        printed(&[
+            "switch",
+            "https://example.invalid/mcp",
+            "--key-file",
+            "/nope/key"
+        ]),
+        on_stderr(
+            "this machine has no setup record; run `kkt setup --mode client --url \
+             'https://example.invalid/mcp' --key-file '/nope/key' --clients none --no-allow-kkt`"
+        )
+    );
+    assert_eq!(
+        printed(&["connect", "codex", "--url", "ftp://x"]),
+        on_stderr("URL must be an absolute http:// or https:// address")
+    );
+    assert_eq!(
+        printed(&["key", "create", "--web", "--name", "sentinel"]),
+        on_stderr("--name names the admin agent, so it goes with --admin")
+    );
+    assert_eq!(
+        printed(&[
+            "reclaim",
+            "--handle",
+            "amber-falcon",
+            "--recovery-file",
+            "/nope/recovery",
+            "--token-file",
+            &home.join("reclaim-token").display().to_string(),
+            "--url",
+            "http://127.0.0.1:9/mcp",
+        ]),
+        on_stderr(
+            "could not inspect credential file /nope/recovery: No such file or directory (os error 2)"
+        )
+    );
+    assert_eq!(
+        printed(&["watch", "--token-file", "/nope/token", "--url", "ftp://x"]),
+        on_stderr(
+            "could not inspect credential file /nope/token: No such file or directory (os error 2)"
+        )
+    );
+    assert_eq!(
+        printed(&["service", "install", "--config", "/nope/config.toml"]),
+        on_stderr(
+            "invalid setting: config could not be read from /nope/config.toml: No such file or \
+             directory (os error 2)"
+        )
     );
     assert_eq!(
         printed(&["setup", "--clients", "bogus"]),
@@ -165,4 +225,27 @@ fn every_command_says_why_it_failed_and_exits_with_one() {
             config.join("config.toml").display()
         ))
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn switch_cannot_suggest_a_different_key_path() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    let home = scratch::Dir::new("switch-key-path");
+    let out = Command::new(KKT)
+        .args([
+            "switch",
+            "https://example.invalid/mcp",
+            "--clients",
+            "none",
+            "--key-file",
+        ])
+        .arg(OsStr::from_bytes(b"/tmp/key-\xff"))
+        .own_home(&home)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stdout.is_empty());
+    assert_eq!(out.stderr, b"error: the key path is not UTF-8\n");
 }

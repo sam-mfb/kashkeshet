@@ -165,7 +165,10 @@ pub fn backup<D>(
                 .output(format_args!("Backed up to {}\n", written.display()));
             Ok(())
         }
-        backup::BackupOf::Local { into } => Ok(local_backup(parts, &into, db, config)?),
+        backup::BackupOf::Local { into } => {
+            let on_client = matches!(mode, Some(setup::Mode::Client));
+            Ok(local_backup(parts, &into, db, config, on_client)?)
+        }
     }
 }
 
@@ -379,7 +382,7 @@ pub async fn upgrade<D: ServiceDefaults>(
             // program is this one, the binary just installed by the user.
             let service = service_plan(parts, ServiceInstall::NONE)?;
             let folder = backup::service_backup_folder(parts.serve.config_dir())?;
-            local_backup(parts, &folder, None, None)?;
+            local_backup(parts, &folder, None, None, false)?;
             if let Some(key) = &service.new_web_key {
                 new_key_file(parts.key_files, parts.entropy, key, false)?;
                 parts.output.output(format_args!(
@@ -419,6 +422,7 @@ pub async fn uninstall<D: ServiceDefaults>(
 ) -> Result<(), UninstallError> {
     let record = recorded_setup(parts, env, platform)?;
     let stays_client = uninstall_record(&record, Build::CURRENT.version);
+    let removed_url = record.runs_server().then_some(record.url.as_str());
     match record.mode {
         setup::Mode::Docker(install) => {
             parts
@@ -437,16 +441,37 @@ pub async fn uninstall<D: ServiceDefaults>(
         parts
             .output
             .output(format_args!("{}", uninstall_line(Some(&client))));
-        return Ok(());
+    } else {
+        let config_dir = parts.serve.config_dir().ok_or(UninstallError::NoHome)?;
+        parts
+            .setup_files
+            .remove_record(&config_dir)
+            .map_err(UninstallError::Remove)?;
+        parts
+            .output
+            .output(format_args!("{}", uninstall_line(None)));
     }
-    let config_dir = parts.serve.config_dir().ok_or(UninstallError::NoHome)?;
-    parts
-        .setup_files
-        .remove_record(&config_dir)
-        .map_err(UninstallError::Remove)?;
-    parts
-        .output
-        .output(format_args!("{}", uninstall_line(None)));
+    if let Some(url) = removed_url {
+        let mut affected = Vec::new();
+        for client in kkt_llm_agent_config::Client::ALL {
+            match client.configured_url(env, parts.clients) {
+                Ok(Some(address)) if address == url => affected.push(client.name()),
+                Err(error) => parts.output.errors(format_args!(
+                    "Could not check {}: {error}\n",
+                    client.display_name()
+                )),
+                _ => {}
+            }
+        }
+        if !affected.is_empty() {
+            let names = affected.join(",");
+            parts.output.output(format_args!(
+                "The following clients still point at {url} and cannot reach a server until moved: {names}.\n\
+                 Set NEW_URL and NEW_KEY_FILE to the replacement server's MCP URL and key file, then run:\n\
+                 kkt setup --mode client --url \"$NEW_URL\" --key-file \"$NEW_KEY_FILE\" --clients {names} --no-allow-kkt\n"
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -481,20 +506,74 @@ fn existing_db<D>(
     Ok(path)
 }
 
+/// Reads the highest message ID from the finished backup copy and records it
+/// in `about.txt`. Returns a plain reason if it could not be recorded; never
+/// fails the backup.
+fn record_highest_message_id<D>(
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
+    written: &Path,
+) -> Option<String> {
+    match parts
+        .database
+        .highest_message_id(&written.join(backup::DATABASE_FILE))
+    {
+        Ok(Some(highest)) => parts
+            .backups
+            .record_highest(written, highest)
+            .err()
+            .map(|e| e.to_string()),
+        Ok(None) => None,
+        Err(e) => Some(e.to_string()),
+    }
+}
+
 /// Backs up the database `kkt serve` would use (or `db`), with the config
-/// file and existing keys it would read, into `folder`.
+/// file and existing keys it would read, into `folder`. On a client
+/// machine (`on_client`), default config and key files belong to no local
+/// server: with no `--config`, only the database is backed up; with an
+/// explicit `--config`, only that config and the keys it names are copied.
 fn local_backup<D>(
     parts: &InstallParts<'_, impl ConnectionSource, D>,
     folder: &Path,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
+    on_client: bool,
 ) -> Result<(), LocalBackupError> {
+    if on_client && config.is_none() {
+        let database = existing_db(parts, db, None)?;
+        let contents = backup::Contents {
+            database: &database,
+            config: None,
+            access_key: None,
+            web_key: None,
+            admin_key: None,
+            admin_name: None,
+        };
+        let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
+        let written = parts.backups.write(folder, &layout)?;
+        let not_recorded = record_highest_message_id(parts, &written);
+        let out = parts.output;
+        out.output(format_args!("Backed up to {}\n", written.display()));
+        out.output(format_args!("  database {}\n", database.display()));
+        out.output(format_args!(
+            "Backed up only the database: no --config was given on a client machine, so default \
+             config and key files were skipped.\n"
+        ));
+        if let Some(why) = &not_recorded {
+            out.output(format_args!(
+                "Highest message ID not recorded in about.txt: {why}\n"
+            ));
+        }
+        return Ok(());
+    }
     let config = parts
         .serve
         .config(config)
         .map_err(LocalBackupError::Config)?;
     let database = existing_db(parts, db, config.db.clone())?;
-    let default_access_key = parts.serve.default_access_key();
+    let default_access_key = (!on_client)
+        .then(|| parts.serve.default_access_key())
+        .flatten();
     let backup::BackupKeys {
         access_key,
         web_key,
@@ -518,6 +597,11 @@ fn local_backup<D>(
     };
     let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
     let written = parts.backups.write(folder, &layout)?;
+    // The highest message ID is read from the finished copy, read-only,
+    // so it is exact and the database being backed up is never opened.
+    // It is optional: any failure leaves the backup complete without
+    // the line, and says so in one line below instead of failing.
+    let not_recorded = record_highest_message_id(parts, &written);
     let out = parts.output;
     out.output(format_args!("Backed up to {}\n", written.display()));
     out.output(format_args!("  database {}\n", database.display()));
@@ -536,6 +620,11 @@ fn local_backup<D>(
     }
     if let Some(path) = &admin_name {
         out.output(format_args!("  admin name {}\n", path.display()));
+    }
+    if let Some(why) = &not_recorded {
+        out.output(format_args!(
+            "Highest message ID not recorded in about.txt: {why}\n"
+        ));
     }
     Ok(())
 }
@@ -918,7 +1007,8 @@ mod tests {
 
     impl kkt_llm_agent_config::Host for Untouched {
         fn read(&self, _: &Path) -> std::io::Result<String> {
-            self.asked("clients.read")
+            self.0.borrow_mut().push("clients.read");
+            Err(std::io::ErrorKind::NotFound.into())
         }
         fn exists(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("clients.exists");
@@ -1159,6 +1249,10 @@ mod tests {
             self.0.borrow_mut().push("database.exists");
             false
         }
+        fn highest_message_id(&self, _: &Path) -> Result<Option<i64>, crate::PartError> {
+            self.0.borrow_mut().push("database.highest_message_id");
+            Ok(None)
+        }
     }
 
     /// A key file error for a step a test did not expect.
@@ -1190,6 +1284,9 @@ mod tests {
     impl kkt_backup::Backups for Untouched {
         fn write(&self, _: &Path, _: &backup::Layout<'_>) -> Result<PathBuf, backup::BackupError> {
             self.refused("backups.write").map_err(not_asked)
+        }
+        fn record_highest(&self, _: &Path, _: i64) -> Result<(), backup::BackupError> {
+            self.refused("backups.record_highest").map_err(not_asked)
         }
         fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, backup::BackupError> {
             self.refused("backups.prune").map_err(not_asked)
@@ -1333,10 +1430,17 @@ mod tests {
         assert!(serve.0.borrow().is_empty(), "asked {:?}", serve.0.borrow());
         assert!(remote.0.borrow().is_empty(), "ran {:?}", remote.0.borrow());
         assert!(container.calls().is_empty(), "{:?}", container.calls());
-        assert!(
-            untouched.0.borrow().is_empty(),
-            "{:?}",
-            untouched.0.borrow()
+        assert_eq!(
+            *untouched.0.borrow(),
+            [
+                "clients.read",
+                "clients.read",
+                "clients.read",
+                "clients.exists",
+                "clients.exists",
+                "clients.read",
+                "clients.read"
+            ]
         );
         assert_eq!(service.done(), ["uninstall"]);
         let config_dir = home.join(".config").join("kkt");
@@ -1545,6 +1649,9 @@ mod tests {
         ) -> Result<kkt_containerized_service::State, kkt_containerized_service::ContainerError>
         {
             unreachable!("no status is asked")
+        }
+        fn server_present(&self, _: &kkt_container::Folder) -> Result<bool, ContainerError> {
+            unreachable!("project files unreadable")
         }
         fn existing(
             &self,
@@ -2627,6 +2734,9 @@ mod tests {
     impl crate::Databases for Present {
         fn exists(&self, _: &Path) -> bool {
             true
+        }
+        fn highest_message_id(&self, _: &Path) -> Result<Option<i64>, crate::PartError> {
+            Ok(None)
         }
     }
 

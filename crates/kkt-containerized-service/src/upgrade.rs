@@ -30,7 +30,7 @@ pub(crate) async fn upgrade(
     let env = projects
         .read(project, Path::new(ENV_FILE))
         .map_err(ContainerError::from)?;
-    let name = backup_in_container(projects, project)?;
+    let name = backup_in_container(projects, project, tell)?;
     tell.say(&format!(
         "Backed up to {}",
         backups(project.folder).join(name).display()

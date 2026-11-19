@@ -56,6 +56,17 @@ impl DirectAccess {
             .await
     }
 
+    /// The highest message ID in the whole database, across every swarm,
+    /// if it has any messages: for a backup's about file, since a backup
+    /// is of the whole database and message IDs are unique across the
+    /// server. Needs Read.
+    pub async fn highest_message_id(&self, operator: &Operator) -> Result<Option<i64>> {
+        operator.may(Permission::Read)?;
+        self.db
+            .read(|store, _swarm| Ok(store.highest_message_id()?))
+            .await
+    }
+
     /// Revokes the token of the agent with the handle `handle`, so every
     /// later call with it is refused as `unauthenticated`. The agent's
     /// handle, memberships and messages are kept. `not_found` if there is no
