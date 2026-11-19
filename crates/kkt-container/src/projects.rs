@@ -245,7 +245,9 @@ pub trait Projects {
     fn pull(&self, project: &Project, out: Output) -> Result<(), ProjectError>;
     /// Restarts `service`.
     fn restart(&self, project: &Project, service: &str, out: Output) -> Result<(), ProjectError>;
-    /// The services that are running.
+    /// Whether the project has a container for this service, running or stopped.
+    fn has_container(&self, project: &Project, service: &str) -> Result<bool, ProjectError>;
+    /// The services running now.
     fn running(&self, project: &Project) -> Result<Vec<String>, ProjectError>;
 
     /// Runs `args` in the running `service` as `user`. An error means only

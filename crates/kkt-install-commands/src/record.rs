@@ -23,6 +23,12 @@ pub enum UnrecordedError {
         #[source]
         source: Box<ContainerError>,
     },
+    #[error("could not check whether the Docker server container exists in {}: {source}", folder.display())]
+    DockerPresence {
+        folder: PathBuf,
+        #[source]
+        source: Box<ContainerError>,
+    },
     /// The copy of its access key that setup saves is not there.
     #[error(
         "Found a kkt server in Docker from {}, not recorded, but the copy of its access key \
@@ -163,6 +169,16 @@ fn unrecorded_docker<D>(
             });
         }
     };
+    if !parts
+        .container
+        .server_present(&kkt_container::Folder(folder.clone()))
+        .map_err(|source| UnrecordedError::DockerPresence {
+            folder: folder.clone(),
+            source: Box::new(source),
+        })?
+    {
+        return Ok(None);
+    }
     let key_file = config_dir.join(DOCKER_KEY_FILE_NAME);
     if !parts.key_files.is_file(&key_file) {
         return Err(UnrecordedError::KeyCopyMissing { folder, key_file });

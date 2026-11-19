@@ -316,6 +316,9 @@ impl Projects for Failing {
     fn restart(&self, _: &Project, _: &str, _: Output) -> Result<(), ProjectError> {
         unreachable!()
     }
+    fn has_container(&self, _: &Project, _: &str) -> Result<bool, ProjectError> {
+        unreachable!()
+    }
     fn running(&self, _: &Project) -> Result<Vec<String>, ProjectError> {
         unreachable!()
     }

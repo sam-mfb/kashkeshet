@@ -19,6 +19,8 @@ This release reorganizes kkt's code into crates that other programs can build on
 - **Rewriting a client's JSON config keeps the order of its keys.** `kkt connect`, `kkt switch` and `kkt setup` used to write OpenCode, Antigravity and Muse Code configs back with every key sorted. That could reorder a person's own OpenCode `permission` rules, where the last matching rule wins. Keys now keep their places, and keys kkt adds follow them (#372).
 
 ### Fixes
+- After removing a server, `kkt uninstall` names clients whose configured address still points there and prints a command to move them. With no setup record, `kkt switch URL` prints the client setup command for that URL, key file and client selection.
+- Status and setup check for a running or stopped Docker server before offering to adopt an unrecorded install. A retained managed folder still gets the storage reuse notice during Docker setup. When Docker cannot answer, both commands explain which check failed.
 - **On macOS, a service honours `log_file` from its config file.** A service installed or upgraded with this release reads `log_file` from its config at every start. With no configured path it uses the usual log under `~/Library/Logs/kashkeshet/`.
 - **`kkt status` shows the local service's running version.** When the server answers, status prints its version; if the server cannot answer, status says the version could not be read and still shows the service details.
 - **Quick MCP tool calls no longer wait about 40 ms each.** On a connection a client keeps open between calls, as agents' MCP clients do, every call after the first took about 40 ms longer than it needed. A tool's reply goes out as two writes, its headers and then its body. With Nagle's algorithm on, the second waited for the client to acknowledge the first, and clients delay that acknowledgment. The server now turns Nagle's algorithm off (`TCP_NODELAY`) on every connection it accepts: a call such as `whoami` takes about 0.3 ms instead of 42 ms. If the option cannot be set on a connection, the server says so in its log and still serves it (#407).
@@ -51,6 +53,7 @@ This release reorganizes kkt's code into crates that other programs can build on
 - **Docker image**: `ghcr.io/sam-mfb/kashkeshet:1.0.0-rc.2` for the candidate, `ghcr.io/sam-mfb/kashkeshet:1.0.0` for the release.
 
 ### For crates that depend on kkt's crates by git
+- `kkt-container::Projects::has_container` and `kkt-containerized-service::ServiceContainer::server_present` query container presence, including stopped containers. Implementors must supply the new methods. `kkt-llm-agent-config::Client::configured_url` reads a client's configured MCP address. `kkt-install-commands::record::UnrecordedError` gains `DockerPresence` and `kkt-setup::SwitchError` gains `ClientSetup`.
 The shared crates are reorganized so that every dependency is injected and each crate is one kind: a contract (traits and plain values), logic, an effect on the machine, or the assembly. A crate such as kkt-pro that depends on them by git must follow these changes. Each item below gives where a thing is now. Nothing an agent, a person or an install sees changes, apart from what the sections above list.
 
 #### Crates

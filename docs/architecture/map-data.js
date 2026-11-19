@@ -5221,6 +5221,7 @@ window.KKT_GRAPH = {
       "down",
       "exec",
       "file",
+      "has_container",
       "has_volume",
       "inspect",
       "make_folders",
@@ -5793,6 +5794,7 @@ window.KKT_GRAPH = {
       "provision",
       "reuses_data",
       "run_in_server",
+      "server_present",
       "settings_file",
       "sharing_key",
       "status",
@@ -9610,6 +9612,7 @@ window.KKT_GRAPH = {
      "path": "record::UnrecordedError",
      "variants": [
       "DockerUnreadable",
+      "DockerPresence",
       "KeyCopyMissing",
       "ServiceState",
       "ServiceFile",
@@ -12480,6 +12483,7 @@ window.KKT_GRAPH = {
      "methods": [
       "can_allow_kkt",
       "check_name",
+      "configured_url",
       "connected",
       "copies_key",
       "display_name",
@@ -12731,6 +12735,26 @@ window.KKT_GRAPH = {
    "produces": [],
    "released_program": false,
    "slots": [
+    {
+     "at": "Client::configured_url",
+     "kind": "param",
+     "name": "env",
+     "traits": [],
+     "values": [
+      "kkt-machine::Env"
+     ]
+    },
+    {
+     "at": "Client::configured_url",
+     "kind": "param",
+     "name": "host",
+     "traits": [
+      {
+       "crate": "kkt-llm-agent-config",
+       "trait": "Host"
+      }
+     ]
+    },
     {
      "at": "Client::connected",
      "kind": "param",
@@ -17754,6 +17778,7 @@ window.KKT_GRAPH = {
      "path": "SwitchError",
      "variants": [
       "NotSetUp",
+      "ClientSetup",
       "LocalOnClient",
       "CheckFailed",
       "NotConnected",
@@ -31546,6 +31571,23 @@ window.KKT_ASSEMBLY = {
      "from": [
       {
        "at": "InstallParts",
+       "param": "clients"
+      }
+     ],
+     "note": "kkt uninstall",
+     "passes_on": "the client configs' host the program gave InstallParts",
+     "to": [
+      {
+       "at": "Client::configured_url",
+       "param": "host"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-llm-agent-config",
+     "from": [
+      {
+       "at": "InstallParts",
        "param": "client_command"
       }
      ],
@@ -31689,6 +31731,23 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "Setup",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-llm-agent-config",
+     "from": [
+      {
+       "at": "lifecycle::uninstall",
+       "param": "env"
+      }
+     ],
+     "note": "kkt uninstall",
+     "passes_on": "the Env the program gave each command",
+     "to": [
+      {
+       "at": "Client::configured_url",
        "param": "env"
       }
      ]
@@ -32455,6 +32514,20 @@ window.KKT_ASSEMBLY = {
    "param": "sessions",
    "to": "kkt-server",
    "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
+  },
+  {
+   "at": "Client::configured_url",
+   "crate": "kashkeshet",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "uninstall reads the configured address through kkt-install-commands"
+  },
+  {
+   "at": "Client::configured_url",
+   "crate": "kashkeshet",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "uninstall reads the configured address through kkt-install-commands"
   }
  ],
  "not_passed_on": [
@@ -32520,6 +32593,20 @@ window.KKT_ASSEMBLY = {
    "param": "prober",
    "to": "kkt-diagnostics",
    "why": "only the program's tests call inspect_admin_key"
+  },
+  {
+   "at": "Client::configured_url",
+   "crate": "kkt-agent-commands",
+   "param": "env",
+   "to": "kkt-llm-agent-config",
+   "why": "agent commands configure clients but do not read their configured addresses"
+  },
+  {
+   "at": "Client::configured_url",
+   "crate": "kkt-agent-commands",
+   "param": "host",
+   "to": "kkt-llm-agent-config",
+   "why": "agent commands configure clients but do not read their configured addresses"
   }
  ],
  "programs": {

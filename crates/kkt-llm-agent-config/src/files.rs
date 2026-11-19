@@ -32,11 +32,28 @@ impl Client {
     /// whatever server it names. A missing config has none; one that
     /// cannot be read or parsed is an error naming it.
     pub fn connected(self, env: &Env, host: &dyn Host) -> Result<bool, ClientConfigError> {
+        Ok(self.read_entry(env, host)?.is_some())
+    }
+
+    /// The MCP URL configured in this client's kkt entry, if present.
+    pub fn configured_url(
+        self,
+        env: &Env,
+        host: &dyn Host,
+    ) -> Result<Option<String>, ClientConfigError> {
+        Ok(self.read_entry(env, host)?.and_then(|entry| entry.url))
+    }
+
+    fn read_entry(
+        self,
+        env: &Env,
+        host: &dyn Host,
+    ) -> Result<Option<formats::KktEntry>, ClientConfigError> {
         let path = self.file(env, host)?;
         let Some(text) = read(host, &path)? else {
-            return Ok(false);
+            return Ok(None);
         };
-        formats::has_kkt_entry(self, &text).map_err(|e| ClientConfigError::OfClient {
+        formats::kkt_entry(self, &text).map_err(|e| ClientConfigError::OfClient {
             client: self,
             path: path.clone(),
             setting: self.source(env).to_string(),

@@ -168,6 +168,13 @@ impl ServiceContainer for Memory {
             },
         })
     }
+    fn server_present(&self, folder: &Folder) -> Result<bool, ContainerError> {
+        Ok(self
+            .installs
+            .borrow()
+            .get(folder.path())
+            .is_some_and(|i| i.running))
+    }
     fn existing(&self, folder: &Folder) -> Result<Option<Existing>, ContainerError> {
         self.note("existing");
         Ok(self.installs.borrow().get(folder.path()).map(|i| Existing {
