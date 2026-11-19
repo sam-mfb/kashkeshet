@@ -31,6 +31,7 @@ fn private(text: &str) -> File {
     File {
         text: text.into(),
         private: true,
+        mode: 0o600,
     }
 }
 
@@ -390,6 +391,69 @@ fn allowing_kkt_backs_up_a_file_it_changes() {
 }
 
 #[test]
+fn allowing_kkt_keeps_an_existing_settings_files_mode() {
+    let host = FakeHost::default();
+    let env = env();
+    let settings = PathBuf::from("/home/sam/.claude/settings.json");
+    host.put(&settings, r#"{"permissions": {"allow": ["Bash(ls)"]}}"#);
+    host.files
+        .borrow_mut()
+        .get_mut(&settings)
+        .expect("settings")
+        .mode = 0o640;
+    allow_kkt(Client::ClaudeCode, &env, &host).expect("allowed");
+    let written = host.file(&settings).expect("settings");
+    assert_eq!(written.mode, 0o640);
+    assert!(!written.private);
+}
+
+#[test]
+fn a_key_holding_config_replaced_whole_ends_private() {
+    let host = FakeHost::default();
+    let env = env();
+    let path = Client::MuseCode.file(&env, &host).expect("path");
+    let key_file = Path::new("/keys/kkt.key");
+    host.put(key_file, &format!("{KEY}\n"));
+    host.put(&path, "{}");
+    configure(
+        Client::MuseCode,
+        &setup(&env, &path, Some(key_file)),
+        true,
+        &host,
+        &host,
+    )
+    .expect("write");
+    let written = host.file(&path).expect("config");
+    assert_eq!(written.mode, 0o600);
+    assert!(written.private);
+}
+
+#[test]
+fn a_key_holding_config_is_private_even_if_a_later_step_fails() {
+    let host = FakeHost::default();
+    let env = env();
+    let path = Client::MuseCode.file(&env, &host).expect("path");
+    let key_file = Path::new("/keys/kkt.key");
+    host.put(key_file, &format!("{KEY}\n"));
+    host.put(&path, "{}");
+    assert_eq!(host.file(&path).expect("config").mode, 0o644);
+    // The step that used to tighten the file after it landed now fails;
+    // the key must not be left readable in the meantime.
+    host.refuse("restrict");
+    let _ = configure(
+        Client::MuseCode,
+        &setup(&env, &path, Some(key_file)),
+        true,
+        &host,
+        &host,
+    );
+    let written = host.file(&path).expect("config");
+    assert!(written.text.contains(KEY), "{}", written.text);
+    assert_eq!(written.mode, 0o600);
+    assert!(written.private);
+}
+
+#[test]
 fn allowing_kkt_follows_the_clients_own_variables() {
     let host = FakeHost::default();
     let env = Env {
@@ -515,18 +579,27 @@ fn every_message() -> Vec<String> {
     push(files::read(&refusing("read"), &config).map(|_| String::new()));
     let host = refusing("create_private");
     host.put(&config, "{}");
-    push(files::replace(&host, &config, Some("{}"), "{}").map(|_| String::new()));
+    push(files::replace(&host, &config, Some("{}"), "{}", false).map(|_| String::new()));
     push(files::restrict(&refusing("restrict"), &config).map(|_| String::new()));
-    push(files::replace(&refusing("create_dir_all"), &config, None, "{}").map(|_| String::new()));
-    push(files::replace(&refusing("create_private"), &config, None, "{}").map(|_| String::new()));
+    push(
+        files::replace(&refusing("create_dir_all"), &config, None, "{}", false)
+            .map(|_| String::new()),
+    );
+    push(
+        files::replace(&refusing("create_private"), &config, None, "{}", false)
+            .map(|_| String::new()),
+    );
     let host = FakeHost::default();
     host.rename_fails.set(true);
-    push(files::replace(&host, &config, None, "{}").map(|_| String::new()));
+    push(files::replace(&host, &config, None, "{}", false).map(|_| String::new()));
     let host = FakeHost::default();
     host.rename_fails.set(true);
     host.refuse("remove_file");
-    push(files::replace(&host, &config, None, "{}").map(|_| String::new()));
-    push(files::replace(&FakeHost::default(), Path::new("/"), None, "{}").map(|_| String::new()));
+    push(files::replace(&host, &config, None, "{}", false).map(|_| String::new()));
+    push(
+        files::replace(&FakeHost::default(), Path::new("/"), None, "{}", false)
+            .map(|_| String::new()),
+    );
     // Naming and finding the client's config.
     push(
         Client::Codex

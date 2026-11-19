@@ -876,6 +876,12 @@ mod tests {
         fn restrict(&self, _: &Path) -> std::io::Result<()> {
             self.asked("clients.restrict")
         }
+        fn mode(&self, _: &Path) -> std::io::Result<Option<u32>> {
+            self.asked("clients.mode")
+        }
+        fn set_mode(&self, _: &Path, _: u32) -> std::io::Result<()> {
+            self.asked("clients.set_mode")
+        }
         fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
             self.asked("clients.create_dir_all")
         }

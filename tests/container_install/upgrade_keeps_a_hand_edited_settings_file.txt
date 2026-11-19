@@ -2,6 +2,7 @@
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
   -> exit 0, out "Backed up to /backups/kkt-backup-20261117-120000\n"
+say      Backed up to /data/docker/backups/kkt-backup-20261117-120000
 mkdir    /data/docker
 write    plain /data/docker/compose.yaml
   = the repository's compose.yaml
@@ -20,6 +21,7 @@ result   ()
 unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
   -> exit 0, out "Backed up to /backups/kkt-backup-20261117-120000\n"
+say      Backed up to /data/docker/backups/kkt-backup-20261117-120000
 mkdir    /data/docker
 write    plain /data/docker/compose.yaml
   = the repository's compose.yaml
