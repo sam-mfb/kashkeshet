@@ -52,20 +52,43 @@ pub fn config_file_in_home() -> PathBuf {
     Path::new(CONFIG_DIR).join(CONFIG_FILE_NAME)
 }
 
-/// Why a config file's text could not be read as a config file: the setting
-/// (`config` for the file as a whole) and what is wrong with it.
-#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
-#[error("{name} {rule}")]
-pub struct ConfigError {
-    pub name: &'static str,
-    pub rule: String,
+/// Why a config file's text could not be read as a config file: a setting
+/// (`config` for the file as a whole) and what is wrong with it, or the
+/// caller's own refusal of a log level, as its level check made it (see
+/// [`parse_file`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ConfigError<E> {
+    /// "{name} {rule}".
+    Setting { name: &'static str, rule: String },
+    /// The caller's level check refused a log level: its error, said as it
+    /// is. The check is given the setting's name, to say it.
+    Level(E),
 }
 
-impl ConfigError {
-    fn new(name: &'static str, rule: impl Into<String>) -> ConfigError {
-        ConfigError {
+impl<E> ConfigError<E> {
+    fn setting(name: &'static str, rule: impl Into<String>) -> ConfigError<E> {
+        ConfigError::Setting {
             name,
             rule: rule.into(),
+        }
+    }
+}
+
+impl<E: std::fmt::Display> std::fmt::Display for ConfigError<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ConfigError::Setting { name, rule } => write!(f, "{name} {rule}"),
+            ConfigError::Level(e) => e.fmt(f),
+        }
+    }
+}
+
+/// A level check's error is passed on as it is: its source is this one's.
+impl<E: std::error::Error + 'static> std::error::Error for ConfigError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ConfigError::Setting { .. } => None,
+            ConfigError::Level(e) => e.source(),
         }
     }
 }
@@ -129,16 +152,17 @@ impl<L> Config<L> {
 /// The settings in a config file's `text`. `dir` is the directory the file
 /// is in, for relative paths; `home` is the home folder, for `~/` paths,
 /// if there is one. `level` checks a log level as written, given the
-/// setting's name, and says what is wrong with it if it is not one. Settings
-/// are checked in the order of their names, so the first bad one is named.
-pub fn parse_file<L>(
+/// setting's name, and refuses one that is not a level with its own error,
+/// which is passed back as [`ConfigError::Level`]. Settings are checked in
+/// the order of their names, so the first bad one is named.
+pub fn parse_file<L, E>(
     text: &str,
     dir: &Path,
     home: Option<&Path>,
-    level: impl Fn(&'static str, &str) -> Result<L, String>,
-) -> Result<Config<L>, ConfigError> {
+    level: impl Fn(&'static str, &str) -> Result<L, E>,
+) -> Result<Config<L>, ConfigError<E>> {
     let table = kkt_toml::parse(text).map_err(|e| {
-        ConfigError::new(
+        ConfigError::setting(
             "config",
             format!("is not valid TOML: {}", e.reason().trim()),
         )
@@ -187,7 +211,7 @@ pub fn parse_file<L>(
                 config.dependency_log_level = Some(value.log_level("dependency_log_level", &level)?)
             }
             _ => {
-                return Err(ConfigError::new(
+                return Err(ConfigError::setting(
                     "config",
                     format!("has an unknown setting {key:?}"),
                 ));
@@ -200,16 +224,19 @@ pub fn parse_file<L>(
 /// The config file `text` with `host` added to `allow_hosts`, keeping the
 /// rest of the file, comments included, as it was. Unchanged if the host is
 /// already there. Empty `text` makes a file with only that line.
-pub fn with_allowed_host(text: &str, host: &str) -> Result<String, ConfigError> {
+pub fn with_allowed_host(
+    text: &str,
+    host: &str,
+) -> Result<String, ConfigError<std::convert::Infallible>> {
     let mut doc = kkt_toml::Document::parse(text).map_err(|e| {
-        ConfigError::new(
+        ConfigError::setting(
             "config",
             format!("is not valid TOML: {}", e.reason().trim()),
         )
     })?;
     let mut hosts = doc
         .list_mut("allow_hosts")
-        .map_err(|_| ConfigError::new("allow_hosts", "in the config file must be a list"))?;
+        .map_err(|_| ConfigError::setting("allow_hosts", "in the config file must be a list"))?;
     if !hosts.contains_text(host) {
         hosts.push_text(host);
     }
@@ -220,23 +247,23 @@ pub fn with_allowed_host(text: &str, host: &str) -> Result<String, ConfigError> 
 struct Value(kkt_toml::Value);
 
 impl Value {
-    fn wrong(&self, name: &'static str, expected: &str) -> ConfigError {
-        ConfigError::new(
+    fn wrong<E>(&self, name: &'static str, expected: &str) -> ConfigError<E> {
+        ConfigError::setting(
             name,
             format!("in the config file must be {expected}, not {}", self.0),
         )
     }
 
-    fn string(&self, name: &'static str, expected: &str) -> Result<&str, ConfigError> {
+    fn string<E>(&self, name: &'static str, expected: &str) -> Result<&str, ConfigError<E>> {
         self.0.as_text().ok_or_else(|| self.wrong(name, expected))
     }
 
-    fn path(
+    fn path<E>(
         &self,
         name: &'static str,
         dir: &Path,
         home: Option<&Path>,
-    ) -> Result<PathBuf, ConfigError> {
+    ) -> Result<PathBuf, ConfigError<E>> {
         let text = self.string(name, "a path in quotes")?;
         if text.is_empty() {
             return Err(self.wrong(name, "a path in quotes"));
@@ -244,7 +271,7 @@ impl Value {
         if let Some(rest) = text.strip_prefix("~/") {
             return match home {
                 Some(home) => Ok(home.join(rest)),
-                None => Err(ConfigError::new(
+                None => Err(ConfigError::setting(
                     name,
                     "in the config file starts with ~/, but no home directory is set",
                 )),
@@ -254,32 +281,32 @@ impl Value {
     }
 
     /// A log level, as the caller's `level` reads it.
-    fn log_level<L>(
+    fn log_level<L, E>(
         &self,
         name: &'static str,
-        level: impl Fn(&'static str, &str) -> Result<L, String>,
-    ) -> Result<L, ConfigError> {
+        level: impl Fn(&'static str, &str) -> Result<L, E>,
+    ) -> Result<L, ConfigError<E>> {
         level(
             name,
             self.string(name, "a level in quotes, such as \"info\"")?,
         )
-        .map_err(|rule| ConfigError::new(name, rule))
+        .map_err(ConfigError::Level)
     }
 
-    fn boolean(&self, name: &'static str) -> Result<bool, ConfigError> {
+    fn boolean<E>(&self, name: &'static str) -> Result<bool, ConfigError<E>> {
         self.0
             .as_boolean()
             .ok_or_else(|| self.wrong(name, "true or false"))
     }
 
-    fn address(&self, name: &'static str) -> Result<SocketAddr, ConfigError> {
+    fn address<E>(&self, name: &'static str) -> Result<SocketAddr, ConfigError<E>> {
         let expected = "an address in quotes, such as \"127.0.0.1:7420\"";
         self.string(name, expected)?
             .parse()
             .map_err(|_| self.wrong(name, expected))
     }
 
-    fn count<T: TryFrom<i64>>(&self, name: &'static str) -> Result<T, ConfigError> {
+    fn count<T: TryFrom<i64>, E>(&self, name: &'static str) -> Result<T, ConfigError<E>> {
         let expected = "a whole number of zero or more";
         let n = self
             .0
@@ -288,7 +315,7 @@ impl Value {
         T::try_from(n).map_err(|_| self.wrong(name, expected))
     }
 
-    fn strings(&self, name: &'static str) -> Result<Vec<String>, ConfigError> {
+    fn strings<E>(&self, name: &'static str) -> Result<Vec<String>, ConfigError<E>> {
         let expected = "a list of strings, such as [\"a\", \"b\"]";
         let items = self.0.as_list().ok_or_else(|| self.wrong(name, expected))?;
         items
@@ -306,8 +333,39 @@ impl Value {
 mod tests {
     use super::*;
 
+    /// A level refused by the tests' level checks: the setting it was given,
+    /// and why.
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    struct NotALevel {
+        name: &'static str,
+        said: String,
+    }
+
+    impl std::fmt::Display for NotALevel {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "{} {}", self.name, self.said)
+        }
+    }
+
+    /// The setting a refusal names, whichever kind it is.
+    fn named(err: &ConfigError<NotALevel>) -> &'static str {
+        match err {
+            ConfigError::Setting { name, .. } => name,
+            ConfigError::Level(e) => e.name,
+        }
+    }
+
+    /// The setting a refusal names, for a parse whose levels cannot be
+    /// refused.
+    fn setting<E: std::fmt::Debug>(err: &ConfigError<E>) -> &'static str {
+        match err {
+            ConfigError::Setting { name, .. } => name,
+            ConfigError::Level(e) => panic!("a level refused: {e:?}"),
+        }
+    }
+
     /// Any level is taken as written.
-    fn parse(text: &str) -> Result<Config<String>, ConfigError> {
+    fn parse(text: &str) -> Result<Config<String>, ConfigError<std::convert::Infallible>> {
         parse_file(
             text,
             Path::new("/etc/kkt"),
@@ -378,11 +436,11 @@ mod tests {
     #[test]
     fn unknown_keys_are_refused_naming_them() {
         let err = parse("bnid = \"127.0.0.1:1\"").expect_err("unknown key");
-        assert_eq!(err.name, "config");
-        assert!(err.rule.contains("\"bnid\""), "{}", err.rule);
+        assert_eq!(setting(&err), "config");
+        assert_eq!(err.to_string(), "config has an unknown setting \"bnid\"");
         // Flag spellings with dashes are not keys.
         let err = parse("max-limit = 5").expect_err("dashed key");
-        assert!(err.rule.contains("\"max-limit\""), "{}", err.rule);
+        assert!(err.to_string().contains("\"max-limit\""), "{err}");
     }
 
     #[test]
@@ -408,7 +466,7 @@ mod tests {
         ];
         for (text, name) in cases {
             let err = parse(text).expect_err(text);
-            assert_eq!(err.name, name, "{text}");
+            assert_eq!(setting(&err), name, "{text}");
         }
     }
 
@@ -416,25 +474,41 @@ mod tests {
     fn log_levels_are_what_the_callers_check_makes_of_them() {
         let config = parse("log_level = \"loud\"").expect("a string");
         assert_eq!(config.log_level, Some("loud".into()));
-        let refuse = |_, text: &str| Err::<(), _>(format!("is not a level: {text}"));
+        let refuse = |name, text: &str| {
+            Err::<(), _>(NotALevel {
+                name,
+                said: format!("is not a level: {text}"),
+            })
+        };
         let err =
             parse_file("log_level = \"loud\"", Path::new("/"), None, refuse).expect_err("refused");
-        assert_eq!(err.name, "log_level");
+        assert_eq!(
+            err,
+            ConfigError::Level(NotALevel {
+                name: "log_level",
+                said: "is not a level: loud".into()
+            })
+        );
         assert_eq!(err.to_string(), "log_level is not a level: loud");
     }
 
     #[test]
     fn of_two_bad_settings_the_first_by_name_is_named() {
-        let refuse = |_, _: &str| Err::<(), _>("is not a level".to_string());
-        let parse = |text| parse_file(text, Path::new("/"), None, refuse).expect_err(text);
+        let refuse = |name, _: &str| {
+            Err::<(), _>(NotALevel {
+                name,
+                said: "is not a level".into(),
+            })
+        };
+        let parse = |text| named(&parse_file(text, Path::new("/"), None, refuse).expect_err(text));
         // Whichever comes first in the file, the first by name is named,
         // log levels included.
-        assert_eq!(parse("max_limit = -1\nlog_level = \"x\"").name, "log_level");
-        assert_eq!(parse("log_level = \"x\"\nmax_limit = -1").name, "log_level");
-        assert_eq!(parse("bind = 1\nlog_level = \"x\"").name, "bind");
-        assert_eq!(parse("dependency_log_level = \"x\"\nbind = 1").name, "bind");
+        assert_eq!(parse("max_limit = -1\nlog_level = \"x\""), "log_level");
+        assert_eq!(parse("log_level = \"x\"\nmax_limit = -1"), "log_level");
+        assert_eq!(parse("bind = 1\nlog_level = \"x\""), "bind");
+        assert_eq!(parse("dependency_log_level = \"x\"\nbind = 1"), "bind");
         assert_eq!(
-            parse("log_level = \"x\"\ndependency_log_level = \"y\"").name,
+            parse("log_level = \"x\"\ndependency_log_level = \"y\""),
             "dependency_log_level"
         );
     }
@@ -442,19 +516,16 @@ mod tests {
     #[test]
     fn broken_toml_is_refused() {
         let err = parse("bind = ").expect_err("broken");
-        assert_eq!(err.name, "config");
+        assert_eq!(setting(&err), "config");
     }
 
     #[test]
     fn home_paths_need_a_home() {
-        let err = parse_file(
-            "db = \"~/x.db\"",
-            Path::new("/etc/kkt"),
-            None,
-            |_, _| Ok(()),
-        )
+        let err = parse_file("db = \"~/x.db\"", Path::new("/etc/kkt"), None, |_, _| {
+            Ok::<_, std::convert::Infallible>(())
+        })
         .expect_err("no home");
-        assert_eq!(err.name, "db");
+        assert_eq!(setting(&err), "db");
     }
 
     #[test]
@@ -474,7 +545,7 @@ mod tests {
             "allow_hosts = [\"b\"]\n"
         );
         let bad = with_allowed_host("allow_hosts = \"a\"\n", "b").expect_err("not a list");
-        assert_eq!(bad.name, "allow_hosts");
+        assert_eq!(setting(&bad), "allow_hosts");
     }
 
     #[test]

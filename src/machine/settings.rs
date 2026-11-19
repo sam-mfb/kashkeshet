@@ -372,9 +372,11 @@ pub(crate) fn parse_config(
     dir: &Path,
     home: Option<&Path>,
 ) -> Result<ServeOptions, BadValue> {
-    let level = |name, text: &str| kkt_log_tracing::parse_level(name, text).map_err(|e| e.rule);
-    let config = kkt_config_file::parse_file(text, dir, home, level)
-        .map_err(|e| BadValue::new(e.name, e.rule))?;
+    let config = kkt_config_file::parse_file(text, dir, home, kkt_log_tracing::parse_level)
+        .map_err(|e| match e {
+            kkt_config_file::ConfigError::Setting { name, rule } => BadValue::new(name, rule),
+            kkt_config_file::ConfigError::Level(e) => BadValue::new(e.name, e.rule),
+        })?;
     Ok(serve_options(config))
 }
 
@@ -1100,7 +1102,10 @@ mod tests {
             .settings("log_level = \"loud\"", Path::new("/"), None)
             .unwrap_err()
             .to_string();
-        assert!(err.starts_with("log_level "), "{err}");
+        assert_eq!(
+            err,
+            "log_level must be one of error, warn, info, debug, trace, not \"loud\""
+        );
     }
 
     const NO_HOME_KEY: &str = "invalid setting: access_key_file has no default without a home \

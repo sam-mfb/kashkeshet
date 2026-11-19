@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "98bf5e0d",
+ "commit": "f351269f",
  "crates": [
   {
    "bins": [
@@ -4906,13 +4906,13 @@ window.KKT_GRAPH = {
      "path": "Config"
     },
     {
-     "doc": "Why a config file's text could not be read as a config file: the setting (`config` for the file as a whole) and what is wrong with it.",
-     "fields": [
-      "name",
-      "rule"
-     ],
-     "kind": "struct",
-     "path": "ConfigError"
+     "doc": "Why a config file's text could not be read as a config file: a setting (`config` for the file as a whole) and what is wrong with it, or the caller's own refusal of a log level, as its level check made it (see `parse_file`).",
+     "kind": "enum",
+     "path": "ConfigError",
+     "variants": [
+      "Setting",
+      "Level"
+     ]
     },
     {
      "doc": "kkt's config directory: `kkt` under the supplied config-home folder.",
@@ -18181,6 +18181,15 @@ window.KKT_GRAPH = {
      "path": "BrowserLink"
     },
     {
+     "doc": "Why `Terminal::read_line` could not read a line.",
+     "kind": "enum",
+     "path": "ReadLineError",
+     "variants": [
+      "Write",
+      "Read"
+     ]
+    },
+    {
      "doc": "The process's standard output and standard error.",
      "kind": "struct",
      "methods": [
@@ -18755,6 +18764,14 @@ window.KKT_GRAPH = {
       "Admitted",
       "Refused"
      ]
+    },
+    {
+     "doc": "Why a `Gate` refused a key: its own error, passed on unread; the page shows what it says.",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "SignInRefused"
     },
     {
      "doc": "Who is viewing, as the `Gate` decides it: the swarm whose operations the page shows and changes, and the operator they act as there.",
@@ -20418,6 +20435,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Config",
+    "ConfigError",
     "config_dir",
     "config_file",
     "config_file_in_home",
@@ -20445,6 +20463,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Config",
+      "ConfigError",
       "config_dir",
       "config_file",
       "config_file_in_home",
@@ -23076,6 +23095,7 @@ window.KKT_GRAPH = {
     "Gate",
     "Session",
     "SignIn",
+    "SignInRefused",
     "Viewer"
    ],
    "kind": "normal",
@@ -23094,6 +23114,7 @@ window.KKT_GRAPH = {
       "Admit",
       "Session",
       "SignIn",
+      "SignInRefused",
       "Viewer"
      ],
      "role": "uses"
@@ -23194,6 +23215,7 @@ window.KKT_GRAPH = {
     "PageLimits",
     "Sessions",
     "Settings",
+    "SignInRefused",
     "testing",
     "testing::App",
     "testing::Door",
@@ -23223,6 +23245,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Settings",
+      "SignInRefused",
       "testing",
       "testing::administration_works",
       "testing::announcement_editor_works",
@@ -29331,6 +29354,7 @@ window.KKT_GRAPH = {
     "Sessions",
     "Settings",
     "SignIn",
+    "SignInRefused",
     "Viewer",
     "router"
    ],
@@ -29352,6 +29376,7 @@ window.KKT_GRAPH = {
       "Session",
       "Settings",
       "SignIn",
+      "SignInRefused",
       "router"
      ],
      "role": "uses"
@@ -29618,6 +29643,7 @@ window.KKT_GRAPH = {
     "Sessions",
     "Settings",
     "SignIn",
+    "SignInRefused",
     "Viewer",
     "router",
     "testing",
@@ -29666,6 +29692,7 @@ window.KKT_GRAPH = {
       "Session",
       "Settings",
       "SignIn",
+      "SignInRefused",
       "router",
       "testing",
       "testing::ACTIVITY_BUCKET",

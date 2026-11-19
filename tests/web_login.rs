@@ -206,7 +206,11 @@ async fn a_wrong_key_is_refused() {
         .await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert!(header(&response, "set-cookie").is_none());
-    assert!(response.text().await.expect("body").contains("wrong"));
+    let body = response.text().await.expect("body");
+    assert!(
+        body.contains(r#"<p class="error">the access key is wrong</p>"#),
+        "{body}"
+    );
 }
 
 #[tokio::test]

@@ -262,15 +262,8 @@ struct Settings {
 fn settings(args: &Args) -> Result<Settings, String> {
     let text = config_files::read_named(&ConfigDisk, &args.config).map_err(|e| e.to_string())?;
     let dir = args.config.parent().unwrap_or(Path::new("."));
-    let level = |name, text: &str| kkt_log_tracing::parse_level(name, text).map_err(|e| e.rule);
-    let config = kkt_config_file::parse_file(&text, dir, None, level).map_err(|e| {
-        format!(
-            "invalid setting in {}: {} {}",
-            args.config.display(),
-            e.name,
-            e.rule
-        )
-    })?;
+    let config = kkt_config_file::parse_file(&text, dir, None, kkt_log_tracing::parse_level)
+        .map_err(|e| format!("invalid setting in {}: {e}", args.config.display()))?;
     let invalid = |name: &str, rule: &str| format!("invalid setting: {name} {rule}");
     let db = config
         .db

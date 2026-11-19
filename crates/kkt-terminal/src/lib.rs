@@ -39,14 +39,13 @@ impl Terminal {
     }
 
     /// Shows and flushes a prompt and reads a line, or None at EOF.
-    pub fn read_line(&self, prompt: &str) -> Result<Option<String>, String> {
+    pub fn read_line(&self, prompt: &str) -> Result<Option<String>, ReadLineError> {
         self.output(format_args!("{prompt}"));
-        self.flush_output()
-            .map_err(|e| format!("could not write to the terminal: {e}"))?;
+        self.flush_output().map_err(ReadLineError::Write)?;
         let mut line = String::new();
         let read = io::stdin()
             .read_line(&mut line)
-            .map_err(|e| format!("could not read the answer: {e}"))?;
+            .map_err(ReadLineError::Read)?;
         Ok((read != 0).then_some(line))
     }
 
@@ -71,5 +70,56 @@ pub fn end_on_closed_output() {
             "warning: could not restore the default for a closed output: {}\n",
             std::io::Error::last_os_error()
         ));
+    }
+}
+
+/// Why [`Terminal::read_line`] could not read a line.
+#[derive(Debug)]
+pub enum ReadLineError {
+    /// The prompt could not be written.
+    Write(io::Error),
+    /// The line could not be read.
+    Read(io::Error),
+}
+
+impl std::fmt::Display for ReadLineError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ReadLineError::Write(e) => write!(f, "could not write to the terminal: {e}"),
+            ReadLineError::Read(e) => write!(f, "could not read the answer: {e}"),
+        }
+    }
+}
+
+impl std::error::Error for ReadLineError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ReadLineError::Write(e) | ReadLineError::Read(e) => Some(e),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ReadLineError;
+    use std::io;
+
+    /// A real terminal cannot be made to fail in a test, so the two
+    /// sentences are pinned on the kinds that say them.
+    #[test]
+    fn a_line_not_read_says_which_step_failed() {
+        let closed = || io::Error::new(io::ErrorKind::BrokenPipe, "closed");
+        assert_eq!(
+            ReadLineError::Write(closed()).to_string(),
+            "could not write to the terminal: closed"
+        );
+        assert_eq!(
+            ReadLineError::Read(closed()).to_string(),
+            "could not read the answer: closed"
+        );
+        let source = std::error::Error::source(&ReadLineError::Read(closed()))
+            .expect("the io error")
+            .to_string();
+        assert_eq!(source, "closed");
     }
 }

@@ -104,6 +104,11 @@ jobs:
       - name: Lint exceptions are expects with reasons
         run: python3 .github/scripts/check-lint-exceptions.py
 
+      # Errors are typed (RUST.md 8): outside tests, no function's error is
+      # text, but for the exceptions the check lists.
+      - name: No text errors outside tests
+        run: python3 .github/scripts/check-text-errors.py
+
       - name: Build tests
         run: cargo test --workspace --locked --no-run
 

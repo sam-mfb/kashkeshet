@@ -326,7 +326,7 @@ impl Gate for PreviewGate {
 
     fn sign_in(&self, key: &str) -> SignIn<()> {
         if self.key.as_deref().is_some_and(|k| k != key.trim()) {
-            return SignIn::Refused("the access key is wrong".into());
+            return SignIn::Refused(kkt_web::SignInRefused::new("the access key is wrong"));
         }
         SignIn::Admitted(())
     }
