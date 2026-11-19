@@ -53,145 +53,158 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         &self,
         tailscale: bool,
         allow_hosts: &[String],
-    ) -> Result<setup::Installed, String> {
-        // Before anything changes: Tailscale must be logged in, with HTTPS.
-        let node = match tailscale {
-            true => Some(self.parts.remote.prepare().map_err(|e| e.to_string())?),
-            false => None,
-        };
-        if let Some(node) = &node {
-            allow_host_in_config(self.parts.config_file, self.parts.serve, &node.dns_name)?;
-        }
-        for host in allow_hosts {
-            allow_host_in_config(self.parts.config_file, self.parts.serve, host)?;
-        }
-        tokio::runtime::Handle::current().block_on(service::run(
-            self.parts,
-            ServiceAction::Install(ServiceInstall {
-                config: None,
-                db: None,
-                access_key_file: None,
-                no_access_key: false,
-                dry_run: false,
-            }),
-        ))?;
-        let connection =
-            connection::serve_connection(self.parts.connection, ConnectionOptions::NONE, false)
-                .map_err(|e| e.to_string())?;
-        let url = match &node {
-            Some(node) => {
-                self.parts
-                    .remote
-                    .serve(self.parts.serve.bind()?)
-                    .map_err(|e| e.to_string())?;
-                format!("https://{}/mcp", node.dns_name)
+    ) -> Result<setup::Installed, setup::StepError> {
+        (|| -> Result<setup::Installed, String> {
+            // Before anything changes: Tailscale must be logged in, with HTTPS.
+            let node = match tailscale {
+                true => Some(self.parts.remote.prepare().map_err(|e| e.to_string())?),
+                false => None,
+            };
+            if let Some(node) = &node {
+                allow_host_in_config(self.parts.config_file, self.parts.serve, &node.dns_name)?;
             }
-            None => connection.url,
-        };
-        if let Some(access) = &connection.key_file {
-            self.parts.output.output(format_args!(
-                "The web key is in {}. Read it with `kkt key show --web`.\n",
-                kkt_keys::web_key_path(access).display()
-            ));
-        }
-        Ok(setup::Installed {
-            url,
-            key_file: connection.key_file,
-        })
+            for host in allow_hosts {
+                allow_host_in_config(self.parts.config_file, self.parts.serve, host)?;
+            }
+            tokio::runtime::Handle::current().block_on(service::run(
+                self.parts,
+                ServiceAction::Install(ServiceInstall {
+                    config: None,
+                    db: None,
+                    access_key_file: None,
+                    no_access_key: false,
+                    dry_run: false,
+                }),
+            ))?;
+            let connection =
+                connection::serve_connection(self.parts.connection, ConnectionOptions::NONE, false)
+                    .map_err(|e| e.to_string())?;
+            let url = match &node {
+                Some(node) => {
+                    self.parts
+                        .remote
+                        .serve(self.parts.serve.bind()?)
+                        .map_err(|e| e.to_string())?;
+                    format!("https://{}/mcp", node.dns_name)
+                }
+                None => connection.url,
+            };
+            if let Some(access) = &connection.key_file {
+                self.parts.output.output(format_args!(
+                    "The web key is in {}. Read it with `kkt key show --web`.\n",
+                    kkt_keys::web_key_path(access).display()
+                ));
+            }
+            Ok(setup::Installed {
+                url,
+                key_file: connection.key_file,
+            })
+        })()
+        .map_err(step_error)
     }
 
     fn install_docker(
         &self,
         tailscale: Option<&setup::TailscaleLogin>,
         allow_hosts: &[String],
-    ) -> Result<(setup::Installed, setup::DockerSetup), String> {
-        let options = &self.options;
-        let folder = docker_folder(self.env, self.platform)?;
-        let key_file = self
-            .parts
-            .serve
-            .config_dir()
-            .ok_or("set HOME to keep the access key")?
-            .join(DOCKER_KEY_FILE_NAME);
-        let tailscale_inputs = match tailscale {
-            Some(login) => Some(kkt_containerized_service::Sharing {
-                hostname: login.hostname.clone(),
-                auth_key: match &login.auth_key_file {
-                    Some(path) => Some(self.parts.container.sharing_key(path)?),
-                    None => None,
+    ) -> Result<(setup::Installed, setup::DockerSetup), setup::StepError> {
+        (|| -> Result<(setup::Installed, setup::DockerSetup), String> {
+            let options = &self.options;
+            let folder = docker_folder(self.env, self.platform)?;
+            let key_file = self
+                .parts
+                .serve
+                .config_dir()
+                .ok_or("set HOME to keep the access key")?
+                .join(DOCKER_KEY_FILE_NAME);
+            let tailscale_inputs = match tailscale {
+                Some(login) => Some(kkt_containerized_service::Sharing {
+                    hostname: login.hostname.clone(),
+                    auth_key: match &login.auth_key_file {
+                        Some(path) => Some(self.parts.container.sharing_key(path)?),
+                        None => None,
+                    },
+                }),
+                None => None,
+            };
+            let inputs = kkt_containerized_service::Inputs {
+                version: options.kkt_version.clone(),
+                project: options.docker_project.clone(),
+                port: options.docker_port,
+                allow_hosts: allow_hosts.to_vec(),
+                sharing: tailscale_inputs,
+            };
+            let tailscale = tailscale.is_some();
+            let provisioned = tokio::runtime::Handle::current()
+                .block_on(self.parts.container.provision(
+                    self.parts.clock.as_ref(),
+                    self.parts.login_link,
+                    &kkt_container::Folder(folder.clone()),
+                    &inputs,
+                    &kkt_deployment::docker_key_copies(&key_file),
+                ))
+                .map_err(|e| e.to_string())?;
+            let url = docker_url(
+                options.docker_port,
+                provisioned.node.as_ref(),
+                self.parts.mcp_path,
+            );
+            let (hostname, tailnet) = provisioned.node.unzip();
+            Ok((
+                setup::Installed {
+                    url,
+                    key_file: Some(key_file),
                 },
-            }),
-            None => None,
-        };
-        let inputs = kkt_containerized_service::Inputs {
-            version: options.kkt_version.clone(),
-            project: options.docker_project.clone(),
-            port: options.docker_port,
-            allow_hosts: allow_hosts.to_vec(),
-            sharing: tailscale_inputs,
-        };
-        let tailscale = tailscale.is_some();
-        let provisioned = tokio::runtime::Handle::current()
-            .block_on(self.parts.container.provision(
-                self.parts.clock.as_ref(),
-                self.parts.login_link,
-                &kkt_container::Folder(folder.clone()),
-                &inputs,
-                &kkt_deployment::docker_key_copies(&key_file),
+                setup::DockerSetup {
+                    folder,
+                    tailscale,
+                    hostname,
+                    tailnet,
+                },
             ))
-            .map_err(|e| e.to_string())?;
-        let url = docker_url(
-            options.docker_port,
-            provisioned.node.as_ref(),
-            self.parts.mcp_path,
-        );
-        let (hostname, tailnet) = provisioned.node.unzip();
-        Ok((
-            setup::Installed {
-                url,
-                key_file: Some(key_file),
-            },
-            setup::DockerSetup {
-                folder,
-                tailscale,
-                hostname,
-                tailnet,
-            },
-        ))
+        })()
+        .map_err(step_error)
     }
 
-    fn stage_key(&self, key: &str) -> Result<PathBuf, String> {
-        let dir = self
-            .parts
-            .serve
-            .config_dir()
-            .ok_or("set HOME to keep the key in ~/.config/kkt")?;
-        self.parts
-            .key_files
-            .create_dir_all(&dir)
-            .map_err(|e| e.to_string())?;
-        let path = staged_client_key(&dir);
-        self.parts
-            .key_files
-            .write_key(&path, key, true)
-            .map_err(|e| e.to_string())?;
-        Ok(path)
+    fn stage_key(&self, key: &str) -> Result<PathBuf, setup::StepError> {
+        (|| -> Result<PathBuf, String> {
+            let dir = self
+                .parts
+                .serve
+                .config_dir()
+                .ok_or("set HOME to keep the key in ~/.config/kkt")?;
+            self.parts
+                .key_files
+                .create_dir_all(&dir)
+                .map_err(|e| e.to_string())?;
+            let path = staged_client_key(&dir);
+            self.parts
+                .key_files
+                .write_key(&path, key, true)
+                .map_err(|e| e.to_string())?;
+            Ok(path)
+        })()
+        .map_err(step_error)
     }
 
-    fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, String> {
-        let path = client_key(staged, url)?;
-        self.parts
-            .key_files
-            .keep_staged(staged, &path)
-            .map_err(|e| e.to_string())?;
-        Ok(path)
+    fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, setup::StepError> {
+        (|| -> Result<PathBuf, String> {
+            let path = client_key(staged, url)?;
+            self.parts
+                .key_files
+                .keep_staged(staged, &path)
+                .map_err(|e| e.to_string())?;
+            Ok(path)
+        })()
+        .map_err(step_error)
     }
 
-    fn discard_key(&self, staged: &Path) -> Result<(), String> {
+    fn discard_key(&self, staged: &Path) -> Result<(), setup::StepError> {
         self.parts
             .key_files
             .remove(staged)
             .map_err(|e| format!("could not remove {}: {e}", staged.display()))
+            .map_err(step_error)
     }
 
     fn detect_clients(&self) -> Vec<Client> {
@@ -203,67 +216,84 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             .collect()
     }
 
-    fn allow_kkt(&self, client: Client) -> Result<String, String> {
-        clients::allow_kkt(client, self.env, self.parts.clients).map_err(|e| e.to_string())
+    fn allow_kkt(&self, client: Client) -> Result<String, setup::StepError> {
+        clients::allow_kkt(client, self.env, self.parts.clients)
+            .map_err(|e| e.to_string())
+            .map_err(step_error)
     }
 
-    fn doctor(&self, record: &setup::Record) -> Result<String, String> {
-        // The server the clients use: on a machine whose clients were
-        // switched, another machine's, checked as a client's.
-        let server = record.for_clients();
-        let mode = clients_server_mode(record.clients.is_some(), &record.mode);
-        let kind = match mode {
-            setup::Mode::Client => diagnostics::SetupServer::Elsewhere,
-            _ => diagnostics::SetupServer::New,
-        };
-        let note = waiting_note(&server.url, &mode);
-        let mut checks = tokio::runtime::Handle::current()
-            .block_on(diagnostics::until_reachable(
-                Inspector::new(self.parts.prober),
-                self.parts.clock.as_ref(),
-                &server.url,
-                server.key_file.as_deref(),
-                diagnostics::setup_wait(diagnostics::Settings::DEFAULT, kind),
-                &mut || self.parts.output.output(format_args!("{note}\n")),
-            ))
-            .map_err(|e| e.to_string())?;
-        if let Some(fix) = diagnostics::server_fix(&setup_of(&mode)) {
-            point_server_fix_at(&mut checks, &fix);
-        }
-        match diagnostics::report(checks) {
-            (report, true) => Ok(report.trim_end().to_string()),
-            (report, false) => Err(report.trim_end().to_string()),
-        }
+    fn doctor(&self, record: &setup::Record) -> Result<String, setup::StepError> {
+        (|| -> Result<String, String> {
+            // The server the clients use: on a machine whose clients were
+            // switched, another machine's, checked as a client's.
+            let server = record.for_clients();
+            let mode = clients_server_mode(record.clients.is_some(), &record.mode);
+            let kind = match mode {
+                setup::Mode::Client => diagnostics::SetupServer::Elsewhere,
+                _ => diagnostics::SetupServer::New,
+            };
+            let note = waiting_note(&server.url, &mode);
+            let mut checks = tokio::runtime::Handle::current()
+                .block_on(diagnostics::until_reachable(
+                    Inspector::new(self.parts.prober),
+                    self.parts.clock.as_ref(),
+                    &server.url,
+                    server.key_file.as_deref(),
+                    diagnostics::setup_wait(diagnostics::Settings::DEFAULT, kind),
+                    &mut || self.parts.output.output(format_args!("{note}\n")),
+                ))
+                .map_err(|e| e.to_string())?;
+            if let Some(fix) = diagnostics::server_fix(&setup_of(&mode)) {
+                point_server_fix_at(&mut checks, &fix);
+            }
+            match diagnostics::report(checks) {
+                (report, true) => Ok(report.trim_end().to_string()),
+                (report, false) => Err(report.trim_end().to_string()),
+            }
+        })()
+        .map_err(step_error)
     }
 
-    fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
+    fn unfinished(&self) -> Result<Option<setup::Unfinished>, setup::StepError> {
         read_unfinished(
             self.parts.serve,
             self.parts.setup_files,
             self.parts.container,
             self.parts.service,
         )
+        .map_err(step_error)
     }
 
-    fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), String> {
-        let config_dir = self
-            .parts
-            .serve
-            .config_dir()
-            .ok_or("set HOME to note the install")?;
-        self.parts
-            .setup_files
-            .write_unfinished(&config_dir, unfinished)
+    fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), setup::StepError> {
+        (|| -> Result<(), String> {
+            let config_dir = self
+                .parts
+                .serve
+                .config_dir()
+                .ok_or("set HOME to note the install")?;
+            self.parts
+                .setup_files
+                .write_unfinished(&config_dir, unfinished)
+        })()
+        .map_err(step_error)
     }
 
-    fn forget_unfinished(&self) -> Result<(), String> {
-        let Some(config_dir) = self.parts.serve.config_dir() else {
-            return Ok(());
-        };
-        self.parts.setup_files.remove_unfinished(&config_dir)
+    fn forget_unfinished(&self) -> Result<(), setup::StepError> {
+        (|| -> Result<(), String> {
+            let Some(config_dir) = self.parts.serve.config_dir() else {
+                return Ok(());
+            };
+            self.parts.setup_files.remove_unfinished(&config_dir)
+        })()
+        .map_err(step_error)
     }
 
-    fn add_admin_key(&self, record: &setup::Record, name: &AdminName) -> Result<PathBuf, String> {
+    fn add_admin_key(
+        &self,
+        record: &setup::Record,
+        name: &AdminName,
+    ) -> Result<PathBuf, setup::StepError> {
+        (|| -> Result<PathBuf, String> {
         let access = record
             .key_file
             .as_deref()
@@ -313,19 +343,34 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             }
             setup::Mode::Client => Err("an admin key is made on the server's machine".into()),
         }
+    })()
+        .map_err(step_error)
     }
 
-    fn check_lanes(&self, folder: &Path, purpose: setup::Purpose) -> Result<usize, String> {
-        self.parts.import_lanes.check(folder, purpose)
+    fn check_lanes(
+        &self,
+        folder: &Path,
+        purpose: setup::Purpose,
+    ) -> Result<usize, setup::StepError> {
+        self.parts
+            .import_lanes
+            .check(folder, purpose)
+            .map_err(step_error)
     }
 
-    fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
-        // `check_lanes` warned of the skipped files before setup began.
-        self.parts.import_lanes.import(record, folder)
+    fn import_lanes(
+        &self,
+        record: &setup::Record,
+        folder: &Path,
+    ) -> Result<String, setup::StepError> {
+        self.parts
+            .import_lanes
+            .import(record, folder)
+            .map_err(step_error)
     }
 
-    fn check_typed_key(&self, key: &str) -> Result<(), String> {
-        check_typed_key(key)
+    fn check_typed_key(&self, key: &str) -> Result<(), setup::StepError> {
+        check_typed_key(key).map_err(step_error)
     }
 }
 
