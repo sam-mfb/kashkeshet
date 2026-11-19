@@ -313,7 +313,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                         service.add_key(&admin, &|path| {
                             let key =
                                 new_key_file(self.parts.key_files, self.parts.entropy, path, false)
-                                    .map_err(|e| e.to_string())?;
+                                    .map_err(|e| kkt_bare_service::KeyError(e.into()))?;
                             kkt_deployment::admin_name_written(
                                 path,
                                 Some(&name.to_string()),
@@ -323,7 +323,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                                 ),
                             )
                             .map(drop)
-                            .map_err(|e| e.to_string())
+                            .map_err(|e| kkt_bare_service::KeyError(e.into()))
                         })
                     })
                     ?;
@@ -1247,6 +1247,30 @@ mod tests {
                 &name
             ))),
             "an admin key is made on the server's machine"
+        );
+    }
+
+    /// An admin key whose file cannot be made says why, in the key file's
+    /// words, through the service's `add_key`.
+    #[test]
+    fn an_admin_key_that_cannot_be_made_says_why() {
+        use setup::Steps as _;
+        let access = "/h/.config/kkt/access-key";
+        let admin = kkt_keys::admin_key_path(Path::new(access)).expect("beside the access key");
+        let keys = kkt_keys::testing::Memory::new().failing(admin);
+        let name =
+            AdminName::new("ops", kkt_names::MAX_ADMIN_NAME_CHARS).expect("a valid admin name");
+        let said = on_steps(true, &keys, |s| {
+            s.add_admin_key(
+                &record(setup::Mode::Service { tailscale: false }, Some(access)),
+                &name,
+            )
+            .map(drop)
+            .map_err(|e| e.to_string())
+        });
+        assert_eq!(
+            said,
+            Err("could not write /h/.config/kkt/admin-key: refused".to_string())
         );
     }
 
