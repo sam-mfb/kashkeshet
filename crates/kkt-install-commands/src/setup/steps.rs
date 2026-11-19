@@ -1247,6 +1247,30 @@ mod tests {
         );
     }
 
+    /// An admin key whose file cannot be made says why, in the key file's
+    /// words, through the service's `add_key`.
+    #[test]
+    fn an_admin_key_that_cannot_be_made_says_why() {
+        use setup::Steps as _;
+        let access = "/h/.config/kkt/access-key";
+        let admin = kkt_keys::admin_key_path(Path::new(access)).expect("beside the access key");
+        let keys = kkt_keys::testing::Memory::new().failing(admin);
+        let name =
+            AdminName::new("ops", kkt_names::MAX_ADMIN_NAME_CHARS).expect("a valid admin name");
+        let said = on_steps(true, &keys, |s| {
+            s.add_admin_key(
+                &record(setup::Mode::Service { tailscale: false }, Some(access)),
+                &name,
+            )
+            .map(drop)
+            .map_err(|e| e.to_string())
+        });
+        assert_eq!(
+            said,
+            Err("could not write /h/.config/kkt/admin-key: refused".to_string())
+        );
+    }
+
     /// The doctor's lines for the checks that failed, and nothing for the
     /// ones that passed.
     #[test]
