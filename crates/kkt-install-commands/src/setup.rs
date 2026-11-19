@@ -39,6 +39,7 @@ pub async fn run<D: crate::ServiceDefaults>(
             &ask,
             &steps,
         )
+        .map_err(|e| e.to_string())
         .map(|_| ())
     })
 }

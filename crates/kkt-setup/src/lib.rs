@@ -11,6 +11,7 @@
 mod adopt;
 pub mod ask;
 mod flow;
+mod flow_error;
 mod local;
 mod record;
 mod step;
@@ -26,6 +27,7 @@ pub use adopt::{
 };
 pub use ask::{Ask, AskError, LineError, Lines, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
+pub use flow_error::{ResumeFrom, SetupError, Stopped, UnfinishedAdvice};
 pub use local::{NoRecord, recorded_setup};
 pub use record::{
     DockerSetup, InstallCheck, Mode, Record, RecordError, RecordProblem, RenderError, Server,
