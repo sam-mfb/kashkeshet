@@ -196,6 +196,57 @@ async fn a_copy_is_one_consistent_file() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn a_read_only_open_reads_without_changing_the_file() {
+    let place = file_place();
+    let set = Set {
+        name: "notes",
+        migrations: vec![vec![Step::AddTable(kkt_db::Table::new(
+            "notes",
+            vec![kkt_db::Column::key("id"), kkt_db::Column::text("text")],
+            vec!["id"],
+        ))]],
+    };
+    let db = place.place.open(std::slice::from_ref(&set)).expect("open");
+    BackendExt::write(db.as_ref(), |c| {
+        c.insert(&kkt_db::Insert::new("notes").value("text", "kept"))
+            .map(drop)
+    })
+    .await
+    .map_err(|e: DbError| e)
+    .expect("a note");
+    drop(db);
+    let before = std::fs::read(&place.place.path).expect("bytes before");
+    let read = place
+        .place
+        .open_read_only(std::slice::from_ref(&set))
+        .expect("read-only open");
+    let n = BackendExt::read(read.as_ref(), |c| {
+        c.count(&kkt_db::Count {
+            table: "notes",
+            filter: kkt_db::Condition::True,
+        })
+    })
+    .await
+    .map_err(|e: DbError| e)
+    .expect("count");
+    assert_eq!(n, 1);
+    drop(read);
+    assert_eq!(
+        std::fs::read(&place.place.path).expect("bytes after"),
+        before
+    );
+    // An empty file is refused, and stays empty.
+    let empty = place._dir.join("empty.db");
+    std::fs::write(&empty, "").expect("empty file");
+    assert!(
+        SqlitePlace::new(&empty, options())
+            .open_read_only(&[set])
+            .is_err()
+    );
+    assert_eq!(std::fs::read(&empty).expect("still empty").len(), 0);
+}
+
 /// FTS5's own tokenizer, `unicode61` with its defaults, for comparing.
 struct Fts5 {
     conn: Connection,

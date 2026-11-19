@@ -17,14 +17,19 @@ for the time and the kkt version that wrote it, such as
 - `admin-key`: a copy of the admin agent's key, if the server has one
 - `admin-key.name`: a copy of the admin key's name file, if it has one
 - `about.txt`: when the backup was made, by which version, where each
-  file came from, and the highest message ID in the database when the
-  backup started, if it was read
+  file came from, and the highest message ID in the copied database
 
 It is safe while the server runs. The database is copied with SQLite's
 online backup, which gives the database as it was at one moment even while
 agents write, and the copy is checked before the command finishes. Never back
 up the database by copying its file: a copy made during a write can be
 broken.
+
+The highest message ID is read from the finished copy, without opening
+the database being backed up. If it cannot be read — for example the copy
+is empty, or its database is from before this version — the backup still
+succeeds, `about.txt` has no such line, and the command says why in one
+line.
 
 The folder and the keys in it are readable only by you. Keep backups as
 private as the keys themselves.
@@ -86,11 +91,8 @@ ID, so new messages can have IDs that a watcher has already seen. A
 Before restarting such a watch, delete its state file, and give
 `--after-id` with the backup's highest message ID, which its `about.txt`
 records as `highest message ID` (backups made by an older kkt have no
-such line; use the highest ID you know, or none). That ID is the highest
-when the backup started, so the copy may hold a later message or two;
-the watch then shows those again rather than skipping any. Without
-`--after-id`, the watch starts after the latest message (see
-[Waiting](waiting.md)).
+such line; use the highest ID you know, or none). Without `--after-id`,
+the watch starts after the latest message (see [Waiting](waiting.md)).
 
 To go back to an older version of kkt, restore a backup made by that version
 or before, then start that version. A backup made before an upgrade has the

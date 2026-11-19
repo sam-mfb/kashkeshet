@@ -395,6 +395,16 @@ impl Reader<'_> {
         Ok(self.count(table, filter)? > 0)
     }
 
+    /// The highest message ID in the whole database, across every swarm:
+    /// message IDs are unique across the server, and a backup is of the
+    /// whole file, so this one question is not bound to a swarm.
+    pub fn highest_message_id(&self) -> StoreResult<Option<i64>> {
+        let select = Select::new("messages", vec![Field::Value(col("id"))])
+            .order(Sort::desc(col("id")))
+            .limit(1);
+        self.first(&select, |r| Ok(r.get(0)?))
+    }
+
     /// Whether the avatar `name`, hidden or not, is in `swarm`.
     fn agent_in(&self, swarm: &SwarmId, name: &str) -> StoreResult<bool> {
         self.exists("agents", eq("name", name).and(eq("swarm", swarm.as_str())))

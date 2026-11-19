@@ -101,6 +101,24 @@ impl Backups for Memory {
         Ok(done)
     }
 
+    fn record_highest(&self, backup: &Path, highest: i64) -> Result<(), BackupError> {
+        self.check()?;
+        let mut folders = self.folders.borrow_mut();
+        for (folder, backups) in folders.iter_mut() {
+            for (name, written) in backups.iter_mut() {
+                if folder.join(name) == backup {
+                    written.about.push_str(&crate::highest_line(highest));
+                    return Ok(());
+                }
+            }
+        }
+        Err(BackupError::file(
+            crate::FileAction::Write,
+            backup,
+            std::io::Error::from(std::io::ErrorKind::NotFound),
+        ))
+    }
+
     fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {
         self.check()?;
         let mut folders = self.folders.borrow_mut();
@@ -139,7 +157,6 @@ mod tests {
             web_key: None,
             admin_key: None,
             admin_name: None,
-            highest_message_id: None,
         };
         let layout = layout(at("2026-11-16T10:00:00Z"), "1.0.0", &contents);
         let written = backups.write(folder, &layout).expect("written");
@@ -193,7 +210,6 @@ mod tests {
             web_key: None,
             admin_key: None,
             admin_name: None,
-            highest_message_id: None,
         };
         let layout = layout(at("2026-11-16T10:00:00Z"), "1.0.0", &contents);
         assert_eq!(

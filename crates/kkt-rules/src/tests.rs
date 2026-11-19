@@ -4798,6 +4798,40 @@ async fn an_import_retiring_with_no_lanes_but_skipped_files_changes_nothing() {
 }
 
 #[tokio::test]
+async fn the_highest_message_id_is_the_whole_databases() {
+    let w = world().await;
+    let operator = command_line();
+    assert_eq!(
+        w.operator.highest_message_id(&operator).await.unwrap(),
+        None
+    );
+    let mine = w.agent().await;
+    let home = w.channel(&mine, "home", true, &[]).await;
+    w.rules.send(&mine, home, "first".into()).await.unwrap();
+    assert_eq!(
+        w.operator.highest_message_id(&operator).await.unwrap(),
+        Some(1)
+    );
+    // The newest message is in another swarm: the whole database's
+    // highest is still the answer, not the main swarm's.
+    let other = other_swarm(&w).await;
+    let theirs = agent_in(&other).await;
+    let away = open_channel_in(&other, &theirs, "away").await;
+    for i in 0..8 {
+        other
+            .send(&theirs, away.clone(), format!("away {i}"))
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        w.operator.highest_message_id(&operator).await.unwrap(),
+        Some(9)
+    );
+    let no_read = Operator::new(Permissions::of(&[]), Audit::CommandLine);
+    assert!(w.operator.highest_message_id(&no_read).await.is_err());
+}
+
+#[tokio::test]
 async fn an_import_with_changes_needs_a_server_run_on_the_database() {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 10, 23, 14, 0, 0).unwrap(),

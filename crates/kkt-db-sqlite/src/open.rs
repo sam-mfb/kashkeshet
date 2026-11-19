@@ -471,6 +471,27 @@ impl SqlitePlace {
         )
     }
 
+    /// Opens the file read-only: every connection is read-only, no
+    /// migration is applied, no journal mode is set, and nothing is
+    /// created. Fails when the file is not there, is not a database this
+    /// version opens, or would need a migration first. The legacy
+    /// adoption this place may carry does not apply: a database from
+    /// before kkt-db is refused, as `open` without adoption refuses it.
+    pub fn open_read_only(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
+        let writer = read_only(&self.path)?;
+        configure(&writer, self.options.busy_timeout)?;
+        let (path, options) = (self.path.clone(), self.options);
+        open_with(Arc::new(Mutex::new(writer)), sets, None, false, move || {
+            (0..options.readers)
+                .map(|_| {
+                    let reader = read_only(&path)?;
+                    configure(&reader, options.busy_timeout)?;
+                    Ok(Mutex::new(reader))
+                })
+                .collect()
+        })
+    }
+
     /// The upgrades opening the file with `sets` would make. Changes
     /// nothing; a file that is not there would be made from nothing.
     pub fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {

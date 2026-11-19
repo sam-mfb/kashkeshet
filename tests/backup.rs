@@ -215,9 +215,10 @@ async fn backups_taken_while_agents_write_restore_to_a_working_server() {
     server.child.kill().await.expect("stop kkt");
 }
 
-#[tokio::test]
-async fn a_backups_about_file_records_the_highest_message_id() {
-    let home = temp_home("highest");
+/// A home whose server has three messages, then stopped: its database
+/// path, with the messages in it.
+async fn messaged_home(name: &str) -> (scratch::Dir, PathBuf) {
+    let home = temp_home(name);
     let config_dir = home.join(".config/kkt");
     std::fs::create_dir_all(&config_dir).expect("config dir");
     std::fs::write(config_dir.join("config.toml"), "no_access_key = true\n").expect("config file");
@@ -241,8 +242,13 @@ async fn a_backups_about_file_records_the_highest_message_id() {
         .await;
     }
     server.child.kill().await.expect("stop kkt");
-
     let db = home.join(".local/share/kashkeshet/kashkeshet.db");
+    (home, db)
+}
+
+#[tokio::test]
+async fn a_backups_about_file_records_the_highest_message_id() {
+    let (home, db) = messaged_home("highest").await;
     let folder = home.join("backups");
     let (success, text) = finish(kkt(
         &home,
@@ -263,6 +269,112 @@ async fn a_backups_about_file_records_the_highest_message_id() {
         about.contains(&format!("highest message ID: {highest}\n")),
         "{about}"
     );
+}
+
+/// The highest ID is optional: a source the backup cannot read for it
+/// (locked, read-only, empty, or from before this storage) still backs
+/// up, byte for byte unchanged, with the reason printed in one line.
+#[tokio::test]
+async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
+    async fn run_backup(home: &Path, db: &Path) -> (PathBuf, (bool, String)) {
+        let folder = home.join("backups");
+        let out = finish(kkt(
+            home,
+            &[
+                "backup",
+                &folder.display().to_string(),
+                "--db",
+                &db.display().to_string(),
+            ],
+        ))
+        .await;
+        (folder, out)
+    }
+    let beside = |db: &Path| {
+        let mut names: Vec<String> = std::fs::read_dir(db.parent().expect("parent"))
+            .expect("list")
+            .map(|e| e.expect("entry").file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    };
+
+    // A writer holding BEGIN IMMEDIATE on a rollback-journal database.
+    {
+        let (home, db) = messaged_home("locked").await;
+        let conn = Connection::open(&db).expect("writer");
+        conn.pragma_update(None, "journal_mode", "DELETE")
+            .expect("rollback journal");
+        conn.execute_batch("BEGIN IMMEDIATE")
+            .expect("hold the writer");
+        let before = std::fs::read(&db).expect("bytes before");
+        let (folder, (success, text)) = run_backup(&home, &db).await;
+        assert!(success, "{text}");
+        assert_eq!(std::fs::read(&db).expect("bytes after"), before);
+        let backup = backups_in(&folder).pop().expect("one backup");
+        let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+        assert!(about.contains("highest message ID: 3\n"), "{about}");
+        conn.execute_batch("ROLLBACK").expect("release");
+    }
+
+    // A read-only database file.
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let (home, db) = messaged_home("readonly").await;
+        let before = std::fs::read(&db).expect("bytes before");
+        let beside_before = beside(&db);
+        std::fs::set_permissions(&db, std::fs::Permissions::from_mode(0o444)).expect("read-only");
+        let (folder, (success, text)) = run_backup(&home, &db).await;
+        assert!(success, "{text}");
+        std::fs::set_permissions(&db, std::fs::Permissions::from_mode(0o644)).expect("restore");
+        assert_eq!(std::fs::read(&db).expect("bytes after"), before);
+        assert_eq!(beside(&db), beside_before);
+        let backup = backups_in(&folder).pop().expect("one backup");
+        let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+        assert!(about.contains("highest message ID: 3\n"), "{about}");
+    }
+
+    // A zero-byte file: still zero bytes afterwards, nothing beside it.
+    {
+        let home = temp_home("empty");
+        let data = home.join("data");
+        std::fs::create_dir_all(&data).expect("data dir");
+        let db = data.join("empty.db");
+        std::fs::write(&db, "").expect("empty");
+        let (folder, (success, text)) = run_backup(&home, &db).await;
+        assert!(success, "{text}");
+        assert!(
+            text.contains("Highest message ID not recorded in about.txt"),
+            "{text}"
+        );
+        assert_eq!(std::fs::read(&db).expect("still empty").len(), 0);
+        assert_eq!(beside(&db), ["empty.db"]);
+        let backup = backups_in(&folder).pop().expect("one backup");
+        let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+        assert!(!about.contains("highest message ID"), "{about}");
+    }
+
+    // A database at 0.10.0's schema, before this storage.
+    {
+        let home = temp_home("old-schema");
+        let data = home.join("data");
+        std::fs::create_dir_all(&data).expect("data dir");
+        let db = data.join("old.db");
+        make_v0_10_0(&db);
+        let before = std::fs::read(&db).expect("bytes before");
+        let beside_before = beside(&db);
+        let (folder, (success, text)) = run_backup(&home, &db).await;
+        assert!(success, "{text}");
+        assert!(
+            text.contains("Highest message ID not recorded in about.txt"),
+            "{text}"
+        );
+        assert_eq!(std::fs::read(&db).expect("bytes after"), before);
+        assert_eq!(beside(&db), beside_before);
+        let backup = backups_in(&folder).pop().expect("one backup");
+        let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+        assert!(!about.contains("highest message ID"), "{about}");
+    }
 }
 
 #[tokio::test]

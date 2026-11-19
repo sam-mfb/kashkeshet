@@ -56,19 +56,14 @@ impl DirectAccess {
             .await
     }
 
-    /// The highest message ID in the swarm, if it has any messages.
-    /// Needs Read.
+    /// The highest message ID in the whole database, across every swarm,
+    /// if it has any messages: for a backup's about file, since a backup
+    /// is of the whole database and message IDs are unique across the
+    /// server. Needs Read.
     pub async fn highest_message_id(&self, operator: &Operator) -> Result<Option<i64>> {
         operator.may(Permission::Read)?;
         self.db
-            .read(|store, swarm| {
-                let scope = access::scope(swarm, access::Viewer::Operator, Need::See);
-                Ok(store
-                    .activity(&scope, 0)?
-                    .into_iter()
-                    .map(|row| row.latest_id)
-                    .max())
-            })
+            .read(|store, _swarm| Ok(store.highest_message_id()?))
             .await
     }
 

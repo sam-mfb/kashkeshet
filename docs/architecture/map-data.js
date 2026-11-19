@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ee0f6a4b",
+ "commit": "b3de9037",
  "crates": [
   {
    "bins": [
@@ -431,7 +431,7 @@ window.KKT_GRAPH = {
      "path": "machine::database::copy"
     },
     {
-     "doc": "The highest message ID in the database at `path`, for a backup's about file.",
+     "doc": "The highest message ID in the database at `path`, for a backup's about file, read read-only: the file is not created, initialised, migrated or put into a journal mode by this read, and any of those being needed (or the file being locked,...",
      "kind": "fn",
      "path": "machine::database::highest_message_id"
     },
@@ -3998,6 +3998,11 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
+     "doc": "The about file's name within a backup folder.",
+     "kind": "const",
+     "path": "ABOUT_FILE"
+    },
+    {
      "doc": "Where the access key may be, from the serve config and the defaults.",
      "fields": [
       "configured",
@@ -4056,6 +4061,7 @@ window.KKT_GRAPH = {
      "kind": "trait",
      "methods": [
       "prune",
+      "record_highest",
       "write"
      ],
      "path": "Backups"
@@ -4068,8 +4074,7 @@ window.KKT_GRAPH = {
       "access_key",
       "web_key",
       "admin_key",
-      "admin_name",
-      "highest_message_id"
+      "admin_name"
      ],
      "kind": "struct",
      "path": "Contents"
@@ -4182,6 +4187,11 @@ window.KKT_GRAPH = {
      "doc": "What `kkt backup` backs up, given where this machine's server is (`server`), the folder given (`into`) and whether `--db` or `--config` was given (`local_options`).",
      "kind": "fn",
      "path": "backup_of"
+    },
+    {
+     "doc": "The about file's line recording the highest message ID in the copied database, as `Backups::record_highest` writes it.",
+     "kind": "fn",
+     "path": "highest_line"
     },
     {
      "doc": "The names, copies, metadata and privacy for a backup, without reading or writing its files.",
@@ -6871,6 +6881,7 @@ window.KKT_GRAPH = {
       "exists",
       "new",
       "open",
+      "open_read_only",
       "pending"
      ],
      "path": "SqlitePlace"
@@ -9476,7 +9487,6 @@ window.KKT_GRAPH = {
       "Config",
       "Database",
       "Keys",
-      "Highest",
       "Write"
      ]
     },
@@ -23436,11 +23446,13 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-backup-os",
    "items": [
+    "ABOUT_FILE",
     "BackupError",
     "Backups",
     "DATABASE_FILE",
     "FileAction",
     "Layout",
+    "highest_line",
     "old_names"
    ],
    "kind": "normal",
@@ -23455,10 +23467,12 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "ABOUT_FILE",
       "BackupError",
       "DATABASE_FILE",
       "FileAction",
       "Layout",
+      "highest_line",
       "old_names"
      ],
      "role": "uses"
@@ -25688,6 +25702,7 @@ window.KKT_GRAPH = {
     "BackupOfError",
     "Backups",
     "Contents",
+    "DATABASE_FILE",
     "FolderError",
     "InspectError",
     "ServerHere",
@@ -25709,6 +25724,7 @@ window.KKT_GRAPH = {
       "BackupOfError",
       "Backups",
       "Contents",
+      "DATABASE_FILE",
       "FolderError",
       "InspectError",
       "ServerHere",

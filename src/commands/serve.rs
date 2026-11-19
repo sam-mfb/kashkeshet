@@ -320,7 +320,6 @@ fn backup_before_upgrade(
         web_key: None,
         admin_key: None,
         admin_name: None,
-        highest_message_id: None,
     };
     let written =
         write_backup(&folder, clock, &contents).map_err(|source| ServeError::BackupFirst {

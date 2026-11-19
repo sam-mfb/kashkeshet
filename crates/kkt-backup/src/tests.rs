@@ -6,28 +6,8 @@ fn at(seconds: u32) -> Time {
 }
 
 #[test]
-fn the_about_file_records_the_highest_message_id_only_when_read() {
-    let contents = |highest_message_id| Contents {
-        database: Path::new("/data/kashkeshet.db"),
-        config: None,
-        access_key: None,
-        web_key: None,
-        admin_key: None,
-        admin_name: None,
-        highest_message_id,
-    };
-    let with = layout(at(0), "1.0.0", &contents(Some(41)));
-    assert!(
-        with.about().contains("highest message ID: 41\n"),
-        "{}",
-        with.about()
-    );
-    let without = layout(at(0), "1.0.0", &contents(None));
-    assert!(
-        !without.about().contains("highest message ID"),
-        "{}",
-        without.about()
-    );
+fn the_highest_line_names_the_id() {
+    assert_eq!(highest_line(41), "highest message ID: 41\n");
 }
 
 #[test]

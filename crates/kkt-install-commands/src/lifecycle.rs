@@ -34,9 +34,6 @@ pub enum LocalBackupError {
     Database(PartError),
     #[error(transparent)]
     Keys(#[from] backup::InspectError),
-    /// The highest message ID could not be read for the about file.
-    #[error(transparent)]
-    Highest(PartError),
     #[error(transparent)]
     Write(#[from] backup::BackupError),
 }
@@ -533,10 +530,6 @@ fn local_backup<D>(
         },
         &mut |path| parts.key_files.try_exists(path),
     )?;
-    let highest_message_id = parts
-        .database
-        .highest_message_id(&database)
-        .map_err(LocalBackupError::Highest)?;
     let contents = backup::Contents {
         database: &database,
         config: config.file.as_deref(),
@@ -544,10 +537,25 @@ fn local_backup<D>(
         web_key: web_key.as_deref(),
         admin_key: admin_key.as_deref(),
         admin_name: admin_name.as_deref(),
-        highest_message_id,
     };
     let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
     let written = parts.backups.write(folder, &layout)?;
+    // The highest message ID is read from the finished copy, read-only,
+    // so it is exact and the database being backed up is never opened.
+    // It is optional: any failure leaves the backup complete without
+    // the line, and says so in one line below instead of failing.
+    let not_recorded = match parts
+        .database
+        .highest_message_id(&written.join(backup::DATABASE_FILE))
+    {
+        Ok(Some(highest)) => parts
+            .backups
+            .record_highest(&written, highest)
+            .err()
+            .map(|e| e.to_string()),
+        Ok(None) => None,
+        Err(e) => Some(e.to_string()),
+    };
     let out = parts.output;
     out.output(format_args!("Backed up to {}\n", written.display()));
     out.output(format_args!("  database {}\n", database.display()));
@@ -566,6 +574,11 @@ fn local_backup<D>(
     }
     if let Some(path) = &admin_name {
         out.output(format_args!("  admin name {}\n", path.display()));
+    }
+    if let Some(why) = &not_recorded {
+        out.output(format_args!(
+            "Highest message ID not recorded in about.txt: {why}\n"
+        ));
     }
     Ok(())
 }
@@ -1225,6 +1238,9 @@ mod tests {
     impl kkt_backup::Backups for Untouched {
         fn write(&self, _: &Path, _: &backup::Layout<'_>) -> Result<PathBuf, backup::BackupError> {
             self.refused("backups.write").map_err(not_asked)
+        }
+        fn record_highest(&self, _: &Path, _: i64) -> Result<(), backup::BackupError> {
+            self.refused("backups.record_highest").map_err(not_asked)
         }
         fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, backup::BackupError> {
             self.refused("backups.prune").map_err(not_asked)

@@ -85,24 +85,21 @@ pub fn pending_upgrade(path: &Path) -> Result<Option<PendingUpgrade>, PendingErr
 }
 
 /// The highest message ID in the database at `path`, for a backup's
-/// about file. `Ok(None)` when there are no messages, and also when the
-/// database would first be upgraded by opening it: a backup must not
-/// change the database it copies, so such a database records nothing.
-/// The read runs on this runtime's blocking pool, as the database's own
-/// reads do, so it is called from inside the runtime.
+/// about file, read read-only: the file is not created, initialised,
+/// migrated or put into a journal mode by this read, and any of those
+/// being needed (or the file being locked, read-only or from before
+/// kkt-db) is an error the caller may simply omit the line for.
+/// `Ok(None)` when there are no messages. The read runs on this
+/// runtime's blocking pool, as the database's own reads do, so it is
+/// called from inside the runtime, on the finished copy a backup made.
 pub fn highest_message_id(path: &Path) -> Result<Option<i64>, HighestError> {
-    if pending_upgrade(path)
-        .map_err(|e| {
-            HighestError::Open(OpenError {
-                path: path.to_path_buf(),
-                source: e.source,
-            })
-        })?
-        .is_some()
-    {
-        return Ok(None);
-    }
-    let db = open(path)?;
+    let backend = place(path)
+        .open_read_only(&[kkt_rules::schema()])
+        .map_err(|source| HighestError::Open {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    let db = kkt_rules::Db::new(backend);
     let access = kkt_rules::DirectAccess::new(
         db,
         kkt_api_agent::SwarmId::main(),
@@ -124,9 +121,13 @@ pub fn highest_message_id(path: &Path) -> Result<Option<i64>, HighestError> {
 /// Why the highest message ID in a database could not be read.
 #[derive(Debug, thiserror::Error)]
 pub enum HighestError {
-    /// The database could not be opened.
-    #[error(transparent)]
-    Open(#[from] OpenError),
+    /// The database could not be opened read-only.
+    #[error("could not open {} read-only: {source}", path.display())]
+    Open {
+        path: PathBuf,
+        #[source]
+        source: DbError,
+    },
     /// The highest ID could not be read from the opened database.
     #[error("could not read the highest message ID in {}: {source}", path.display())]
     Read {
