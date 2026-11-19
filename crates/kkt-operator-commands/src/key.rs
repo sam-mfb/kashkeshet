@@ -407,7 +407,7 @@ mod tests {
             &self,
             _: Option<PathBuf>,
             _: Option<PathBuf>,
-        ) -> Result<Box<dyn crate::lanes::LaneServer + '_>, String> {
+        ) -> Result<Box<dyn crate::lanes::LaneServer + '_>, crate::PartError> {
             unreachable!("no lanes here")
         }
     }
