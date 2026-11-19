@@ -83,7 +83,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 Some(node) => {
                     self.parts
                         .remote
-                        .serve(self.parts.serve.bind()?)
+                        .serve(self.parts.serve.bind().map_err(|e| e.to_string())?)
                         .map_err(|e| e.to_string())?;
                     format!("https://{}/mcp", node.dns_name)
                 }
@@ -110,7 +110,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     ) -> Result<(setup::Installed, setup::DockerSetup), setup::StepError> {
         (|| -> Result<(setup::Installed, setup::DockerSetup), String> {
             let options = &self.options;
-            let folder = docker_folder(self.env, self.platform)?;
+            let folder = docker_folder(self.env, self.platform).map_err(|e| e.to_string())?;
             let key_file = self
                 .parts
                 .serve
@@ -261,6 +261,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             self.parts.container,
             self.parts.service,
         )
+        .map_err(|e| e.to_string())
         .map_err(step_error)
     }
 
@@ -274,6 +275,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             self.parts
                 .setup_files
                 .write_unfinished(&config_dir, unfinished)
+                .map_err(|e| e.to_string())
         })()
         .map_err(step_error)
     }
@@ -283,7 +285,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             let Some(config_dir) = self.parts.serve.config_dir() else {
                 return Ok(());
             };
-            self.parts.setup_files.remove_unfinished(&config_dir)
+            self.parts
+                .setup_files
+                .remove_unfinished(&config_dir)
+                .map_err(|e| e.to_string())
         })()
         .map_err(step_error)
     }
@@ -355,6 +360,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         self.parts
             .import_lanes
             .check(folder, purpose)
+            .map_err(|e| e.to_string())
             .map_err(step_error)
     }
 
@@ -366,6 +372,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         self.parts
             .import_lanes
             .import(record, folder)
+            .map_err(|e| e.to_string())
             .map_err(step_error)
     }
 
@@ -475,7 +482,7 @@ fn connect(
     client: Client,
     record: &setup::Record,
 ) -> Result<String, String> {
-    let executable = program.kkt_path()?;
+    let executable = program.kkt_path().map_err(|e| e.to_string())?;
     let client_config = client.file(env, host).map_err(|e| e.to_string())?;
     let server = record.for_clients();
     let setup = Setup {
@@ -536,24 +543,27 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> OsSteps<'_, '_, C, D> {
     /// A server kkt installed here that no record or note covers, as the
     /// adopt step finds it, in this crate's words.
     fn find_unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
-        if read_setup(self.parts.serve, self.parts.setup_files)?.is_some()
+        if read_setup(self.parts.serve, self.parts.setup_files)
+            .map_err(|e| e.to_string())?
+            .is_some()
             || read_unfinished(
                 self.parts.serve,
                 self.parts.setup_files,
                 self.parts.container,
                 self.parts.service,
-            )?
+            )
+            .map_err(|e| e.to_string())?
             .is_some()
         {
             return Ok(None);
         }
-        read_unrecorded(self.parts, self.env, self.platform).map_err(|(_, e)| e)
+        read_unrecorded(self.parts, self.env, self.platform).map_err(|(_, e)| e.to_string())
     }
 }
 
 /// A step's text, as kkt-setup's steps carry it.
-fn step_error(said: String) -> setup::StepError {
-    setup::StepError(said.into())
+fn step_error(error: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> setup::StepError {
+    setup::StepError(error.into())
 }
 
 /// The doctor's lines for the problems in `checks` as an error, if any.
@@ -627,11 +637,11 @@ mod tests {
     }
 
     impl crate::ConfigText for ConfigFile {
-        fn read(&self, path: &Path) -> Result<Option<String>, String> {
+        fn read(&self, path: &Path) -> Result<Option<String>, crate::PartError> {
             self.read.borrow_mut().push(path.to_path_buf());
             Ok(self.text.map(str::to_string))
         }
-        fn write(&self, path: &Path, text: &str) -> Result<(), String> {
+        fn write(&self, path: &Path, text: &str) -> Result<(), crate::PartError> {
             self.written
                 .borrow_mut()
                 .push((path.to_path_buf(), text.to_string()));
@@ -639,13 +649,13 @@ mod tests {
         }
         /// The program's edit, as its own test pins it, for the texts
         /// these tests give.
-        fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, String> {
+        fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, crate::PartError> {
             assert_eq!(host, "h.example");
             match text {
                 "" => Ok("allow_hosts = [\"h.example\"]\n".to_string()),
                 "allow_hosts = [\"h.example\"]\n" => Ok(text.to_string()),
                 "allow_hosts = [" => {
-                    Err("config is not valid TOML: unclosed array, expected `]`".to_string())
+                    Err("config is not valid TOML: unclosed array, expected `]`".into())
                 }
                 other => panic!("no edit given for {other:?}"),
             }
@@ -657,16 +667,20 @@ mod tests {
     struct Home(bool);
 
     impl crate::ServeFacts for Home {
-        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, String> {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
-        fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
-        fn database(&self, _: Option<PathBuf>, _: Option<PathBuf>) -> Result<PathBuf, String> {
+        fn database(
+            &self,
+            _: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<PathBuf, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
-        fn bind(&self) -> Result<std::net::SocketAddr, String> {
+        fn bind(&self) -> Result<std::net::SocketAddr, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
         fn default_access_key(&self) -> Option<PathBuf> {
@@ -688,7 +702,7 @@ mod tests {
             &self,
             _: Option<PathBuf>,
             _: kkt_deployment::ServiceSettings,
-        ) -> Result<crate::ServiceInputs<'_>, String> {
+        ) -> Result<crate::ServiceInputs<'_>, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
     }

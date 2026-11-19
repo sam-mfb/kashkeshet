@@ -3,7 +3,10 @@
 //! each problem.
 
 use crate::keys::{KeyKind, local_operator_key, local_web_key};
-use crate::record::{read_setup, read_unfinished, read_unrecorded, unfinished_mode};
+use crate::record::{
+    ReadError, UnrecordedError, read_setup, read_unfinished, read_unrecorded, unfinished_mode,
+};
+use diagnostics::Unknown;
 use kkt_deployment::connection::{self, ConnectionOptions, ConnectionSource};
 use kkt_diagnostics as diagnostics;
 use kkt_llm_agent_config as clients;
@@ -12,20 +15,39 @@ use kkt_provenance::Build;
 use kkt_setup as setup;
 use setup::{Mode, Record, Unfinished, Unrecorded};
 
+/// Why `kkt doctor` failed: a source's own error, or the problems it found.
+#[derive(Debug, thiserror::Error)]
+pub enum DoctorError {
+    #[error(transparent)]
+    Read(#[from] ReadError),
+    #[error(transparent)]
+    Connection(#[from] kkt_deployment::connection::ConnectionError),
+    #[error(transparent)]
+    Unprobed(#[from] diagnostics::Unprobed),
+    #[error(transparent)]
+    Find(#[from] kkt_deployment::FindKeyError),
+    #[error(transparent)]
+    Folder(#[from] kkt_deployment::NoDockerHome),
+    #[error("doctor found problems; see the fixes above")]
+    Problems,
+}
+
 pub async fn run<D: crate::ServiceDefaults>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
     flags: ConnectionOptions,
-) -> Result<(), String> {
+) -> Result<(), DoctorError> {
     // With no record, a server setup installed but did not record stands in
     // for it; with no note of one either, a server kkt installed here anyway.
+    // Why the note could not be read is kept as it is, to say in its line.
     let unfinished = read_unfinished(
         parts.serve,
         parts.setup_files,
         parts.container,
         parts.service,
-    );
+    )
+    .map_err(Unknown::new);
     let recorded = read_setup(parts.serve, parts.setup_files)?;
     let unrecorded =
         match kkt_deployment::status_looks_for_unrecorded(recorded.as_ref(), &unfinished) {
@@ -39,10 +61,8 @@ pub async fn run<D: crate::ServiceDefaults>(
             |path| parts.connection.absolute(path),
             crate::deployment::recorded_server(record).for_clients(),
             flags,
-        )
-        .map_err(|e| e.to_string())?,
-        _ => connection::client_connection(parts.connection, flags, false)
-            .map_err(|e| e.to_string())?,
+        )?,
+        _ => connection::client_connection(parts.connection, flags, false)?,
     };
     let inspector = diagnostics::Inspector::new(parts.prober);
     let server = diagnostics::ServerLines::inspect(
@@ -50,8 +70,7 @@ pub async fn run<D: crate::ServiceDefaults>(
         &connection.url,
         connection.key_file.as_deref(),
     )
-    .await
-    .map_err(|e| e.to_string())?;
+    .await?;
     // A server machine whose clients were switched checks the other server
     // above, and so gets a client's fix.
     let switched = record.as_ref().is_some_and(|r| r.clients.is_some());
@@ -119,7 +138,7 @@ pub async fn run<D: crate::ServiceDefaults>(
                                 diagnostics::WebKeyCopy::Differs
                             }
                         })
-                        .map_err(String::from);
+                        .map_err(Unknown::new);
                     Some(diagnostics::docker_web_key_check(compared, folder.path()))
                 }
                 _ => None,
@@ -132,7 +151,7 @@ pub async fn run<D: crate::ServiceDefaults>(
                             running: state.running,
                             version: state.version,
                         })
-                        .map_err(String::from),
+                        .map_err(Unknown::new),
                     folder.path(),
                 ),
                 tailscale_login: tailscale_login.map(|login| {
@@ -166,7 +185,7 @@ pub async fn run<D: crate::ServiceDefaults>(
     if all_ok {
         Ok(())
     } else {
-        Err("doctor found problems; see the fixes above".into())
+        Err(DoctorError::Problems)
     }
 }
 
@@ -179,7 +198,7 @@ fn service_check(service: &dyn kkt_bare_service::Service) -> kkt_diagnostics::Ch
                 installed: state.installed,
                 running: state.running,
             })
-            .map_err(|e| crate::record::why_state_unknown(&e)),
+            .map_err(|e| Unknown::new(crate::record::why_state_unknown(&e))),
     )
 }
 
@@ -190,7 +209,7 @@ fn service_check(service: &dyn kkt_bare_service::Service) -> kkt_diagnostics::Ch
 /// record and no note of an unfinished setup, readable or not.
 fn doctor_record(
     recorded: Option<Record>,
-    unfinished: &Result<Option<Unfinished>, String>,
+    unfinished: &Result<Option<Unfinished>, Unknown>,
     found: Option<&Unrecorded>,
     version: &str,
 ) -> Option<Record> {
@@ -236,7 +255,7 @@ fn tailscale_login_of(login: kkt_containerized_service::Login) -> diagnostics::T
 /// kkt-diagnostics' fact for what looking for a server installed with no
 /// record found: `None` when it found none.
 fn unrecorded_server(
-    unrecorded: Result<Option<Unrecorded>, (setup::Purpose, String)>,
+    unrecorded: Result<Option<Unrecorded>, (setup::Purpose, UnrecordedError)>,
 ) -> Option<diagnostics::UnrecordedServer> {
     match unrecorded {
         Ok(None) => None,
@@ -246,7 +265,7 @@ fn unrecorded_server(
         }),
         Err((purpose, reason)) => Some(diagnostics::UnrecordedServer::Unreadable {
             in_docker: purpose == setup::Purpose::Docker,
-            reason,
+            reason: Unknown::new(reason),
         }),
     }
 }
@@ -362,7 +381,7 @@ mod tests {
 
     #[test]
     fn an_unreadable_note_leaves_nothing_to_go_by() {
-        let unreadable = Err("bad note".to_string());
+        let unreadable = Err(Unknown::new("bad note"));
         assert_eq!(doctor_record(None, &unreadable, None, "0.7.0"), None);
         assert_eq!(checked_as(false, None), None);
     }
@@ -412,36 +431,39 @@ mod tests {
         assert_eq!(diagnostics::server_fix(&setup_of(&service())), None);
     }
 
+    /// What the doctor is handed, as whether it is in Docker and what it
+    /// says: a summary found, or why none could be.
+    fn handed(server: Option<diagnostics::UnrecordedServer>) -> Option<(bool, String)> {
+        server.map(|server| match server {
+            diagnostics::UnrecordedServer::Found { in_docker, summary } => {
+                (in_docker, format!("found: {summary}"))
+            }
+            diagnostics::UnrecordedServer::Unreadable { in_docker, reason } => {
+                (in_docker, format!("unreadable: {reason}"))
+            }
+        })
+    }
+
     #[test]
     fn what_was_found_unrecorded_is_handed_to_the_doctor_as_found() {
-        assert_eq!(unrecorded_server(Ok(None)), None);
+        assert_eq!(handed(unrecorded_server(Ok(None))), None);
         assert_eq!(
-            unrecorded_server(Ok(Some(found(docker(false))))),
-            Some(diagnostics::UnrecordedServer::Found {
-                in_docker: true,
-                summary: found(docker(false)).summary(),
-            })
+            handed(unrecorded_server(Ok(Some(found(docker(false)))))),
+            Some((true, format!("found: {}", found(docker(false)).summary())))
         );
         assert_eq!(
-            unrecorded_server(Ok(Some(found(service())))),
-            Some(diagnostics::UnrecordedServer::Found {
-                in_docker: false,
-                summary: found(service()).summary(),
-            })
+            handed(unrecorded_server(Ok(Some(found(service()))))),
+            Some((false, format!("found: {}", found(service()).summary())))
+        );
+        let gone = || UnrecordedError::ServiceFileGone;
+        let said = format!("unreadable: {}", gone());
+        assert_eq!(
+            handed(unrecorded_server(Err((Purpose::Docker, gone())))),
+            Some((true, said.clone()))
         );
         assert_eq!(
-            unrecorded_server(Err((Purpose::Docker, "bad".into()))),
-            Some(diagnostics::UnrecordedServer::Unreadable {
-                in_docker: true,
-                reason: "bad".into(),
-            })
-        );
-        assert_eq!(
-            unrecorded_server(Err((Purpose::Service, "bad".into()))),
-            Some(diagnostics::UnrecordedServer::Unreadable {
-                in_docker: false,
-                reason: "bad".into(),
-            })
+            handed(unrecorded_server(Err((Purpose::Service, gone())))),
+            Some((false, said))
         );
     }
 }

@@ -293,33 +293,59 @@ impl<D> kkt_install_commands::ImportLanes for SetupLanes<'_, '_, D> {
     /// Against the server `kkt setup` sets up for `purpose`: the local
     /// serve config's limit, or the Docker container's in the folder setup
     /// uses.
-    fn check(&self, folder: &Path, purpose: kkt_setup::Purpose) -> Result<usize, String> {
-        let native = self.0;
-        let on = match purpose {
-            kkt_setup::Purpose::Service => LanesOn::Local,
-            kkt_setup::Purpose::Docker => LanesOn::Docker(kkt_deployment::docker_folder(
-                native.serve.env,
-                native.serve.platform,
-            )?),
-            kkt_setup::Purpose::Client => return Err(LANES_ON_THE_SERVER.into()),
-        };
-        let server = native.lanes_on(on, None, None);
-        kkt_operator_commands::lanes::check_lanes_for_setup(&native.lane_parts(), &*server, folder)
+    fn check(
+        &self,
+        folder: &Path,
+        purpose: kkt_setup::Purpose,
+    ) -> Result<usize, kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            let native = self.0;
+            let on = match purpose {
+                kkt_setup::Purpose::Service => LanesOn::Local,
+                kkt_setup::Purpose::Docker => LanesOn::Docker(
+                    kkt_deployment::docker_folder(native.serve.env, native.serve.platform)
+                        .map_err(|e| e.to_string())?,
+                ),
+                kkt_setup::Purpose::Client => return Err(LANES_ON_THE_SERVER.into()),
+            };
+            let server = native.lanes_on(on, None, None);
+            kkt_operator_commands::lanes::check_lanes_for_setup(
+                &native.lane_parts(),
+                &*server,
+                folder,
+            )
             .map_err(|e| e.to_string())
+        })())
     }
     /// Into the server `record` says this machine runs; a service runs on
     /// the config file and database `kkt serve` finds by default.
-    fn import(&self, record: &kkt_setup::Record, folder: &Path) -> Result<String, String> {
-        let native = self.0;
-        let on = match &record.mode {
-            kkt_setup::Mode::Docker(install) => LanesOn::Docker(install.folder.clone()),
-            kkt_setup::Mode::Service { .. } => LanesOn::Local,
-            kkt_setup::Mode::Client => return Err(LANES_ON_THE_SERVER.into()),
-        };
-        let server = native.lanes_on(on, None, None);
-        kkt_operator_commands::lanes::import_lanes_for_setup(&native.lane_parts(), &*server, folder)
+    fn import(
+        &self,
+        record: &kkt_setup::Record,
+        folder: &Path,
+    ) -> Result<String, kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            let native = self.0;
+            let on = match &record.mode {
+                kkt_setup::Mode::Docker(install) => LanesOn::Docker(install.folder.clone()),
+                kkt_setup::Mode::Service { .. } => LanesOn::Local,
+                kkt_setup::Mode::Client => return Err(LANES_ON_THE_SERVER.into()),
+            };
+            let server = native.lanes_on(on, None, None);
+            kkt_operator_commands::lanes::import_lanes_for_setup(
+                &native.lane_parts(),
+                &*server,
+                folder,
+            )
             .map_err(|e| e.to_string())
+        })())
     }
+}
+
+/// The program's words for why one of its parts could not answer, passed on
+/// to the install commands as their part error.
+fn part<T>(said: Result<T, String>) -> Result<T, kkt_install_commands::PartError> {
+    said.map_err(|said| kkt_install_commands::PartError(said.into()))
 }
 
 pub(crate) struct ServeReads<'a> {
@@ -366,16 +392,18 @@ impl kkt_operator_commands::ServeConfig for ServeReads<'_> {
 }
 
 impl ServeFacts for ServeReads<'_> {
-    fn config(&self, file: Option<PathBuf>) -> Result<Config, String> {
-        let (file, options) = settings::read_config(self.env, file)?;
-        Ok(Config {
-            file,
-            max_lane_chars: options.lane_limit(),
-            name_pack: options.name_pack_name().to_string(),
-            db: options.db,
-            access_key_file: options.access_key_file,
-            no_access_key: options.no_access_key,
-        })
+    fn config(&self, file: Option<PathBuf>) -> Result<Config, kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            let (file, options) = settings::read_config(self.env, file)?;
+            Ok(Config {
+                file,
+                max_lane_chars: options.lane_limit(),
+                name_pack: options.name_pack_name().to_string(),
+                db: options.db,
+                access_key_file: options.access_key_file,
+                no_access_key: options.no_access_key,
+            })
+        })())
     }
     fn default_name_pack(&self) -> String {
         kkt_rules::Settings::DEFAULT.name_pack.name().to_string()
@@ -389,64 +417,68 @@ impl ServeFacts for ServeReads<'_> {
     fn config_file_in_home(&self) -> PathBuf {
         kkt_config_file::config_file_in_home()
     }
-    fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
-        let (_, options) = settings::read_config(self.env, None)?;
-        let settings = settings::resolve(
-            self.env,
-            self.platform,
-            options,
-            DefaultDb::OrEmpty,
-            Report::Bare,
-        )?;
-        Ok(match settings.access_key {
-            AccessKey::None => None,
-            AccessKey::File(path) | AccessKey::Default(path) => Some(path),
-        })
+    fn configured_access_key(&self) -> Result<Option<PathBuf>, kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            let (_, options) = settings::read_config(self.env, None)?;
+            let settings = settings::resolve(
+                self.env,
+                self.platform,
+                options,
+                DefaultDb::OrEmpty,
+                Report::Bare,
+            )?;
+            Ok(match settings.access_key {
+                AccessKey::None => None,
+                AccessKey::File(path) | AccessKey::Default(path) => Some(path),
+            })
+        })())
     }
     fn database(
         &self,
         given: Option<PathBuf>,
         from_config: Option<PathBuf>,
-    ) -> Result<PathBuf, String> {
-        settings::database(
+    ) -> Result<PathBuf, kkt_install_commands::PartError> {
+        part(settings::database(
             self.env,
             self.platform,
             given.or(from_config),
             DefaultDb::Required(settings::NO_HOME_TO_FIND_DB),
-        )
+        ))
     }
-    fn bind(&self) -> Result<std::net::SocketAddr, String> {
-        settings::serve_bind(self.env, self.platform)
+    fn bind(&self) -> Result<std::net::SocketAddr, kkt_install_commands::PartError> {
+        part(settings::serve_bind(self.env, self.platform))
     }
     fn service_settings(
         &self,
         config: Option<PathBuf>,
         flags: kkt_deployment::ServiceSettings,
-    ) -> Result<kkt_install_commands::ServiceInputs<'_>, String> {
-        let flags = ServeOptions {
-            db: flags.db,
-            access_key_file: flags.access_key_file,
-            no_access_key: flags.no_access_key,
-            ..ServeOptions::NONE
-        };
-        let loaded = settings::load_serve_options(self.env, config, flags)?;
-        let sources = loaded.sources();
-        let request = kkt_deployment::Request {
-            config_file: loaded.config_file.clone(),
-            flags: service_settings(&loaded.flags),
-            from_file: service_settings(&loaded.from_file),
-            default_db: kkt_deployment::default_db(self.env, self.platform),
-            default_key: settings::default_access_key(self.env),
-        };
-        Ok(kkt_install_commands::ServiceInputs {
-            request,
-            check: Box::new(ServiceCheck {
-                env: self.env,
-                platform: self.platform,
-                loaded,
-                sources,
-            }),
-        })
+    ) -> Result<kkt_install_commands::ServiceInputs<'_>, kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            let flags = ServeOptions {
+                db: flags.db,
+                access_key_file: flags.access_key_file,
+                no_access_key: flags.no_access_key,
+                ..ServeOptions::NONE
+            };
+            let loaded = settings::load_serve_options(self.env, config, flags)?;
+            let sources = loaded.sources();
+            let request = kkt_deployment::Request {
+                config_file: loaded.config_file.clone(),
+                flags: service_settings(&loaded.flags),
+                from_file: service_settings(&loaded.from_file),
+                default_db: kkt_deployment::default_db(self.env, self.platform),
+                default_key: settings::default_access_key(self.env),
+            };
+            Ok(kkt_install_commands::ServiceInputs {
+                request,
+                check: Box::new(ServiceCheck {
+                    env: self.env,
+                    platform: self.platform,
+                    loaded,
+                    sources,
+                }),
+            })
+        })())
     }
     fn default_access_key(&self) -> Option<PathBuf> {
         settings::default_access_key(self.env)
@@ -462,11 +494,15 @@ pub struct ServiceArgs<'a> {
 }
 
 impl kkt_install_commands::ServiceDefaults for ServiceArgs<'_> {
-    fn matches_defaults(&self, args: &[String]) -> Result<bool, String> {
-        let parse = self.serve_args;
-        let installed = settings::serve_settings_from_args(self.env, self.platform, parse, args)?;
-        let defaults = settings::serve_settings(self.env, self.platform, None, ServeOptions::NONE)?;
-        Ok(settings::as_running(installed) == settings::as_running(defaults))
+    fn matches_defaults(&self, args: &[String]) -> Result<bool, kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            let parse = self.serve_args;
+            let installed =
+                settings::serve_settings_from_args(self.env, self.platform, parse, args)?;
+            let defaults =
+                settings::serve_settings(self.env, self.platform, None, ServeOptions::NONE)?;
+            Ok(settings::as_running(installed) == settings::as_running(defaults))
+        })())
     }
 }
 
@@ -488,29 +524,31 @@ impl kkt_install_commands::CheckService for ServiceCheck<'_> {
     fn check(
         self: Box<Self>,
         plan: &kkt_deployment::Plan,
-    ) -> Result<kkt_install_commands::CheckedService, String> {
-        let check = ServeOptions {
-            db: plan.check.db.clone(),
-            access_key_file: plan.check.access_key_file.clone(),
-            no_access_key: plan.check.no_access_key,
-            ..self.loaded.flags.over(self.loaded.from_file)
-        };
-        let mut resolved = settings::resolve(
-            self.env,
-            self.platform,
-            check,
-            DefaultDb::Required(settings::NO_HOME_TO_KEEP_DB),
-            Report::Traced(&self.sources),
-        )?;
-        resolved.web_key = plan.check_web_key.clone();
-        let checked = settings::check_settings(resolved, &self.sources)?;
-        Ok(kkt_install_commands::CheckedService {
-            bind: checked.bind,
-            config_file: checked.config_file.or_else(|| {
-                kkt_config_file::config_file(self.env.config_home().as_deref())
-                    .map(|p| p.display().to_string())
-            }),
-        })
+    ) -> Result<kkt_install_commands::CheckedService, kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            let check = ServeOptions {
+                db: plan.check.db.clone(),
+                access_key_file: plan.check.access_key_file.clone(),
+                no_access_key: plan.check.no_access_key,
+                ..self.loaded.flags.over(self.loaded.from_file)
+            };
+            let mut resolved = settings::resolve(
+                self.env,
+                self.platform,
+                check,
+                DefaultDb::Required(settings::NO_HOME_TO_KEEP_DB),
+                Report::Traced(&self.sources),
+            )?;
+            resolved.web_key = plan.check_web_key.clone();
+            let checked = settings::check_settings(resolved, &self.sources)?;
+            Ok(kkt_install_commands::CheckedService {
+                bind: checked.bind,
+                config_file: checked.config_file.or_else(|| {
+                    kkt_config_file::config_file(self.env.config_home().as_deref())
+                        .map(|p| p.display().to_string())
+                }),
+            })
+        })())
     }
 }
 
@@ -518,44 +556,64 @@ impl kkt_install_commands::CheckService for ServiceCheck<'_> {
 /// program's path and `$PATH`, with setup's wording of what went wrong.
 pub(crate) struct NativeSetupFiles;
 impl SetupFiles for NativeSetupFiles {
-    fn read_record(&self, dir: &Path) -> Result<Option<kkt_setup::Record>, String> {
-        let path = kkt_setup::record_path(dir);
-        read_if_present(&path)?
-            .map(|text| kkt_setup::Record::parse(&text, &path))
-            .transpose()
-            .map_err(|e| e.to_string())
+    fn read_record(
+        &self,
+        dir: &Path,
+    ) -> Result<Option<kkt_setup::Record>, kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            let path = kkt_setup::record_path(dir);
+            read_if_present(&path)?
+                .map(|text| kkt_setup::Record::parse(&text, &path))
+                .transpose()
+                .map_err(|e| e.to_string())
+        })())
     }
-    fn read_unfinished(&self, dir: &Path) -> Result<Option<kkt_setup::Unfinished>, String> {
-        let path = kkt_setup::unfinished_path(dir);
-        read_if_present(&path)?
-            .map(|text| kkt_setup::Unfinished::parse(&text, &path))
-            .transpose()
-            .map_err(|e| e.to_string())
+    fn read_unfinished(
+        &self,
+        dir: &Path,
+    ) -> Result<Option<kkt_setup::Unfinished>, kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            let path = kkt_setup::unfinished_path(dir);
+            read_if_present(&path)?
+                .map(|text| kkt_setup::Unfinished::parse(&text, &path))
+                .transpose()
+                .map_err(|e| e.to_string())
+        })())
     }
-    fn write_record(&self, dir: &Path, record: &kkt_setup::Record) -> Result<(), String> {
-        write_whole(
-            &kkt_setup::record_path(dir),
-            &record.render().map_err(|e| e.to_string())?,
-        )
+    fn write_record(
+        &self,
+        dir: &Path,
+        record: &kkt_setup::Record,
+    ) -> Result<(), kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            write_whole(
+                &kkt_setup::record_path(dir),
+                &record.render().map_err(|e| e.to_string())?,
+            )
+        })())
     }
     fn write_unfinished(
         &self,
         dir: &Path,
         unfinished: &kkt_setup::Unfinished,
-    ) -> Result<(), String> {
-        write_whole(
-            &kkt_setup::unfinished_path(dir),
-            &unfinished.render().map_err(|e| e.to_string())?,
+    ) -> Result<(), kkt_install_commands::PartError> {
+        part((|| -> Result<_, String> {
+            write_whole(
+                &kkt_setup::unfinished_path(dir),
+                &unfinished.render().map_err(|e| e.to_string())?,
+            )
+        })())
+    }
+    fn remove_unfinished(&self, dir: &Path) -> Result<(), kkt_install_commands::PartError> {
+        let path = kkt_setup::unfinished_path(dir);
+        part(
+            Files
+                .remove_if_present(&path)
+                .map_err(|e| format!("could not remove {}: {e}", path.display())),
         )
     }
-    fn remove_unfinished(&self, dir: &Path) -> Result<(), String> {
-        let path = kkt_setup::unfinished_path(dir);
-        Files
-            .remove_if_present(&path)
-            .map_err(|e| format!("could not remove {}: {e}", path.display()))
-    }
-    fn kkt_path(&self) -> Result<PathBuf, String> {
-        crate::process::kkt_path()
+    fn kkt_path(&self) -> Result<PathBuf, kkt_install_commands::PartError> {
+        part(crate::process::kkt_path())
     }
     fn path_dirs(&self) -> Vec<PathBuf> {
         OsMachine.path_dirs()
@@ -572,11 +630,13 @@ impl SetupFiles for NativeSetupFiles {
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
         Files.canonicalize(path)
     }
-    fn remove_record(&self, dir: &Path) -> Result<(), String> {
+    fn remove_record(&self, dir: &Path) -> Result<(), kkt_install_commands::PartError> {
         let path = kkt_setup::record_path(dir);
-        Files
-            .remove_file(&path)
-            .map_err(|e| format!("could not remove {}: {e}", path.display()))
+        part(
+            Files
+                .remove_file(&path)
+                .map_err(|e| format!("could not remove {}: {e}", path.display())),
+        )
     }
 }
 
@@ -655,16 +715,24 @@ impl kkt_operator_commands::Output for NativeOutput {
 
 struct NativeConfigText;
 impl kkt_install_commands::ConfigText for NativeConfigText {
-    fn read(&self, path: &Path) -> Result<Option<String>, String> {
-        kkt_config_file::files::read(&super::config_disk::ConfigDisk, path)
-            .map_err(|e| e.to_string())
+    fn read(&self, path: &Path) -> Result<Option<String>, kkt_install_commands::PartError> {
+        part(
+            kkt_config_file::files::read(&super::config_disk::ConfigDisk, path)
+                .map_err(|e| e.to_string()),
+        )
     }
-    fn write(&self, path: &Path, text: &str) -> Result<(), String> {
-        kkt_config_file::files::write(&super::config_disk::ConfigDisk, path, text)
-            .map_err(|e| e.to_string())
+    fn write(&self, path: &Path, text: &str) -> Result<(), kkt_install_commands::PartError> {
+        part(
+            kkt_config_file::files::write(&super::config_disk::ConfigDisk, path, text)
+                .map_err(|e| e.to_string()),
+        )
     }
-    fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, String> {
-        kkt_config_file::with_allowed_host(text, host).map_err(|e| e.to_string())
+    fn with_allowed_host(
+        &self,
+        text: &str,
+        host: &str,
+    ) -> Result<String, kkt_install_commands::PartError> {
+        part(kkt_config_file::with_allowed_host(text, host).map_err(|e| e.to_string()))
     }
 }
 
@@ -738,7 +806,8 @@ mod tests {
                     &NativeConfigText,
                     text,
                     "h.example"
-                ),
+                )
+                .map_err(|e| e.to_string()),
                 edited.map(str::to_string).map_err(str::to_string),
                 "{text:?}"
             );
@@ -764,17 +833,20 @@ mod tests {
             .expect("written");
         assert!(home.join(".config/kkt/setup.toml").is_file());
         assert_eq!(
-            kkt_install_commands::record::read_setup(&serve, &NativeSetupFiles),
+            kkt_install_commands::record::read_setup(&serve, &NativeSetupFiles)
+                .map_err(|e| e.to_string()),
             Ok(Some(record.clone()))
         );
         let homeless = test_env(None);
         let serve = ServeReads::new(&homeless, TEST_PLATFORM);
         assert_eq!(
-            kkt_install_commands::record::read_setup(&serve, &NativeSetupFiles),
+            kkt_install_commands::record::read_setup(&serve, &NativeSetupFiles)
+                .map_err(|e| e.to_string()),
             Ok(None)
         );
         assert_eq!(
-            kkt_install_commands::record::write_setup_record(&serve, &NativeSetupFiles, &record),
+            kkt_install_commands::record::write_setup_record(&serve, &NativeSetupFiles, &record)
+                .map_err(|e| e.to_string()),
             Err("set HOME to keep the setup record".to_string())
         );
     }

@@ -1459,6 +1459,7 @@ dependencies = [
  "kkt-provenance",
  "kkt-remote-access",
  "kkt-setup",
+ "thiserror",
  "tokio",
 ]
 

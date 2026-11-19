@@ -18,6 +18,27 @@ use std::fmt::Arguments;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
+/// Why one of the program's parts could not answer: the implementation's
+/// own error, passed on unread.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct PartError(pub Box<dyn std::error::Error + Send + Sync>);
+
+/// The tests' stand-ins for the program's parts fail with plain words.
+#[cfg(test)]
+impl From<&str> for PartError {
+    fn from(said: &str) -> Self {
+        PartError(said.into())
+    }
+}
+
+#[cfg(test)]
+impl From<String> for PartError {
+    fn from(said: String) -> Self {
+        PartError(said.into())
+    }
+}
+
 /// The facts these commands read from the program's serve configuration.
 pub struct Config {
     /// The config file read, if there was one.
@@ -34,14 +55,14 @@ pub struct Config {
 
 /// Questions about serving; no file is read until a command asks.
 pub trait ServeFacts {
-    fn config(&self, file: Option<PathBuf>) -> Result<Config, String>;
-    fn configured_access_key(&self) -> Result<Option<PathBuf>, String>;
+    fn config(&self, file: Option<PathBuf>) -> Result<Config, PartError>;
+    fn configured_access_key(&self) -> Result<Option<PathBuf>, PartError>;
     fn database(
         &self,
         given: Option<PathBuf>,
         from_config: Option<PathBuf>,
-    ) -> Result<PathBuf, String>;
-    fn bind(&self) -> Result<std::net::SocketAddr, String>;
+    ) -> Result<PathBuf, PartError>;
+    fn bind(&self) -> Result<std::net::SocketAddr, PartError>;
     fn default_access_key(&self) -> Option<PathBuf>;
     /// The name pack `kkt serve` uses when its settings name none.
     fn default_name_pack(&self) -> String;
@@ -59,7 +80,7 @@ pub trait ServeFacts {
         &self,
         config: Option<PathBuf>,
         flags: kkt_deployment::ServiceSettings,
-    ) -> Result<ServiceInputs<'_>, String>;
+    ) -> Result<ServiceInputs<'_>, PartError>;
 }
 
 /// Inputs to the service plan, plus a deferred check with opaque program context.
@@ -70,7 +91,7 @@ pub struct ServiceInputs<'a> {
 
 /// The program checks the plan against its whole serving surface, with its source context.
 pub trait CheckService {
-    fn check(self: Box<Self>, plan: &kkt_deployment::Plan) -> Result<CheckedService, String>;
+    fn check(self: Box<Self>, plan: &kkt_deployment::Plan) -> Result<CheckedService, PartError>;
 }
 
 /// What the service command needs after the program's settings check.
@@ -93,38 +114,38 @@ pub struct CheckedService {
 /// ```
 pub trait ServiceDefaults {
     /// Resolve installed arguments first, then defaults, and compare as a running server.
-    fn matches_defaults(&self, args: &[String]) -> Result<bool, String>;
+    fn matches_defaults(&self, args: &[String]) -> Result<bool, PartError>;
 }
 
 /// The setup record and note, and path operations, supplied by the program.
 pub trait SetupFiles {
-    fn read_record(&self, dir: &Path) -> Result<Option<kkt_setup::Record>, String>;
-    fn read_unfinished(&self, dir: &Path) -> Result<Option<kkt_setup::Unfinished>, String>;
-    fn write_record(&self, dir: &Path, record: &kkt_setup::Record) -> Result<(), String>;
+    fn read_record(&self, dir: &Path) -> Result<Option<kkt_setup::Record>, PartError>;
+    fn read_unfinished(&self, dir: &Path) -> Result<Option<kkt_setup::Unfinished>, PartError>;
+    fn write_record(&self, dir: &Path, record: &kkt_setup::Record) -> Result<(), PartError>;
     fn write_unfinished(
         &self,
         dir: &Path,
         unfinished: &kkt_setup::Unfinished,
-    ) -> Result<(), String>;
-    fn remove_unfinished(&self, dir: &Path) -> Result<(), String>;
-    fn kkt_path(&self) -> Result<PathBuf, String>;
+    ) -> Result<(), PartError>;
+    fn remove_unfinished(&self, dir: &Path) -> Result<(), PartError>;
+    fn kkt_path(&self) -> Result<PathBuf, PartError>;
     fn path_dirs(&self) -> Vec<PathBuf>;
     fn on_path(&self, dirs: &[PathBuf], program: &str) -> bool;
     fn absolute(&self, path: &Path) -> std::io::Result<PathBuf>;
     fn program_path(&self) -> std::io::Result<PathBuf>;
     fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf>;
     /// Removes the setup record in `dir`, for `kkt uninstall`.
-    fn remove_record(&self, dir: &Path) -> Result<(), String>;
+    fn remove_record(&self, dir: &Path) -> Result<(), PartError>;
 }
 
 /// Config text read and written by setup when allowing a server host.
 pub trait ConfigText {
-    fn read(&self, path: &Path) -> Result<Option<String>, String>;
-    fn write(&self, path: &Path, text: &str) -> Result<(), String>;
+    fn read(&self, path: &Path) -> Result<Option<String>, PartError>;
+    fn write(&self, path: &Path, text: &str) -> Result<(), PartError>;
     /// The config file `text` with `host` added to `allow_hosts`, keeping
     /// the rest of the file as it was; unchanged if the host is already
     /// there. Returns why the text could not be edited as an error.
-    fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, String>;
+    fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, PartError>;
 }
 
 /// The local database chosen by the program.
@@ -137,10 +158,10 @@ pub trait ImportLanes {
     /// Reads the lane files in `folder` and checks them as an import into
     /// the server set up for `purpose` would, changing nothing. Returns how
     /// many lanes there are; an error names the file or lane that is wrong.
-    fn check(&self, folder: &Path, purpose: kkt_setup::Purpose) -> Result<usize, String>;
+    fn check(&self, folder: &Path, purpose: kkt_setup::Purpose) -> Result<usize, PartError>;
     /// Imports the lanes in `folder` into the server `record` says this
     /// machine runs. Returns the report to print.
-    fn import(&self, record: &kkt_setup::Record, folder: &Path) -> Result<String, String>;
+    fn import(&self, record: &kkt_setup::Record, folder: &Path) -> Result<String, PartError>;
 }
 
 /// Command output, with standard output and standard error kept separate.
