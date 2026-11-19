@@ -27,3 +27,5 @@ kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
 # Key files in memory, for the admin name file's pin.
 kkt-keys = { path = "../kkt-keys", features = ["testing"] }
+# Commits in memory, for the lane checks' pins.
+kkt-lane-files = { path = "../kkt-lane-files", features = ["testing"] }
