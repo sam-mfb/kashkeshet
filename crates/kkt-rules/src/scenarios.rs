@@ -2328,7 +2328,7 @@ async fn one_bad_lane_or_a_lane_given_twice_stops_the_import_with_nothing_change
         let checked = check_lane_import(&lanes, Settings::DEFAULT.max_lane_chars).expect_err(says);
         let error = w
             .operator
-            .import_lanes(import(lanes, true))
+            .import_lanes(&command_line(), import(lanes, true))
             .await
             .expect_err(says);
         assert_eq!(checked, error, "{says}");

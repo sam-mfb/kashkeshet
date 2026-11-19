@@ -37,7 +37,7 @@ pub enum Audit {
     /// admin key, if the key has one.
     AdminEndpoint { key_name: Option<String> },
     /// Someone running a command against the database file directly, with
-    /// no server, such as `kkt agent revoke`.
+    /// no server, such as `kkt agent revoke` or `kkt lanes import`.
     CommandLine,
 }
 
