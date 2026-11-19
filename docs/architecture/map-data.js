@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "f31a1af8",
+ "commit": "75ad7b04",
  "crates": [
   {
    "bins": [
@@ -16960,6 +16960,17 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
+     "doc": "Why `--adopt` cannot record a server here.",
+     "kind": "enum",
+     "path": "AdoptError",
+     "variants": [
+      "NothingFound",
+      "Unreadable",
+      "Differs",
+      "Ask"
+     ]
+    },
+    {
      "doc": "How setup finds a server to adopt: the part of `super::Steps` it uses.",
      "kind": "trait",
      "methods": [
@@ -17009,6 +17020,14 @@ window.KKT_GRAPH = {
       "NoAnswer",
       "Read"
      ]
+    },
+    {
+     "doc": "Both a server in Docker and a kkt service are installed here with no record: which one clients use is not known.",
+     "fields": [
+      "summary"
+     ],
+     "kind": "struct",
+     "path": "BothInstalled"
     },
     {
      "doc": "The key a client-only machine uses for its server.",
@@ -17090,6 +17109,14 @@ window.KKT_GRAPH = {
       "Found",
       "FoundUnreadable"
      ]
+    },
+    {
+     "doc": "An installed kkt service with no record that runs with settings other than the default config file's, which a record could not keep.",
+     "fields": [
+      "args"
+     ],
+     "kind": "struct",
+     "path": "NotDefaults"
     },
     {
      "doc": "What this machine is for, as chosen with `--mode` or asked.",
@@ -17192,6 +17219,11 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "A step's failure: the caller's own error, passed on unread.",
+     "kind": "struct",
+     "path": "StepError"
+    },
+    {
      "doc": "What `kkt setup` does to the machine.",
      "kind": "trait",
      "methods": [
@@ -17222,6 +17254,20 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Switch"
+    },
+    {
+     "doc": "Why `kkt switch` changed nothing.",
+     "kind": "enum",
+     "path": "SwitchError",
+     "variants": [
+      "NotSetUp",
+      "LocalOnClient",
+      "CheckFailed",
+      "NotConnected",
+      "Record",
+      "Clients",
+      "Ask"
+     ]
     },
     {
      "doc": "What `kkt switch` does to the machine: the part of `super::Steps` it uses.",
@@ -25565,6 +25611,7 @@ window.KKT_GRAPH = {
     "Purpose",
     "Record",
     "Server",
+    "StepError",
     "Steps",
     "Switch",
     "SwitchSteps",
@@ -25601,6 +25648,7 @@ window.KKT_GRAPH = {
       "Mode",
       "Purpose",
       "Record",
+      "StepError",
       "Unfinished",
       "Unrecorded",
       "recorded_setup",

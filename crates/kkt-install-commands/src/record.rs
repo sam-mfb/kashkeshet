@@ -22,7 +22,7 @@ pub fn read_unrecorded<D: crate::ServiceDefaults>(
     let docker =
         unrecorded_docker(parts, env, platform).map_err(|e| (setup::Purpose::Docker, e))?;
     let service = unrecorded_service(parts).map_err(|e| (setup::Purpose::Service, e))?;
-    setup::unrecorded_here(docker, service)
+    setup::unrecorded_here(docker, service).map_err(|(purpose, e)| (purpose, e.to_string()))
 }
 
 /// kkt in Docker in the folder `kkt setup` uses, with the access key's host
@@ -98,7 +98,7 @@ fn unrecorded_service<D: crate::ServiceDefaults>(
         .service_defaults
         .matches_defaults(&args)
         .map_err(unread)?;
-    setup::service_runs_defaults(&args, matches_defaults)?;
+    setup::service_runs_defaults(&args, matches_defaults).map_err(|e| e.to_string())?;
     let connection = connection::serve_connection(parts.connection, ConnectionOptions::NONE, false)
         .map_err(|e| found(format!("its settings could not be read: {e}")))?;
     let bind = parts
