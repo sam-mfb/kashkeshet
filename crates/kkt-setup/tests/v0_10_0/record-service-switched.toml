@@ -1,0 +1,12 @@
+format = 1
+mode = "service"
+written_by = "0.10.0"
+url = "https://kkt.tail1234.ts.net/mcp"
+key_file = "/home/sam/.config/kkt/access-key"
+
+[service]
+tailscale = true
+
+[clients]
+url = "https://other.example/mcp"
+key_file = "/home/sam/.config/kkt/client-access-key-ef34gh"

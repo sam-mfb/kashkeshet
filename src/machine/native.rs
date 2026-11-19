@@ -524,22 +524,30 @@ impl SetupFiles for NativeSetupFiles {
         read_if_present(&path)?
             .map(|text| kkt_setup::Record::parse(&text, &path))
             .transpose()
+            .map_err(|e| e.to_string())
     }
     fn read_unfinished(&self, dir: &Path) -> Result<Option<kkt_setup::Unfinished>, String> {
         let path = kkt_setup::unfinished_path(dir);
         read_if_present(&path)?
             .map(|text| kkt_setup::Unfinished::parse(&text, &path))
             .transpose()
+            .map_err(|e| e.to_string())
     }
     fn write_record(&self, dir: &Path, record: &kkt_setup::Record) -> Result<(), String> {
-        write_whole(&kkt_setup::record_path(dir), &record.render()?)
+        write_whole(
+            &kkt_setup::record_path(dir),
+            &record.render().map_err(|e| e.to_string())?,
+        )
     }
     fn write_unfinished(
         &self,
         dir: &Path,
         unfinished: &kkt_setup::Unfinished,
     ) -> Result<(), String> {
-        write_whole(&kkt_setup::unfinished_path(dir), &unfinished.render()?)
+        write_whole(
+            &kkt_setup::unfinished_path(dir),
+            &unfinished.render().map_err(|e| e.to_string())?,
+        )
     }
     fn remove_unfinished(&self, dir: &Path) -> Result<(), String> {
         let path = kkt_setup::unfinished_path(dir);

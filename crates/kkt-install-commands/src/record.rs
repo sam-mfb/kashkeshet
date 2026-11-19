@@ -303,6 +303,7 @@ pub fn recorded_setup<D: crate::ServiceDefaults>(
         },
         || read_unrecorded(parts, env, platform),
     )
+    .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]
