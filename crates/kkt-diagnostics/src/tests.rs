@@ -47,11 +47,11 @@ impl FakeProber {
 }
 
 impl Prober for FakeProber {
-    fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
+    fn key_file(&self, path: &Path) -> Result<KeyFile, crate::KeyFileUnread> {
         self.keys
             .get(path)
             .cloned()
-            .ok_or_else(|| "No such file or directory".to_string())
+            .ok_or_else(|| crate::KeyFileUnread::new("No such file or directory"))
     }
 
     fn answer<'a>(&'a self, url: &'a str) -> Probing<'a, Answered> {
@@ -92,7 +92,10 @@ fn valid_key() -> String {
 }
 
 fn key(mode: Option<u32>, text: Result<String, String>) -> KeyFile {
-    KeyFile { mode, text }
+    KeyFile {
+        mode,
+        text: text.map_err(crate::KeyFileUnread::new),
+    }
 }
 
 fn status(code: u16, reason: &str) -> Status {

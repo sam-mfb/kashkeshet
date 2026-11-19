@@ -1105,7 +1105,10 @@ mod tests {
     }
     struct NoProbes;
     impl kkt_diagnostics::Prober for NoProbes {
-        fn key_file(&self, _: &Path) -> Result<kkt_diagnostics::KeyFile, String> {
+        fn key_file(
+            &self,
+            _: &Path,
+        ) -> Result<kkt_diagnostics::KeyFile, kkt_diagnostics::KeyFileUnread> {
             unreachable!("prober")
         }
         fn answer<'a>(

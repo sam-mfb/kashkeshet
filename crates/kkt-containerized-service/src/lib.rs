@@ -39,7 +39,7 @@ pub use container::{
     Arg, Carry, Existing, InServer, Inputs, KeyCopies, KeyCopy, Login, Provisioned,
     ServiceContainer, Sharing, State,
 };
-pub use error::ContainerError;
+pub use error::{ContainerError, NoWorkingDir, NodeUnread};
 use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;
 use kkt_container::{Folder, Project, Projects};
@@ -91,7 +91,7 @@ pub trait SharingNode {
     fn login(&self, answer: &str) -> Option<NodeLogin>;
     /// What the node's status answer, `answer`, says of the node, or why
     /// it cannot be read.
-    fn status(&self, answer: &str) -> Result<NodeStatus, String>;
+    fn status(&self, answer: &str) -> Result<NodeStatus, NodeUnread>;
 }
 
 /// What a sharing node's status answer says of it.
@@ -127,7 +127,7 @@ pub struct Containerized<P> {
     key_files: Box<dyn KeyFiles>,
     /// The folder the person ran kkt in, which paths they type are
     /// relative to, or why it could not be found.
-    working_dir: Result<PathBuf, String>,
+    working_dir: Result<PathBuf, NoWorkingDir>,
 }
 
 impl<P: Projects> Containerized<P> {
@@ -142,7 +142,7 @@ impl<P: Projects> Containerized<P> {
         sharing: Box<dyn SharingNode>,
         browser: Box<dyn Browser>,
         key_files: Box<dyn KeyFiles>,
-        working_dir: Result<PathBuf, String>,
+        working_dir: Result<PathBuf, NoWorkingDir>,
     ) -> Self {
         Containerized {
             projects,

@@ -64,7 +64,8 @@ pub async fn run(
         crate::machine::settings::LOG_OWN_TARGETS,
         settings.log_level,
         settings.dependency_log_level,
-    )?;
+    )
+    .map_err(|e| e.to_string())?;
     let served = serve(settings, &sources, log_policy).await;
     if let (Some(file), Err(e)) = (&log_file, &served) {
         // Someone at a terminal reads stderr, not the log file.

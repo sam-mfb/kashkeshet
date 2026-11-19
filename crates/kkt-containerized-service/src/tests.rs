@@ -64,7 +64,7 @@ fn over<P: Projects>(
         Box::new(Node),
         Box::new(NoBrowser),
         Box::new(KeysIn(Rc::new(kkt_keys::testing::Memory::new()))),
-        working_dir,
+        working_dir.map_err(crate::NoWorkingDir::new),
     )
 }
 
@@ -769,7 +769,7 @@ impl SharingNode for Node {
 
     /// `in <name> <https|plain>`, `out`, `out <link>`, or another word, a
     /// state; anything empty cannot be read.
-    fn status(&self, answer: &str) -> Result<NodeStatus, String> {
+    fn status(&self, answer: &str) -> Result<NodeStatus, crate::NodeUnread> {
         let words: Vec<&str> = answer.split_whitespace().collect();
         let node = |login, link: Option<&str>, name: Option<&str>, https| NodeStatus {
             login,
@@ -778,7 +778,7 @@ impl SharingNode for Node {
             https,
         };
         match words.as_slice() {
-            [] => Err("no BackendState".into()),
+            [] => Err(crate::NodeUnread("no BackendState".into())),
             ["in", name, https] => Ok(node(
                 NodeLogin::LoggedIn,
                 None,
@@ -819,7 +819,7 @@ impl SharingNode for OwnCommand {
     fn login(&self, answer: &str) -> Option<NodeLogin> {
         Node.login(answer)
     }
-    fn status(&self, answer: &str) -> Result<NodeStatus, String> {
+    fn status(&self, answer: &str) -> Result<NodeStatus, crate::NodeUnread> {
         Node.status(answer)
     }
 }

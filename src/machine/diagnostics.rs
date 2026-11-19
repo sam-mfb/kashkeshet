@@ -5,8 +5,8 @@
 //! tests use it too.
 
 use kkt_diagnostics::{
-    self as diagnostics, Answered, Initialized, KeyFile, Prober, Probing, Reply, ReplyError,
-    Status, Unprobed,
+    self as diagnostics, Answered, Initialized, KeyFile, KeyFileUnread, Prober, Probing, Reply,
+    ReplyError, Status, Unprobed,
 };
 use kkt_keys::KeyFiles;
 use kkt_keys_os::OsKeyFiles;
@@ -34,11 +34,11 @@ pub fn prober() -> Probe {
 pub struct Probe(HttpProber);
 
 impl Prober for Probe {
-    fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
-        let mode = OsKeyFiles.mode(path).map_err(|e| e.to_string())?;
+    fn key_file(&self, path: &Path) -> Result<KeyFile, KeyFileUnread> {
+        let mode = OsKeyFiles.mode(path).map_err(KeyFileUnread::new)?;
         Ok(KeyFile {
             mode,
-            text: OsKeyFiles.read(path).map_err(|e| e.to_string()),
+            text: OsKeyFiles.read(path).map_err(KeyFileUnread::new),
         })
     }
 

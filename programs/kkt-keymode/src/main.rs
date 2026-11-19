@@ -387,7 +387,7 @@ fn refusal(refusal: KeyRefusal<String>) -> String {
             "invalid setting: the admin key must differ from the access and web keys".into()
         }
         KeyRefusal::AdminKey(e) => format!("invalid setting: admin key: {}", e.rule),
-        other => kkt_admission::key_refusal(other, None, None),
+        other => kkt_admission::key_refusal(other, None, None).to_string(),
     }
 }
 

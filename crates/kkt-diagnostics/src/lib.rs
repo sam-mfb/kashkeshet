@@ -19,7 +19,8 @@ pub use plan::{
     KeyToCheck, Plan, SETUP_CHECK, ServerLines, ThisMachine, point_server_fix_at, report,
 };
 pub use probe::{
-    Answered, Check, Initialized, KeyFile, Prober, Probing, Reply, ReplyError, Status, Unprobed,
+    Answered, Check, Initialized, KeyFile, KeyFileUnread, Prober, Probing, Reply, ReplyError,
+    Status, Unprobed,
 };
 use std::path::Path;
 use std::time::Duration;
@@ -160,7 +161,7 @@ const ADMIN_KEY_NAMES: KeyNames = KeyNames {
 /// Adds the checks of what was found in the key file at `path` to `checks`,
 /// and returns the key if it is valid.
 fn key_checks(
-    found: Result<KeyFile, String>,
+    found: Result<KeyFile, KeyFileUnread>,
     path: &Path,
     checks: &mut Vec<Check>,
 ) -> Option<String> {

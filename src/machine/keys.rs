@@ -60,6 +60,7 @@ pub(crate) fn read_server_keys(
             set_in.as_deref(),
             Some(&names.display().to_string()),
         )
+        .to_string()
     })
 }
 

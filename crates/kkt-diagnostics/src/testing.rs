@@ -42,11 +42,11 @@ impl Memory {
 }
 
 impl Prober for Memory {
-    fn key_file(&self, path: &Path) -> Result<KeyFile, String> {
+    fn key_file(&self, path: &Path) -> Result<KeyFile, crate::KeyFileUnread> {
         self.keys
             .get(path)
             .cloned()
-            .ok_or_else(|| "No such file or directory (os error 2)".to_string())
+            .ok_or_else(|| crate::KeyFileUnread::new("No such file or directory (os error 2)"))
     }
 
     fn answer<'a>(&'a self, url: &'a str) -> Probing<'a, Answered> {
@@ -95,7 +95,10 @@ mod tests {
             .key("/k/access-key", Some(0o600), "a-key")
             .server("http://s/mcp", Ok(ok.clone()), refused.clone());
         let key = prober.key_file(Path::new("/k/access-key")).expect("found");
-        assert_eq!((key.mode, key.text), (Some(0o600), Ok("a-key".to_string())));
+        assert_eq!(
+            (key.mode, key.text.map_err(|e| e.to_string())),
+            (Some(0o600), Ok("a-key".to_string()))
+        );
         assert!(prober.key_file(Path::new("/k/other")).is_err());
         assert_eq!(now(prober.answer("http://s/mcp")), Ok(Ok(ok)));
         assert_eq!(now(prober.initialize("http://s/mcp", None)), Ok(refused));
