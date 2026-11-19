@@ -139,7 +139,9 @@ pub async fn status<D: ServiceDefaults>(
                 "{}",
                 configured_name_pack_line(&config.name_pack)
             ));
-            service::run(parts, ServiceAction::Status).await
+            service::run(parts, ServiceAction::Status)
+                .await
+                .map_err(|e| e.to_string())
         }
         kkt_deployment::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
@@ -204,7 +206,7 @@ pub async fn upgrade<D: ServiceDefaults>(
         kkt_deployment::Replace::Service => {
             // Validate the replacement service before doing anything. Its
             // program is this one, the binary just installed by the user.
-            let service = service_plan(parts, ServiceInstall::NONE)?;
+            let service = service_plan(parts, ServiceInstall::NONE).map_err(|e| e.to_string())?;
             let folder = backup::service_backup_folder(parts.serve.config_dir())
                 .map_err(|e| e.to_string())?;
             local_backup(parts, &folder, None, None)?;
@@ -268,7 +270,9 @@ pub async fn uninstall<D: ServiceDefaults>(
         }
         setup::Mode::Service { tailscale: shared } => {
             stop_sharing(shared, parts.serve, parts.remote)?;
-            service::run(parts, ServiceAction::Uninstall).await?;
+            service::run(parts, ServiceAction::Uninstall)
+                .await
+                .map_err(|e| e.to_string())?;
         }
         setup::Mode::Client => {}
     }

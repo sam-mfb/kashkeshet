@@ -65,16 +65,18 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         for host in allow_hosts {
             allow_host_in_config(self.parts.config_file, self.parts.serve, host)?;
         }
-        tokio::runtime::Handle::current().block_on(service::run(
-            self.parts,
-            ServiceAction::Install(ServiceInstall {
-                config: None,
-                db: None,
-                access_key_file: None,
-                no_access_key: false,
-                dry_run: false,
-            }),
-        ))?;
+        tokio::runtime::Handle::current()
+            .block_on(service::run(
+                self.parts,
+                ServiceAction::Install(ServiceInstall {
+                    config: None,
+                    db: None,
+                    access_key_file: None,
+                    no_access_key: false,
+                    dry_run: false,
+                }),
+            ))
+            .map_err(|e| e.to_string())?;
         let connection =
             connection::serve_connection(self.parts.connection, ConnectionOptions::NONE, false)
                 .map_err(|e| e.to_string())?;

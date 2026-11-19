@@ -221,7 +221,9 @@ async fn run(
                 .await
                 .map_err(|e| e.to_string())
         }
-        Task::Service(action) => kkt_install_commands::service::run(&install, action).await,
+        Task::Service(action) => kkt_install_commands::service::run(&install, action)
+            .await
+            .map_err(|e| e.to_string()),
         Task::Backup { folder, db, config } => {
             kkt_install_commands::lifecycle::backup(&install, folder.as_deref(), db, config)
         }

@@ -36,15 +36,58 @@ impl ServiceInstall {
     };
 }
 
+/// Why `kkt service` failed: each kind is a source's own error.
+#[derive(Debug, thiserror::Error)]
+pub enum ServiceCommandError {
+    #[error(transparent)]
+    Service(#[from] kkt_bare_service::ServiceError),
+    #[error(transparent)]
+    Plan(#[from] ServicePlanError),
+    #[error(transparent)]
+    Bind(#[from] kkt_deployment::BindError),
+    #[error(transparent)]
+    Key(#[from] kkt_keys::KeyFileError),
+}
+
+/// Why the service to install could not be planned.
+#[derive(Debug, thiserror::Error)]
+pub enum ServicePlanError {
+    #[error("could not find this program's path: {0}")]
+    ProgramPath(#[source] std::io::Error),
+    #[error("invalid setting: config could not be read from {}: {source}", path.display())]
+    ConfigPath {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error("could not make {} absolute: {source}", path.display())]
+    Absolute {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    /// The program's serving settings.
+    #[error(transparent)]
+    Settings(crate::PartError),
+    #[error(transparent)]
+    Plan(kkt_deployment::PlanError),
+    /// The program's check of the whole serving surface.
+    #[error(transparent)]
+    Check(crate::PartError),
+    /// What the service runs.
+    #[error(transparent)]
+    Spec(kkt_deployment::PlanError),
+}
+
 /// `kkt service ...`: runs the command against this system's service
 /// manager and prints what happened. Installing may wait on the system
 /// clock while launchd lets the new service load.
 pub async fn run<D>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     command: ServiceAction,
-) -> Result<(), String> {
+) -> Result<(), ServiceCommandError> {
     let service = parts.service;
-    service.ready().map_err(|e| e.to_string())?;
+    service.ready()?;
     let said = match command {
         ServiceAction::Install(ServiceInstall {
             config,
@@ -63,14 +106,13 @@ pub async fn run<D>(
                     dry_run,
                 },
             )?;
-            let running = service.state().map_err(|e| e.to_string())?.running;
+            let running = service.state()?.running;
             check_bind(
                 running,
                 plan.bind,
                 plan.config_file.as_deref(),
                 parts.try_bind,
-            )
-            .map_err(|e| e.to_string())?;
+            )?;
             if dry_run {
                 let actions = service
                     .dry_run(
@@ -78,8 +120,7 @@ pub async fn run<D>(
                         kkt_bare_service::Settings::DEFAULT,
                         &plan.spec,
                     )
-                    .await
-                    .map_err(|e| e.to_string())?;
+                    .await?;
                 let mut said = vec!["Dry run: nothing was changed.".to_string()];
                 if let Some(key) = &plan.new_web_key {
                     said.push(format!("Would create a new web key at {}", key.display()));
@@ -95,16 +136,14 @@ pub async fn run<D>(
             } else {
                 // Said at once, so they are seen even if the start fails.
                 if let Some(key) = &plan.new_web_key {
-                    new_key_file(parts.key_files, parts.entropy, key, false)
-                        .map_err(|e| e.to_string())?;
+                    new_key_file(parts.key_files, parts.entropy, key, false)?;
                     parts.output.output(format_args!(
                         "Created a new web key at {}. Read it with `kkt key show --web`.\n",
                         key.display()
                     ));
                 }
                 if let Some(key) = &plan.new_key {
-                    new_key_file(parts.key_files, parts.entropy, key, false)
-                        .map_err(|e| e.to_string())?;
+                    new_key_file(parts.key_files, parts.entropy, key, false)?;
                     parts.output.output(format_args!(
                         "Created a new access key at {}\n",
                         key.display()
@@ -133,8 +172,7 @@ pub async fn run<D>(
         ServiceAction::Stop => service.stop(),
         ServiceAction::Status => service.status(),
         ServiceAction::Logs { lines, follow } => service.logs(lines, follow),
-    }
-    .map_err(|e| e.to_string())?;
+    }?;
     for line in said {
         parts.output.output(format_args!("{line}\n"));
     }
@@ -159,7 +197,7 @@ pub struct ServicePlan {
 pub fn service_plan<D>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     install: ServiceInstall,
-) -> Result<ServicePlan, String> {
+) -> Result<ServicePlan, ServicePlanError> {
     let ServiceInstall {
         config,
         db,
@@ -170,21 +208,21 @@ pub fn service_plan<D>(
     let program = parts
         .setup_files
         .program_path()
-        .map_err(|e| format!("could not find this program's path: {e}"))?;
+        .map_err(ServicePlanError::ProgramPath)?;
     let config = match config {
-        Some(path) => Some(parts.setup_files.canonicalize(&path).map_err(|e| {
-            format!(
-                "invalid setting: config could not be read from {}: {e}",
-                path.display()
-            )
-        })?),
+        Some(path) => Some(
+            parts
+                .setup_files
+                .canonicalize(&path)
+                .map_err(|source| ServicePlanError::ConfigPath { path, source })?,
+        ),
         None => None,
     };
     let absolute = |path: PathBuf| {
         parts
             .setup_files
             .absolute(&path)
-            .map_err(|e| format!("could not make {} absolute: {e}", path.display()))
+            .map_err(|source| ServicePlanError::Absolute { path, source })
     };
     let flags = kkt_deployment::ServiceSettings {
         db: db.map(absolute).transpose()?,
@@ -194,14 +232,14 @@ pub fn service_plan<D>(
     let inputs = parts
         .serve
         .service_settings(config, flags)
-        .map_err(|e| e.to_string())?;
+        .map_err(ServicePlanError::Settings)?;
     let plan = kkt_deployment::plan(inputs.request, &|path: &Path| {
         parts.key_files.try_exists(path)
     })
-    .map_err(|e| e.to_string())?;
-    let checked = inputs.check.check(&plan).map_err(|e| e.to_string())?;
+    .map_err(ServicePlanError::Plan)?;
+    let checked = inputs.check.check(&plan).map_err(ServicePlanError::Check)?;
     Ok(ServicePlan {
-        spec: plan.spec(program).map_err(|e| e.to_string())?,
+        spec: plan.spec(program).map_err(ServicePlanError::Spec)?,
         new_key: plan.new_key,
         new_web_key: plan.new_web_key,
         bind: checked.bind,

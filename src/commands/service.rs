@@ -25,6 +25,7 @@ fn service_plan(
             dry_run: false,
         },
     )
+    .map_err(|e| e.to_string())
 }
 
 mod tests {
