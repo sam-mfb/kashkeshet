@@ -4552,14 +4552,17 @@ async fn an_import_creates_new_lanes_versions_changed_ones_and_leaves_the_rest()
     w.clock.advance(Span::minutes(1));
     let done = w
         .operator
-        .import_lanes(import(
-            vec![
-                lane("tester", "Tests.", "Test it."),
-                lane("reviewer", "Reviews.", "Read twice."),
-                lane("writer", "  Writes.  ", "Write."),
-            ],
-            false,
-        ))
+        .import_lanes(
+            &command_line(),
+            import(
+                vec![
+                    lane("tester", "Tests.", "Test it."),
+                    lane("reviewer", "Reviews.", "Read twice."),
+                    lane("writer", "  Writes.  ", "Write."),
+                ],
+                false,
+            ),
+        )
         .await
         .unwrap();
     assert_eq!(
@@ -4606,12 +4609,16 @@ async fn importing_the_same_lanes_twice_changes_nothing_the_second_time() {
         lane("writer", "Writes.", "Write."),
     ];
     w.operator
-        .import_lanes(import(lanes.clone(), true))
+        .import_lanes(&command_line(), import(lanes.clone(), true))
         .await
         .unwrap();
     let before = w.rules.lanes(&web_page()).await.unwrap();
     w.clock.advance(Span::minutes(1));
-    let again = w.operator.import_lanes(import(lanes, true)).await.unwrap();
+    let again = w
+        .operator
+        .import_lanes(&command_line(), import(lanes, true))
+        .await
+        .unwrap();
     assert_eq!(
         outcomes(&again),
         [
@@ -4638,7 +4645,7 @@ async fn missing_lanes_are_retired_only_when_asked_and_retired_ones_are_left_alo
     let lanes = vec![lane("reviewer", "d", "t"), lane("tester", "d", "changed")];
     let kept = w
         .operator
-        .import_lanes(import(lanes.clone(), false))
+        .import_lanes(&command_line(), import(lanes.clone(), false))
         .await
         .unwrap();
     assert_eq!(
@@ -4663,7 +4670,11 @@ async fn missing_lanes_are_retired_only_when_asked_and_retired_ones_are_left_alo
         .unwrap();
     assert_eq!(tester.versions.len(), 1);
 
-    let retired = w.operator.import_lanes(import(lanes, true)).await.unwrap();
+    let retired = w
+        .operator
+        .import_lanes(&command_line(), import(lanes, true))
+        .await
+        .unwrap();
     assert_eq!(outcomes(&retired)[2..], [("writer", LaneOutcome::Retired)]);
     let writer = w.rules.lane(&web_page(), "writer".into()).await.unwrap();
     let by = writer.retired.expect("retired");
@@ -4688,20 +4699,26 @@ async fn a_lane_whose_file_was_skipped_is_not_retired_and_is_named() {
     let skipped_files = vec!["notes".to_string(), "tester".into(), "gone".into()];
     let kept = w
         .operator
-        .import_lanes(LaneImport {
-            skipped_files: skipped_files.clone(),
-            ..import(vec![lane("reviewer", "d", "t")], false)
-        })
+        .import_lanes(
+            &command_line(),
+            LaneImport {
+                skipped_files: skipped_files.clone(),
+                ..import(vec![lane("reviewer", "d", "t")], false)
+            },
+        )
         .await
         .unwrap();
     assert_eq!(outcomes(&kept), [("reviewer", LaneOutcome::Unchanged(1))]);
 
     let done = w
         .operator
-        .import_lanes(LaneImport {
-            skipped_files,
-            ..import(vec![lane("reviewer", "d", "t")], true)
-        })
+        .import_lanes(
+            &command_line(),
+            LaneImport {
+                skipped_files,
+                ..import(vec![lane("reviewer", "d", "t")], true)
+            },
+        )
         .await
         .unwrap();
     assert_eq!(
@@ -4751,10 +4768,13 @@ async fn an_import_retiring_with_no_lanes_but_skipped_files_changes_nothing() {
     let before = w.rules.lanes(&web_page()).await.unwrap();
     let error = w
         .operator
-        .import_lanes(LaneImport {
-            skipped_files: vec!["notes".into()],
-            ..import(Vec::new(), true)
-        })
+        .import_lanes(
+            &command_line(),
+            LaneImport {
+                skipped_files: vec!["notes".into()],
+                ..import(Vec::new(), true)
+            },
+        )
         .await
         .expect_err("refused");
     assert_eq!(
@@ -4765,10 +4785,13 @@ async fn an_import_retiring_with_no_lanes_but_skipped_files_changes_nothing() {
     // Without retire_missing the same import is let through.
     let done = w
         .operator
-        .import_lanes(LaneImport {
-            skipped_files: vec!["notes".into()],
-            ..import(Vec::new(), false)
-        })
+        .import_lanes(
+            &command_line(),
+            LaneImport {
+                skipped_files: vec!["notes".into()],
+                ..import(Vec::new(), false)
+            },
+        )
         .await
         .unwrap();
     assert!(done.is_empty());
@@ -4783,13 +4806,16 @@ async fn an_import_with_changes_needs_a_server_run_on_the_database() {
     // Nothing to change needs no run.
     assert!(
         operator
-            .import_lanes(import(Vec::new(), true))
+            .import_lanes(&command_line(), import(Vec::new(), true))
             .await
             .unwrap()
             .is_empty()
     );
     let error = operator
-        .import_lanes(import(vec![lane("reviewer", "d", "t")], false))
+        .import_lanes(
+            &command_line(),
+            import(vec![lane("reviewer", "d", "t")], false),
+        )
         .await
         .expect_err("no run");
     assert!(
@@ -4814,7 +4840,7 @@ async fn export_reads_every_lane_that_is_not_retired() {
         .unwrap();
     let names: Vec<String> = w
         .operator
-        .current_lanes()
+        .current_lanes(&command_line())
         .await
         .unwrap()
         .into_iter()
@@ -5639,6 +5665,67 @@ async fn every_page_an_agent_or_an_admin_asks_for_is_capped_in_the_rules() {
             .unwrap();
         assert_eq!(page.items.len(), given, "an admin asking for {asked}");
     }
+}
+
+#[tokio::test]
+async fn lane_import_and_export_check_the_operators_permissions() {
+    let w = world().await;
+    let only = |permission| Operator::new(Permissions::of(&[permission]), Audit::CommandLine);
+    lacks(
+        w.operator
+            .import_lanes(
+                &only(Permission::Read),
+                import(vec![lane("writer", "Writes.", "Write.")], false),
+            )
+            .await
+            .map(drop),
+        Permission::Change,
+    );
+    // The refused import changed nothing.
+    assert!(w.rules.lanes(&web_page()).await.unwrap().is_empty());
+    lacks(
+        w.operator
+            .current_lanes(&only(Permission::Change))
+            .await
+            .map(drop),
+        Permission::Read,
+    );
+}
+
+#[tokio::test]
+async fn lane_import_records_the_operators_author() {
+    let w = world().await;
+    let named = Operator::new(
+        Permissions::of(&[Permission::Read, Permission::Change]),
+        Audit::AdminEndpoint {
+            key_name: Some("ops".into()),
+        },
+    );
+    w.operator
+        .import_lanes(
+            &named,
+            import(
+                vec![
+                    lane("writer", "Writes.", "Write."),
+                    lane("tester", "Tests.", "Test."),
+                ],
+                false,
+            ),
+        )
+        .await
+        .unwrap();
+    w.operator
+        .import_lanes(
+            &named,
+            import(vec![lane("writer", "Writes.", "Write.")], true),
+        )
+        .await
+        .unwrap();
+    let writer = w.rules.lane(&web_page(), "writer".into()).await.unwrap();
+    assert_eq!(writer.current.saved_by_admin.as_deref(), Some("ops"));
+    let tester = w.rules.lane(&web_page(), "tester".into()).await.unwrap();
+    let retired = tester.retired.expect("retired by the second import");
+    assert_eq!(retired.by_admin.as_deref(), Some("ops"));
 }
 
 #[tokio::test]
