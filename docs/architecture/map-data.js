@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "b26984ae",
+ "commit": "e14c98f5",
  "crates": [
   {
    "bins": [
@@ -1063,6 +1063,20 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "A refusal of the server's keys, worded with the settings that name them (see `key_refusal`).",
+     "kind": "enum",
+     "path": "KeyRefused",
+     "variants": [
+      "Text",
+      "AccessKey",
+      "WebKeyReused",
+      "WebKey",
+      "AdminKeyReused",
+      "AdminKey",
+      "AdminName"
+     ]
+    },
+    {
      "doc": "Who an admitted caller is, as far as admission can tell.",
      "kind": "enum",
      "path": "Principal",
@@ -1139,6 +1153,20 @@ window.KKT_GRAPH = {
      "doc": "Why `check` refused the server's keys.",
      "kind": "enum",
      "path": "server_keys::KeyRefusal",
+     "variants": [
+      "Text",
+      "AccessKey",
+      "WebKeyReused",
+      "WebKey",
+      "AdminKeyReused",
+      "AdminKey",
+      "AdminName"
+     ]
+    },
+    {
+     "doc": "A refusal of the server's keys, worded with the settings that name them (see `key_refusal`).",
+     "kind": "enum",
+     "path": "server_keys::KeyRefused",
      "variants": [
       "Text",
       "AccessKey",
@@ -5535,6 +5563,11 @@ window.KKT_GRAPH = {
      "path": "ConfigReader"
     },
     {
+     "doc": "Why a `ConfigReader` could not read a config file's settings: its own error, passed on unread.",
+     "kind": "struct",
+     "path": "ConfigUnread"
+    },
+    {
      "doc": "The settings of the server's config file the containerized service uses.",
      "fields": [
       "name_pack",
@@ -5562,6 +5595,8 @@ window.KKT_GRAPH = {
       "HttpsDisabled",
       "NotPlain",
       "Incomplete",
+      "NoCurrentFolder",
+      "NodeUnread",
       "NotRestored"
      ]
     },
@@ -5645,6 +5680,14 @@ window.KKT_GRAPH = {
      "path": "LoginLink"
     },
     {
+     "doc": "Why the folder the person ran kkt in could not be found: the caller's own error, passed on unread.",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "NoWorkingDir"
+    },
+    {
      "doc": "Where a sharing node's login stands, as its status answer says.",
      "kind": "enum",
      "path": "NodeLogin",
@@ -5664,6 +5707,11 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "NodeStatus"
+    },
+    {
+     "doc": "Why a `SharingNode` could not read its status answer: its own error, passed on unread.",
+     "kind": "struct",
+     "path": "NodeUnread"
     },
     {
      "doc": "The network name discovered while starting the installation.",
@@ -7776,6 +7824,14 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "KeyFile"
+    },
+    {
+     "doc": "Why a `Prober` could not look at a key file or read its text: its own error, passed on unread.",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "KeyFileUnread"
     },
     {
      "doc": "An operator key file doctor checks on this machine, and the fix for a problem with it, which depends on how the server is run.",
@@ -12909,6 +12965,11 @@ window.KKT_GRAPH = {
      "doc": "The level logged for the program's own code when nothing says.",
      "kind": "const",
      "path": "DEFAULT_LOG_LEVEL"
+    },
+    {
+     "doc": "Why logging could not start, as when it has started already in this process.",
+     "kind": "struct",
+     "path": "LoggingError"
     },
     {
      "doc": "A log level setting refused: the setting's name, as the caller gave it, and why.",
@@ -19920,6 +19981,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "AdminAdmission",
+    "KeyRefused",
     "ServerKey",
     "SharedKey",
     "key_refusal",
@@ -19942,6 +20004,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AdminAdmission",
+      "KeyRefused",
       "ServerKey",
       "SharedKey",
       "key_refusal",
@@ -20430,12 +20493,15 @@ window.KKT_GRAPH = {
     "Browser",
     "Carry",
     "ConfigReader",
+    "ConfigUnread",
     "ContainerConfig",
     "Containerized",
     "InServer",
     "LoginLink",
+    "NoWorkingDir",
     "NodeLogin",
     "NodeStatus",
+    "NodeUnread",
     "ServiceContainer",
     "SharingNode",
     "Tell"
@@ -20458,7 +20524,10 @@ window.KKT_GRAPH = {
      "detail": [
       "Arg",
       "Carry",
-      "NodeLogin"
+      "ConfigUnread",
+      "NoWorkingDir",
+      "NodeLogin",
+      "NodeUnread"
      ],
      "role": "uses"
     },
@@ -20601,6 +20670,7 @@ window.KKT_GRAPH = {
     "DOCTOR_PROTOCOL_VERSION",
     "Initialized",
     "KeyFile",
+    "KeyFileUnread",
     "Prober",
     "Probing",
     "Reply",
@@ -20627,6 +20697,7 @@ window.KKT_GRAPH = {
       "DOCTOR_PROTOCOL_VERSION",
       "Initialized",
       "KeyFile",
+      "KeyFileUnread",
       "Probing",
       "Reply",
       "ReplyError",
@@ -21060,6 +21131,7 @@ window.KKT_GRAPH = {
    "items": [
     "DEFAULT_DEPENDENCY_LOG_LEVEL",
     "DEFAULT_LOG_LEVEL",
+    "LoggingError",
     "SettingError",
     "TracingLog",
     "init_logging",
@@ -21075,6 +21147,7 @@ window.KKT_GRAPH = {
      "detail": [
       "DEFAULT_DEPENDENCY_LOG_LEVEL",
       "DEFAULT_LOG_LEVEL",
+      "LoggingError",
       "SettingError",
       "init_logging",
       "init_stderr_logging",
@@ -21789,12 +21862,14 @@ window.KKT_GRAPH = {
     "Browser",
     "Carry",
     "ConfigReader",
+    "ConfigUnread",
     "ContainerConfig",
     "Containerized",
     "InServer",
     "Inputs",
     "KeyCopies",
     "LoginLink",
+    "NoWorkingDir",
     "ServiceContainer",
     "Sharing",
     "Tell",
@@ -21810,6 +21885,8 @@ window.KKT_GRAPH = {
      "detail": [
       "Arg",
       "Carry",
+      "ConfigUnread",
+      "NoWorkingDir",
       "testing"
      ],
      "role": "uses"
@@ -22038,6 +22115,7 @@ window.KKT_GRAPH = {
    "from": "kkt-admission",
    "items": [
     "KeyText",
+    "NameFileError",
     "SettingError",
     "bound_in",
     "check_access_key"
@@ -22049,6 +22127,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "KeyText",
+      "NameFileError",
       "SettingError",
       "bound_in",
       "check_access_key"
@@ -25596,6 +25675,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "ConfigUnread",
     "ContainerConfig",
     "Existing",
     "InServer",
@@ -25821,6 +25901,7 @@ window.KKT_GRAPH = {
     "Answered",
     "Initialized",
     "KeyFile",
+    "KeyFileUnread",
     "Probing",
     "testing::Memory"
    ],
@@ -26234,6 +26315,7 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "ConfigReader",
+    "ConfigUnread",
     "ContainerConfig",
     "ContainerError",
     "Existing",
@@ -26256,6 +26338,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ConfigReader",
+      "ConfigUnread",
       "ContainerError",
       "KeyCopy",
       "Login",
@@ -26284,6 +26367,7 @@ window.KKT_GRAPH = {
     "Check",
     "Initialized",
     "KeyFile",
+    "KeyFileUnread",
     "Prober",
     "Probing",
     "report",
@@ -26298,6 +26382,7 @@ window.KKT_GRAPH = {
       "Answered",
       "Check",
       "Initialized",
+      "KeyFileUnread",
       "Probing",
       "report"
      ],

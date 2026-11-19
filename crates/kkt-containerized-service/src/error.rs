@@ -48,6 +48,13 @@ pub enum ContainerError {
     /// The managed folder's install is not one setup finished, or its
     /// settings file lacks what a finished one has; `reason` says what.
     Incomplete { reason: String },
+    /// The folder the person ran kkt in could not be found, so a path they
+    /// typed has nothing to be relative to:
+    /// `could not find the current folder: {cause}`.
+    NoCurrentFolder(NoWorkingDir),
+    /// The sharing node's status answer could not be read:
+    /// `unexpected output from {command}: {cause}`.
+    NodeUnread { command: String, cause: NodeUnread },
     /// An upgrade failed, and the previous settings could not be put back.
     NotRestored {
         error: Box<ContainerError>,
@@ -165,6 +172,12 @@ impl fmt::Display for ContainerError {
                 write!(f, "{path} is not a plain path under the config home")
             }
             ContainerError::Incomplete { reason } => f.write_str(reason),
+            ContainerError::NoCurrentFolder(cause) => {
+                write!(f, "could not find the current folder: {cause}")
+            }
+            ContainerError::NodeUnread { command, cause } => {
+                write!(f, "unexpected output from {command}: {cause}")
+            }
             ContainerError::NotRestored { error, restore } => write!(
                 f,
                 "unexpected output from upgrade recovery: {error}; could not restore the previous settings: {restore}"
@@ -173,4 +186,68 @@ impl fmt::Display for ContainerError {
     }
 }
 
-impl std::error::Error for ContainerError {}
+impl std::error::Error for ContainerError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            ContainerError::NoCurrentFolder(cause) => Some(cause),
+            ContainerError::NodeUnread { cause, .. } => Some(cause),
+            _ => None,
+        }
+    }
+}
+
+/// Why a [`ConfigReader`](crate::ConfigReader) could not read a config
+/// file's settings: its own error, passed on unread. Its text starts with
+/// the name of the setting that is wrong.
+#[derive(Debug)]
+pub struct ConfigUnread(pub Box<dyn std::error::Error + Send + Sync>);
+
+/// Why the folder the person ran kkt in could not be found: the caller's
+/// own error, passed on unread. Shared, since every backup is told it.
+/// Two are equal when they say the same.
+#[derive(Debug, Clone)]
+pub struct NoWorkingDir(pub std::sync::Arc<dyn std::error::Error + Send + Sync>);
+
+impl NoWorkingDir {
+    /// `cause`, as why the folder could not be found.
+    pub fn new(cause: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> NoWorkingDir {
+        NoWorkingDir(std::sync::Arc::from(cause.into()))
+    }
+}
+
+/// Why a [`SharingNode`](crate::SharingNode) could not read its status
+/// answer: its own error, passed on unread. Two are equal when they say the
+/// same.
+#[derive(Debug)]
+pub struct NodeUnread(pub Box<dyn std::error::Error + Send + Sync>);
+
+/// Each says what its cause says, and its cause's source is its own.
+macro_rules! passed_on {
+    ($($name:ident),*) => {$(
+        impl fmt::Display for $name {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                self.0.fmt(f)
+            }
+        }
+        impl std::error::Error for $name {
+            fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+                self.0.source()
+            }
+        }
+    )*};
+}
+passed_on!(ConfigUnread, NoWorkingDir, NodeUnread);
+
+impl PartialEq for NoWorkingDir {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_string() == other.to_string()
+    }
+}
+impl Eq for NoWorkingDir {}
+
+impl PartialEq for NodeUnread {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_string() == other.to_string()
+    }
+}
+impl Eq for NodeUnread {}

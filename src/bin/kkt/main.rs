@@ -61,7 +61,7 @@ async fn main() -> std::process::ExitCode {
         ),
     };
     let result = match (logging, task) {
-        (Err(e), _) => Err(e),
+        (Err(e), _) => Err(e.to_string()),
         (Ok(()), Err(e)) => Err(e.to_string()),
         (Ok(()), Ok(task)) => {
             run(

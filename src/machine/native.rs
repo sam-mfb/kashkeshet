@@ -194,7 +194,9 @@ type Containerized = kkt_containerized_service::Containerized<kkt_container_dock
 fn containerized() -> Containerized {
     // The folder kkt was run in, read once: the paths a person types are
     // relative to it.
-    let working_dir = OsMachine.current_dir().map_err(|e| e.to_string());
+    let working_dir = OsMachine
+        .current_dir()
+        .map_err(kkt_containerized_service::NoWorkingDir::new);
     kkt_containerized_service::Containerized::new(
         kkt_container_docker::Docker::new(),
         Box::new(TerminalTell),

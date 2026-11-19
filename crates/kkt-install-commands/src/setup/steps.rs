@@ -914,7 +914,10 @@ mod tests {
             _: &str,
             _: &Path,
             _: Option<&Path>,
-        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
+        ) -> Result<
+            kkt_containerized_service::ContainerConfig,
+            kkt_containerized_service::ConfigUnread,
+        > {
             unreachable!("container_configs")
         }
     }
@@ -1105,7 +1108,10 @@ mod tests {
     }
     struct NoProbes;
     impl kkt_diagnostics::Prober for NoProbes {
-        fn key_file(&self, _: &Path) -> Result<kkt_diagnostics::KeyFile, String> {
+        fn key_file(
+            &self,
+            _: &Path,
+        ) -> Result<kkt_diagnostics::KeyFile, kkt_diagnostics::KeyFileUnread> {
             unreachable!("prober")
         }
         fn answer<'a>(

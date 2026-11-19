@@ -64,7 +64,7 @@ fn over<P: Projects>(
         Box::new(Node),
         Box::new(NoBrowser),
         Box::new(KeysIn(Rc::new(kkt_keys::testing::Memory::new()))),
-        working_dir,
+        working_dir.map_err(crate::NoWorkingDir::new),
     )
 }
 
@@ -618,7 +618,12 @@ fn the_web_keys_copy_is_compared_without_showing_either_key() {
 struct Packs;
 
 impl ConfigReader for Packs {
-    fn settings(&self, text: &str, _: &Path, _: Option<&Path>) -> Result<ContainerConfig, String> {
+    fn settings(
+        &self,
+        text: &str,
+        _: &Path,
+        _: Option<&Path>,
+    ) -> Result<ContainerConfig, crate::ConfigUnread> {
         Ok(ContainerConfig {
             name_pack: text.strip_prefix("pack=").map(|p| p.trim().to_string()),
             max_lane_chars: None,
@@ -687,6 +692,54 @@ fn status_says_what_is_there_and_running_and_the_name_pack_serve_uses() {
     assert_eq!(status_of(configured).name_pack, Ok("stones".into()));
 }
 
+/// A config reader that refuses every config file, naming the setting.
+struct Refuses;
+
+impl ConfigReader for Refuses {
+    fn settings(
+        &self,
+        _: &str,
+        _: &Path,
+        _: Option<&Path>,
+    ) -> Result<ContainerConfig, crate::ConfigUnread> {
+        Err(crate::ConfigUnread("name_pack: no such pack".into()))
+    }
+}
+
+#[test]
+fn a_container_config_the_reader_refuses_is_said_with_its_reason() {
+    let configured = local(LOCAL_ENV)
+        .with_config("kkt", serving(&["serve"]))
+        .answering(|request| match request {
+            Request::Exec { args, .. } if args[0] == "cat" => {
+                Ok((Some(0), "pack=nowhere\n".into(), String::new()))
+            }
+            _ => Ok((Some(0), String::new(), String::new())),
+        });
+    configured
+        .up(
+            &Project {
+                folder: &folder(),
+                shielded: &[],
+            },
+            &[],
+            Output::Captured,
+        )
+        .unwrap();
+    let state = service(configured)
+        .status(
+            &folder(),
+            &Refuses,
+            "default-pack",
+            Path::new("kkt/config.toml"),
+        )
+        .unwrap();
+    assert_eq!(
+        state.name_pack,
+        Err("unreadable container config: name_pack: no such pack".into())
+    );
+}
+
 #[test]
 fn a_name_pack_with_no_container_is_unidentified() {
     let project_folder = folder();
@@ -726,7 +779,7 @@ impl SharingNode for Node {
 
     /// `in <name> <https|plain>`, `out`, `out <link>`, or another word, a
     /// state; anything empty cannot be read.
-    fn status(&self, answer: &str) -> Result<NodeStatus, String> {
+    fn status(&self, answer: &str) -> Result<NodeStatus, crate::NodeUnread> {
         let words: Vec<&str> = answer.split_whitespace().collect();
         let node = |login, link: Option<&str>, name: Option<&str>, https| NodeStatus {
             login,
@@ -735,7 +788,7 @@ impl SharingNode for Node {
             https,
         };
         match words.as_slice() {
-            [] => Err("no BackendState".into()),
+            [] => Err(crate::NodeUnread("no BackendState".into())),
             ["in", name, https] => Ok(node(
                 NodeLogin::LoggedIn,
                 None,
@@ -776,7 +829,7 @@ impl SharingNode for OwnCommand {
     fn login(&self, answer: &str) -> Option<NodeLogin> {
         Node.login(answer)
     }
-    fn status(&self, answer: &str) -> Result<NodeStatus, String> {
+    fn status(&self, answer: &str) -> Result<NodeStatus, crate::NodeUnread> {
         Node.status(answer)
     }
 }

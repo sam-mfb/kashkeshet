@@ -18,7 +18,7 @@ mod shared_key;
 
 use any_bearer::AnyBearer;
 pub use any_bearer::BearerToken;
-pub use server_keys::key_refusal;
+pub use server_keys::{KeyRefused, key_refusal};
 pub use shared_key::SharedKey;
 
 mod open;

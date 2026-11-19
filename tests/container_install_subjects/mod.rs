@@ -38,7 +38,8 @@ pub fn subject(name: &str, browser: Box<dyn Browser>, host: Scripted) -> Box<dyn
             Box::new(TailscaleNode),
             browser,
             Box::new(KeyCopiesOn(host.clone())),
-            host.current_folder().map_err(|e| e.to_string()),
+            host.current_folder()
+                .map_err(kkt_containerized_service::NoWorkingDir::new),
         )),
         other => panic!("no subject {other}"),
     }

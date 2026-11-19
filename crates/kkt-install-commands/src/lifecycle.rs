@@ -848,8 +848,12 @@ mod tests {
             _: &str,
             _: &Path,
             _: Option<&Path>,
-        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
+        ) -> Result<
+            kkt_containerized_service::ContainerConfig,
+            kkt_containerized_service::ConfigUnread,
+        > {
             self.refused("container_configs.settings")
+                .map_err(|said| kkt_containerized_service::ConfigUnread(said.into()))
         }
     }
 
@@ -907,7 +911,10 @@ mod tests {
     // A `Prober` must be `Sync`, so it keeps no log: it fails the test.
     struct NoProbes;
     impl kkt_diagnostics::Prober for NoProbes {
-        fn key_file(&self, _: &Path) -> Result<kkt_diagnostics::KeyFile, String> {
+        fn key_file(
+            &self,
+            _: &Path,
+        ) -> Result<kkt_diagnostics::KeyFile, kkt_diagnostics::KeyFileUnread> {
             panic!("uninstall read a key file to probe")
         }
         fn answer<'a>(

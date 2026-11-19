@@ -28,7 +28,7 @@ pub fn init_logging(
     own_targets: &[&str],
     own: Level,
     dependencies: Level,
-) -> Result<(), String> {
+) -> Result<(), LoggingError> {
     let filter = log_filter(own_targets, own, dependencies);
     let format = tracing_subscriber::fmt::layer().with_target(false);
     let started = match log_file {
@@ -43,8 +43,14 @@ pub fn init_logging(
             .with(filter)
             .try_init(),
     };
-    started.map_err(|e| format!("could not start logging: {e}"))
+    started.map_err(LoggingError)
 }
+/// Why logging could not start, as when it has started already in this
+/// process. The cause is the logging library's, given only as an error.
+#[derive(Debug, thiserror::Error)]
+#[error("could not start logging: {0}")]
+pub struct LoggingError(#[source] tracing_subscriber::util::TryInitError);
+
 /// Whether logging has started in this process, by either function above.
 pub fn logging_started() -> bool {
     tracing::dispatcher::has_been_set()
@@ -52,7 +58,7 @@ pub fn logging_started() -> bool {
 
 /// Sends the log to stderr: the program's own lines, from `own_targets`, at
 /// `own` (see [`own_log_filter`]).
-pub fn init_stderr_logging(own_targets: &[&str], own: Level) -> Result<(), String> {
+pub fn init_stderr_logging(own_targets: &[&str], own: Level) -> Result<(), LoggingError> {
     tracing_subscriber::registry()
         .with(
             tracing_subscriber::fmt::layer()
@@ -62,7 +68,7 @@ pub fn init_stderr_logging(own_targets: &[&str], own: Level) -> Result<(), Strin
         )
         .with(own_log_filter(own_targets, own))
         .try_init()
-        .map_err(|e| format!("could not start logging: {e}"))
+        .map_err(LoggingError)
 }
 
 /// The program's own lines at `own`, and none from the libraries it uses.

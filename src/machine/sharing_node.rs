@@ -2,7 +2,7 @@
 //! to the sharing node kkt-containerized-service reads a shared install's
 //! login through.
 
-use kkt_containerized_service::{NodeLogin, NodeStatus, SharingNode};
+use kkt_containerized_service::{NodeLogin, NodeStatus, NodeUnread, SharingNode};
 use kkt_remote_access_tailscale::Status;
 use kkt_remote_access_tailscale::Tailscale;
 
@@ -20,8 +20,8 @@ impl SharingNode for TailscaleNode {
         Some(login(&status))
     }
 
-    fn status(&self, answer: &str) -> Result<NodeStatus, String> {
-        let status = Tailscale::read_status(answer).map_err(|e| e.to_string())?;
+    fn status(&self, answer: &str) -> Result<NodeStatus, NodeUnread> {
+        let status = Tailscale::read_status(answer).map_err(|e| NodeUnread(Box::new(e)))?;
         Ok(NodeStatus {
             login: login(&status),
             https: !status.cert_domains.is_empty(),
@@ -94,7 +94,10 @@ mod tests {
             }
         );
         assert_eq!(
-            TailscaleNode.status(r#"{"Self":{}}"#).unwrap_err(),
+            TailscaleNode
+                .status(r#"{"Self":{}}"#)
+                .unwrap_err()
+                .to_string(),
             "no BackendState"
         );
         assert!(TailscaleNode.status("not json").is_err());

@@ -427,7 +427,12 @@ async fn log_in(
             // The container is still starting.
             return Ok(None);
         }
-        let node = sharing.status(&ran.stdout).map_err(|e| unexpected(&e))?;
+        let node = sharing
+            .status(&ran.stdout)
+            .map_err(|cause| ContainerError::NodeUnread {
+                command: said_command.clone(),
+                cause,
+            })?;
         match node.login {
             NodeLogin::LoggedIn => Ok(Some(node)),
             NodeLogin::NeedsLogin => {

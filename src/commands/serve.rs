@@ -46,10 +46,8 @@ pub enum ServeError {
     Pending(#[from] PendingError),
     #[error(transparent)]
     Log(#[from] LogFileError),
-    /// The log could not be started. kkt-log-tracing gives its words as
-    /// text, until that contract gives a type.
-    #[error("{0}")]
-    Logging(String),
+    #[error(transparent)]
+    Logging(kkt_log_tracing::LoggingError),
     #[error("could not record this server run: {0}")]
     RecordRun(#[source] kkt_rules::StoreError),
     #[error("could not listen for shutdown signals: {0}")]

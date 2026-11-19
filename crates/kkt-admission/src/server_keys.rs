@@ -5,7 +5,7 @@
 //! through [`KeyTexts`], and names the setting in each refusal.
 
 use crate::{Admission, ServerKey, SharedKey};
-use kkt_keys::{KeyText, SettingError, bound_in};
+use kkt_keys::{KeyText, NameFileError, SettingError, bound_in};
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 
 /// The texts of the server's key files. [`check`] asks for them in the
@@ -52,8 +52,8 @@ pub enum KeyRefusal<E> {
     AdminKeyReused,
     /// The admin key is not one `check_access_key` accepts.
     AdminKey(SettingError),
-    /// The admin name file is not one `bound_in` reads; says why.
-    AdminName(String),
+    /// The admin name file is not one `bound_in` reads.
+    AdminName(NameFileError),
 }
 
 /// Checks the server's keys, in this order: the access key's form; that
@@ -93,7 +93,7 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
             let name = match texts.admin_names().map_err(KeyRefusal::Text)? {
                 None => None,
                 Some(names) => bound_in(&names, &key.text, MAX_ADMIN_NAME_CHARS)
-                    .map_err(|e| KeyRefusal::AdminName(e.to_string()))?,
+                    .map_err(KeyRefusal::AdminName)?,
             };
             (Some(shared), name)
         }
@@ -111,29 +111,89 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
 /// it. `access_key_set_in` is the config file that set the access key, when
 /// it was set there and not by a flag. `admin_names` is the path of the name
 /// file beside the admin key, to name in a refusal of the admin name.
-pub fn key_refusal(
-    refusal: KeyRefusal<String>,
+pub fn key_refusal<E>(
+    refusal: KeyRefusal<E>,
     access_key_set_in: Option<&str>,
     admin_names: Option<&str>,
-) -> String {
+) -> KeyRefused<E> {
     match refusal {
-        KeyRefusal::Text(e) => e,
-        KeyRefusal::AccessKey(e) => match access_key_set_in {
-            Some(file) => format!("invalid setting: {e} (set in {file})"),
-            None => format!("invalid setting: {e}"),
+        KeyRefusal::Text(e) => KeyRefused::Text(e),
+        KeyRefusal::AccessKey(problem) => KeyRefused::AccessKey {
+            problem,
+            set_in: access_key_set_in.map(str::to_string),
         },
-        KeyRefusal::WebKeyReused => {
-            "invalid setting: web_key_file must contain a different key from access_key_file".into()
+        KeyRefusal::WebKeyReused => KeyRefused::WebKeyReused,
+        KeyRefusal::WebKey(e) => KeyRefused::WebKey(e),
+        KeyRefusal::AdminKeyReused => KeyRefused::AdminKeyReused,
+        KeyRefusal::AdminKey(e) => KeyRefused::AdminKey(e),
+        KeyRefusal::AdminName(problem) => KeyRefused::AdminName {
+            problem,
+            names: admin_names.map(str::to_string),
+        },
+    }
+}
+
+/// A refusal of the server's keys, worded with the settings that name them
+/// (see [`key_refusal`]). `E` is why a text could not be had.
+#[derive(Debug)]
+pub enum KeyRefused<E> {
+    /// A text could not be had: its own error, said as it is.
+    Text(E),
+    /// "invalid setting: {problem}", with " (set in {file})" when a config
+    /// file set the access key.
+    AccessKey {
+        problem: SettingError,
+        set_in: Option<String>,
+    },
+    WebKeyReused,
+    /// "invalid setting: web_key_file: {rule}".
+    WebKey(SettingError),
+    AdminKeyReused,
+    /// "invalid setting: admin_key_file: {rule}".
+    AdminKey(SettingError),
+    /// "invalid setting: admin name in {names}: {problem}", or without the
+    /// place when it is not known.
+    AdminName {
+        problem: NameFileError,
+        names: Option<String>,
+    },
+}
+
+impl<E: std::fmt::Display> std::fmt::Display for KeyRefused<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KeyRefused::Text(e) => e.fmt(f),
+            KeyRefused::AccessKey { problem, set_in } => match set_in {
+                Some(file) => write!(f, "invalid setting: {problem} (set in {file})"),
+                None => write!(f, "invalid setting: {problem}"),
+            },
+            KeyRefused::WebKeyReused => f.write_str(
+                "invalid setting: web_key_file must contain a different key from access_key_file",
+            ),
+            KeyRefused::WebKey(e) => write!(f, "invalid setting: web_key_file: {}", e.rule),
+            KeyRefused::AdminKeyReused => f.write_str(
+                "invalid setting: admin_key_file must contain a different key from \
+                 access_key_file and web_key_file",
+            ),
+            KeyRefused::AdminKey(e) => write!(f, "invalid setting: admin_key_file: {}", e.rule),
+            KeyRefused::AdminName { problem, names } => match names {
+                Some(names) => write!(f, "invalid setting: admin name in {names}: {problem}"),
+                None => write!(f, "invalid setting: admin name: {problem}"),
+            },
         }
-        KeyRefusal::WebKey(e) => format!("invalid setting: web_key_file: {}", e.rule),
-        KeyRefusal::AdminKeyReused => "invalid setting: admin_key_file must contain a different \
-            key from access_key_file and web_key_file"
-            .into(),
-        KeyRefusal::AdminKey(e) => format!("invalid setting: admin_key_file: {}", e.rule),
-        KeyRefusal::AdminName(e) => match admin_names {
-            Some(names) => format!("invalid setting: admin name in {names}: {e}"),
-            None => format!("invalid setting: admin name: {e}"),
-        },
+    }
+}
+
+/// A text's error is passed on as it is: its own source is this one's.
+impl<E: std::error::Error + 'static> std::error::Error for KeyRefused<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            KeyRefused::Text(e) => e.source(),
+            KeyRefused::AccessKey { problem, .. } => Some(problem),
+            KeyRefused::WebKey(e) | KeyRefused::AdminKey(e) => Some(e),
+            KeyRefused::AdminName { problem, .. } => Some(problem),
+            KeyRefused::WebKeyReused | KeyRefused::AdminKeyReused => None,
+        }
     }
 }
 
@@ -341,11 +401,12 @@ mod tests {
             names: Some("sentinel\n".into()),
             ..all_keys()
         };
+        let refused = refusal(&mut texts);
+        assert_eq!(refused, KeyRefusal::AdminName(NameFileError::NoKeyHash));
         assert_eq!(
-            refusal(&mut texts),
-            KeyRefusal::AdminName(
-                "its second line must be `key-sha256: ` and a hash of the admin key".into()
-            )
+            key_refusal(refused, None, None).to_string(),
+            "invalid setting: admin name: its second line must be `key-sha256: ` and a hash of \
+             the admin key"
         );
     }
 
@@ -438,6 +499,8 @@ mod tests {
     #[test]
     fn a_refusal_is_worded_naming_the_setting() {
         let rule = |name| SettingError::new(name, "must not be empty");
+        // A name file with no key hash, refused as kkt-keys refuses it.
+        let no_hash = || kkt_keys::bound_in("admin-ops\n", "k", 40).expect_err("no key hash");
         let cases = [
             (
                 KeyRefusal::Text("could not read /k".to_string()),
@@ -483,20 +546,20 @@ mod tests {
                 "invalid setting: admin_key_file: must not be empty",
             ),
             (
-                KeyRefusal::AdminName("bad".to_string()),
+                KeyRefusal::AdminName(no_hash()),
                 None,
                 Some("/k/admin-key.name"),
-                "invalid setting: admin name in /k/admin-key.name: bad",
+                "invalid setting: admin name in /k/admin-key.name: its second line must be `key-sha256: ` and a hash of the admin key",
             ),
             (
-                KeyRefusal::AdminName("bad".to_string()),
+                KeyRefusal::AdminName(no_hash()),
                 None,
                 None,
-                "invalid setting: admin name: bad",
+                "invalid setting: admin name: its second line must be `key-sha256: ` and a hash of the admin key",
             ),
         ];
         for (refusal, set_in, names, said) in cases {
-            assert_eq!(key_refusal(refusal, set_in, names), said);
+            assert_eq!(key_refusal(refusal, set_in, names).to_string(), said);
         }
     }
 }

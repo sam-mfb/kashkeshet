@@ -13,7 +13,20 @@ pub struct KeyFile {
     /// The file's permission bits, where the system has them.
     pub mode: Option<u32>,
     /// The file's text, or why it could not be read.
-    pub text: Result<String, String>,
+    pub text: Result<String, KeyFileUnread>,
+}
+
+/// Why a [`Prober`] could not look at a key file or read its text: its own
+/// error, passed on unread. Shared, so a [`KeyFile`] can be copied.
+#[derive(Debug, Clone, thiserror::Error)]
+#[error(transparent)]
+pub struct KeyFileUnread(pub std::sync::Arc<dyn std::error::Error + Send + Sync>);
+
+impl KeyFileUnread {
+    /// `cause`, as why a key file could not be looked at or read.
+    pub fn new(cause: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> KeyFileUnread {
+        KeyFileUnread(std::sync::Arc::from(cause.into()))
+    }
 }
 
 /// An HTTP status: its code, and its standard reason phrase where it has
@@ -84,7 +97,7 @@ pub type Probing<'a, T> = Pin<Box<dyn Future<Output = Result<T, Unprobed>> + Sen
 pub trait Prober: Sync {
     /// What the key file at `path` holds. `Err` says why the file could not
     /// be looked at.
-    fn key_file(&self, path: &Path) -> Result<KeyFile, String>;
+    fn key_file(&self, path: &Path) -> Result<KeyFile, KeyFileUnread>;
 
     /// A plain GET of `url`.
     fn answer<'a>(&'a self, url: &'a str) -> Probing<'a, Answered>;

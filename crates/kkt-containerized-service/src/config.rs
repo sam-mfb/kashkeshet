@@ -24,5 +24,5 @@ pub trait ConfigReader {
         text: &str,
         dir: &Path,
         home: Option<&Path>,
-    ) -> Result<ContainerConfig, String>;
+    ) -> Result<ContainerConfig, crate::ConfigUnread>;
 }

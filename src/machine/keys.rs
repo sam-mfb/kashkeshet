@@ -75,10 +75,8 @@ pub enum KeyTextError {
 pub enum ServerKeysError {
     #[error(transparent)]
     Text(#[from] KeyTextError),
-    /// kkt-admission's `key_refusal` gives its words as text, until that
-    /// contract gives a type.
-    #[error("{0}")]
-    Refused(String),
+    #[error(transparent)]
+    Refused(kkt_admission::KeyRefused<KeyTextError>),
 }
 
 /// Why the access key in a file could not be used.
