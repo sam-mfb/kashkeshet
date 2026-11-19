@@ -60,6 +60,7 @@ async fn main() -> std::process::ExitCode {
             DEFAULT_DEPENDENCY_LOG_LEVEL,
         ),
     };
+    let is_serve = matches!(task, Ok(Task::Serve { .. }));
     let result = match (logging, task) {
         (Err(e), _) => Err(CommandError::from(e)),
         (Ok(()), Err(e)) => Err(CommandError::from(e)),
@@ -76,16 +77,10 @@ async fn main() -> std::process::ExitCode {
     match result {
         Ok(code) => code,
         Err(e) => {
-            // An error from before logging started still needs saying.
-            if kkt_log_tracing::logging_started()
-                || init_logging(
-                    None,
-                    LOG_OWN_TARGETS,
-                    DEFAULT_LOG_LEVEL,
-                    DEFAULT_DEPENDENCY_LOG_LEVEL,
-                )
-                .is_ok()
-            {
+            // `kkt serve` logs to its running log once started; every other
+            // command (and `serve` before its log starts) prints plainly on
+            // standard error.
+            if is_serve && kkt_log_tracing::logging_started() {
                 TracingLog.record(Level::Error, module_path!(), format_args!("{e}"), &[]);
             } else {
                 Terminal.errors(format_args!("error: {e}\n"));

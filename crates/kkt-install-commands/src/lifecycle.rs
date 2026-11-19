@@ -216,6 +216,14 @@ pub async fn status<D: ServiceDefaults>(
     };
     let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
     let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
+    let said = kkt_deployment::status(
+        recorded.as_ref().map(deployment::recorded).as_ref(),
+        &deployment::setup_not_finished(&unfinished, env, platform),
+        &deployment::found_without_record(&unrecorded),
+    );
+    for line in &said.lines {
+        parts.output.output(format_args!("{line}\n"));
+    }
     if let Some(path) = local_web_key(parts, found_unfinished, found_unrecorded)? {
         parts.output.output(format_args!("{}", web_key_line(&path)));
     }
@@ -238,14 +246,6 @@ pub async fn status<D: ServiceDefaults>(
         if let Some(line) = admin_name_line(parts.key_files, &path, &key, "Admin name")? {
             parts.output.output(format_args!("{line}\n"));
         }
-    }
-    let said = kkt_deployment::status(
-        recorded.as_ref().map(deployment::recorded).as_ref(),
-        &deployment::setup_not_finished(&unfinished, env, platform),
-        &deployment::found_without_record(&unrecorded),
-    );
-    for line in &said.lines {
-        parts.output.output(format_args!("{line}\n"));
     }
     match said.then? {
         kkt_deployment::StatusThen::Service => {
@@ -534,8 +534,12 @@ pub(crate) fn docker_status_lines(
     });
     lines.push(format!("Docker folder: {}\n", folder.display()));
     lines.push(format!(
-        "Settings present: {}\nRunning: {}\nVersion: {}\nTailscale: {}\n",
-        state.files_present,
+        "Settings file: {}\nRunning: {}\nVersion: {}\nTailscale: {}\n",
+        if state.files_present {
+            "present"
+        } else {
+            "missing"
+        },
         state.running,
         state.version.as_deref().unwrap_or("unknown"),
         state.sharing
@@ -633,7 +637,7 @@ mod tests {
                 format!("Name pack: {pack}\n"),
                 "Docker folder: /d\n".to_string(),
                 format!(
-                    "Settings present: true\nRunning: true\nVersion: {version}\nTailscale: true\n"
+                    "Settings file: present\nRunning: true\nVersion: {version}\nTailscale: true\n"
                 ),
             ]
         };
@@ -653,6 +657,7 @@ mod tests {
         want.push("Tailscale login: Starting\n".into());
         assert_eq!(docker_status_lines(&state, folder), want);
         state.login = None;
+        state.files_present = false;
         state.name_pack = Err("no config".into());
         state.version = None;
         assert_eq!(
@@ -660,7 +665,7 @@ mod tests {
             vec![
                 "Name pack: unavailable (no config)\n".to_string(),
                 "Docker folder: /d\n".to_string(),
-                "Settings present: true\nRunning: true\nVersion: unknown\nTailscale: true\n"
+                "Settings file: missing\nRunning: true\nVersion: unknown\nTailscale: true\n"
                     .to_string(),
             ]
         );
@@ -2702,6 +2707,199 @@ mod tests {
         assert_eq!(
             upgrade_with(&Upgrading("ready")),
             (Err("`service ready` failed: refused".to_string()), 0)
+        );
+    }
+
+    #[test]
+    fn service_install_web_key_hint_names_the_real_place() {
+        let untouched = Untouched::default();
+        let empty = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let said = Said::default();
+        let remote = Tailscale::default();
+        let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> { Ok(()) };
+        let key_files = kkt_keys::testing::Memory::new();
+        let backups = kkt_backup::testing::Memory::new();
+        let service = kkt_bare_service::testing::Memory::new();
+        let entropy = kkt_entropy::testing::SeqEntropy::new(0);
+        let show_hint = |setup_files: &dyn crate::SetupFiles, key: &str| {
+            let parts = InstallParts {
+                container: &empty,
+                container_configs: &untouched,
+                service: &service,
+                try_bind: &try_bind,
+                remote: &remote,
+                clients: &untouched,
+                client_command: &untouched,
+                prober: &NoProbes,
+                import_lanes: &untouched,
+                connection: &untouched,
+                clock: std::sync::Arc::new(kkt_clock::testing::FixedClock::new(
+                    kkt_clock::Time::from_parts(2026, 11, 19, 12, 0, 0).expect("a time"),
+                )),
+                serve: &Defaulted,
+                service_defaults: &untouched,
+                setup_files,
+                key_files: &key_files,
+                entropy: &entropy,
+                database: &Present,
+                backups: &backups,
+                output: &said,
+                mcp_path: "/mcp",
+                login_link: &untouched,
+                lines: &untouched,
+                config_file: &untouched,
+            };
+            service::web_key_show_command(&parts, Path::new(key))
+        };
+
+        let service_record = OldService::default();
+        assert_eq!(
+            show_hint(&service_record, "/home/k/.config/kkt/web-key"),
+            "kkt key show --web"
+        );
+        assert_eq!(
+            show_hint(&service_record, "/custom/dir/web-key"),
+            "kkt key show --web --key-file '/custom/dir/web-key'"
+        );
+        assert_eq!(
+            show_hint(&service_record, "/tmp/my keys/web-key"),
+            "kkt key show --web --key-file '/tmp/my keys/web-key'"
+        );
+
+        struct Recorded(Option<setup::Record>);
+        impl crate::SetupFiles for Recorded {
+            fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
+                Ok(self.0.clone())
+            }
+            fn read_unfinished(
+                &self,
+                _: &Path,
+            ) -> Result<Option<setup::Unfinished>, crate::PartError> {
+                Ok(None)
+            }
+            fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), crate::PartError> {
+                unreachable!()
+            }
+            fn write_unfinished(
+                &self,
+                _: &Path,
+                _: &setup::Unfinished,
+            ) -> Result<(), crate::PartError> {
+                unreachable!()
+            }
+            fn remove_unfinished(&self, _: &Path) -> Result<(), crate::PartError> {
+                unreachable!()
+            }
+            fn kkt_path(&self) -> Result<PathBuf, crate::PartError> {
+                unreachable!()
+            }
+            fn path_dirs(&self) -> Vec<PathBuf> {
+                unreachable!()
+            }
+            fn on_path(&self, _: &[PathBuf], _: &str) -> bool {
+                unreachable!()
+            }
+            fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
+                Ok(path.to_path_buf())
+            }
+            fn program_path(&self) -> std::io::Result<PathBuf> {
+                Ok(PathBuf::from("/bin/kkt"))
+            }
+            fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+                Ok(path.to_path_buf())
+            }
+            fn remove_record(&self, _: &Path) -> Result<(), crate::PartError> {
+                unreachable!()
+            }
+        }
+        let client_record = Recorded(Some(setup::Record {
+            mode: setup::Mode::Client,
+            written_by: "1.0.0".into(),
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: None,
+            clients: None,
+        }));
+        assert_eq!(
+            show_hint(&client_record, "/home/k/.config/kkt/web-key"),
+            "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
+        );
+        // A service record pointing at another key file: bare `kkt key show --web`
+        // would read that other key, not the new default web key.
+        let other_service_record = Recorded(Some(setup::Record {
+            mode: setup::Mode::Service { tailscale: false },
+            written_by: "1.0.0".into(),
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: Some(PathBuf::from("/other/access-key")),
+            clients: None,
+        }));
+        assert_eq!(
+            show_hint(&other_service_record, "/home/k/.config/kkt/web-key"),
+            "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
+        );
+        // With no setup record, the hint still names the explicit file.
+        let no_record = Recorded(None);
+        assert_eq!(
+            show_hint(&no_record, "/home/k/.config/kkt/web-key"),
+            "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
+        );
+    }
+
+    #[test]
+    fn status_prints_mode_before_web_key() {
+        let env = Env {
+            home: Some(PathBuf::from("/home/k")),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let untouched = Untouched::default();
+        let empty = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let said = Said::default();
+        let remote = Tailscale::default();
+        let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> { Ok(()) };
+        let key_files = kkt_keys::testing::Memory::new()
+            .with_dir("/home/k/.config/kkt")
+            .with_file("/home/k/.config/kkt/access-key", "key\n")
+            .with_file("/home/k/.config/kkt/web-key", "web\n");
+        let backups = kkt_backup::testing::Memory::new();
+        let service = kkt_bare_service::testing::Memory::new();
+        let record = OldService::default();
+        let parts = InstallParts {
+            container: &empty,
+            container_configs: &untouched,
+            service: &service,
+            try_bind: &try_bind,
+            remote: &remote,
+            clients: &untouched,
+            client_command: &untouched,
+            prober: &NoProbes,
+            import_lanes: &untouched,
+            connection: &untouched,
+            clock: std::sync::Arc::new(kkt_clock::testing::FixedClock::new(
+                kkt_clock::Time::from_parts(2026, 11, 19, 12, 0, 0).expect("a time"),
+            )),
+            serve: &Defaulted,
+            service_defaults: &untouched,
+            setup_files: &record,
+            key_files: &key_files,
+            entropy: &kkt_entropy::testing::SeqEntropy::new(0),
+            database: &Present,
+            backups: &backups,
+            output: &said,
+            mcp_path: "/mcp",
+            login_link: &untouched,
+            lines: &untouched,
+            config_file: &untouched,
+        };
+        futures::executor::block_on(status(&parts, &env, Platform::Xdg)).expect("status");
+        let out = said.0.borrow().clone();
+        let mode_pos = out.find("Mode: service").expect("Mode line");
+        let web_key_pos = out
+            .find("Web key: /home/k/.config/kkt/web-key")
+            .expect("Web key line");
+        assert!(
+            mode_pos < web_key_pos,
+            "expected Mode before Web key:\n{out}"
         );
     }
 }

@@ -10,8 +10,8 @@ curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/latest/download/kashke
 kkt --version
 ```
 
-Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
-already set up here.
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` to upgrade a
+server running here (client-only machines need no further step).
 
 The shell installer selects the native archive and installs `kkt`
 into `$CARGO_HOME/bin` (or `~/.cargo/bin`). Linux builds use GNU libc on
@@ -28,8 +28,8 @@ curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/download/v0.8.0/kashke
 kkt --version # kashkeshet 0.8.0
 ```
 
-Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
-already set up here.
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` to upgrade a
+server running here (client-only machines need no further step).
 
 ## Container image
 
