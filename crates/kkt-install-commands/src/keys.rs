@@ -19,7 +19,7 @@ struct EnvReads<'a, 'p, C: ConnectionSource, D>(&'a InstallParts<'p, C, D>);
 impl<C: ConnectionSource, D> RecordedServerRead for EnvReads<'_, '_, C, D> {
     fn recorded(&self) -> Result<Option<ServerKeys>, kkt_deployment::KeyReadError> {
         Ok(read_setup(self.0.serve, self.0.setup_files)
-            .map_err(|said| kkt_deployment::KeyReadError(said.into()))?
+            .map_err(|e| kkt_deployment::KeyReadError(Box::new(e)))?
             .as_ref()
             .map(server_keys))
     }
@@ -30,7 +30,7 @@ impl<C: ConnectionSource, D> ServeConfigReads for EnvReads<'_, '_, C, D> {
         self.0
             .serve
             .configured_access_key()
-            .map_err(|said| kkt_deployment::KeyReadError(said.into()))
+            .map_err(|e| kkt_deployment::KeyReadError(Box::new(e)))
     }
     fn config_dir(&self) -> Option<PathBuf> {
         self.0.serve.config_dir()
@@ -43,7 +43,7 @@ pub fn local_web_key<D>(
     parts: &InstallParts<'_, impl ConnectionSource, D>,
     unfinished: Option<&setup::Unfinished>,
     unrecorded: Option<&setup::Unrecorded>,
-) -> Result<Option<PathBuf>, String> {
+) -> Result<Option<PathBuf>, kkt_deployment::FindKeyError> {
     local_operator_key(parts, unfinished, unrecorded, KeyKind::Web)
 }
 
@@ -55,12 +55,11 @@ pub fn local_operator_key<D>(
     unfinished: Option<&setup::Unfinished>,
     unrecorded: Option<&setup::Unrecorded>,
     kind: KeyKind,
-) -> Result<Option<PathBuf>, String> {
+) -> Result<Option<PathBuf>, kkt_deployment::FindKeyError> {
     kkt_deployment::find_operator_key(
         &EnvReads(parts),
         unfinished.map(unfinished_setup).as_ref(),
         unrecorded.map(found_server_keys).as_ref(),
         kind,
     )
-    .map_err(|e| e.to_string())
 }

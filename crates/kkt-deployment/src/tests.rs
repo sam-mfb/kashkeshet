@@ -121,7 +121,7 @@ fn the_managed_docker_folder_keeps_its_place() {
         Ok(PathBuf::from("/xdg/data/kashkeshet/docker"))
     );
     assert_eq!(
-        docker_folder(&data_env(None, None), Platform::Xdg),
+        docker_folder(&data_env(None, None), Platform::Xdg).map_err(|e| e.to_string()),
         Err("set HOME to keep kkt's Docker files".to_string())
     );
 }

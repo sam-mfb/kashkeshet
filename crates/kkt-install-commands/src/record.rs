@@ -1,11 +1,120 @@
 //! The setup record, the note of an unfinished setup, and finding a server
 //! kkt installed here with no record.
 
-use crate::{Output, SetupFiles};
+use crate::{Output, PartError, SetupFiles};
 use kkt_bare_service::ServiceError;
-use kkt_deployment::connection::{self, ConnectionOptions, ConnectionSource};
+use kkt_containerized_service::ContainerError;
+use kkt_deployment::connection::{self, ConnectionError, ConnectionOptions, ConnectionSource};
 use kkt_machine::{Env, Platform};
+use kkt_remote_access::SharingError;
 use kkt_setup as setup;
+use std::path::PathBuf;
+
+/// Why a server kkt installed here with no record cannot be made out.
+#[derive(Debug, thiserror::Error)]
+pub enum UnrecordedError {
+    /// kkt in Docker in the folder setup uses could not be looked at.
+    #[error(
+        "Found a kkt server in Docker from {}, not recorded, but {source}.",
+        folder.display()
+    )]
+    DockerUnreadable {
+        folder: PathBuf,
+        #[source]
+        source: Box<ContainerError>,
+    },
+    /// The copy of its access key that setup saves is not there.
+    #[error(
+        "Found a kkt server in Docker from {}, not recorded, but the copy of its access key \
+         setup saves, {}, is missing.",
+        folder.display(),
+        key_file.display()
+    )]
+    KeyCopyMissing { folder: PathBuf, key_file: PathBuf },
+    /// Whether a kkt service is installed could not be told.
+    #[error(transparent)]
+    ServiceState(ServiceError),
+    #[error(
+        "{}",
+        setup::unreadable_service(&format!("its service file could not be read: {}", .0))
+    )]
+    ServiceFile(#[source] ServiceError),
+    #[error(
+        "{}",
+        setup::unreadable_service("its service file went away while it was read")
+    )]
+    ServiceFileGone,
+    #[error(
+        "{}",
+        setup::unreadable_service(&format!("its settings could not be read: {}", .0))
+    )]
+    Settings(#[source] SettingsUnread),
+    #[error(
+        "{}",
+        setup::unreadable_service(&format!(
+            "whether it is shared over Tailscale is not known: {}",
+            .0
+        ))
+    )]
+    Sharing(#[source] SharingError),
+    /// kkt-setup's own refusal: a service that does not run the defaults,
+    /// or both kinds of server installed.
+    #[error("{0}")]
+    Setup(String),
+}
+
+/// Which of an installed service's settings could not be read.
+#[derive(Debug, thiserror::Error)]
+pub enum SettingsUnread {
+    /// Whether it runs with the default config file's settings.
+    #[error(transparent)]
+    Defaults(PartError),
+    /// How a client reaches it.
+    #[error(transparent)]
+    Connection(ConnectionError),
+    /// The address it listens on.
+    #[error(transparent)]
+    Bind(PartError),
+}
+
+/// Why the setup record or the note of an unfinished setup could not be
+/// read.
+#[derive(Debug, thiserror::Error)]
+pub enum ReadError {
+    #[error(transparent)]
+    Files(PartError),
+    /// Whether the service an unfinished setup noted is installed could not
+    /// be told.
+    #[error(transparent)]
+    ServiceState(ServiceError),
+}
+
+/// Why the setup record could not be written.
+#[derive(Debug, thiserror::Error)]
+pub enum WriteError {
+    #[error("set HOME to keep the setup record")]
+    NoHome,
+    #[error(transparent)]
+    Files(PartError),
+}
+
+/// Why `kkt serve` may not start here, or that it could not tell.
+#[derive(Debug, thiserror::Error)]
+pub enum ServeCheckError {
+    #[error(transparent)]
+    Read(#[from] ReadError),
+    #[error(transparent)]
+    Guard(#[from] kkt_deployment::GuardError),
+}
+
+/// Why there is no setup record to act on.
+#[derive(Debug, thiserror::Error)]
+pub enum RecordedError {
+    #[error(transparent)]
+    Read(#[from] ReadError),
+    #[error(transparent)]
+    NoRecord(#[from] setup::NoRecord),
+}
 
 /// Where `kkt setup` saves the Docker server's access key, in the config
 /// directory.
@@ -18,11 +127,12 @@ pub fn read_unrecorded<D: crate::ServiceDefaults>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
-) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
+) -> Result<Option<setup::Unrecorded>, (setup::Purpose, UnrecordedError)> {
     let docker =
         unrecorded_docker(parts, env, platform).map_err(|e| (setup::Purpose::Docker, e))?;
     let service = unrecorded_service(parts).map_err(|e| (setup::Purpose::Service, e))?;
     setup::unrecorded_here(docker, service)
+        .map_err(|(purpose, said)| (purpose, UnrecordedError::Setup(said)))
 }
 
 /// kkt in Docker in the folder `kkt setup` uses, with the access key's host
@@ -31,16 +141,10 @@ fn unrecorded_docker<D>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
-) -> Result<Option<setup::Unrecorded>, String> {
+) -> Result<Option<setup::Unrecorded>, UnrecordedError> {
     let (Ok(folder), Some(config_dir)) = (docker_folder(env, platform), parts.serve.config_dir())
     else {
         return Ok(None);
-    };
-    let found = |what: String| {
-        format!(
-            "Found a kkt server in Docker from {}, not recorded, but {what}.",
-            folder.display()
-        )
     };
     let existing = match parts
         .container
@@ -48,14 +152,16 @@ fn unrecorded_docker<D>(
     {
         Ok(Some(existing)) => existing,
         Ok(None) => return Ok(None),
-        Err(e) => return Err(found(e.to_string())),
+        Err(source) => {
+            return Err(UnrecordedError::DockerUnreadable {
+                folder,
+                source: Box::new(source),
+            });
+        }
     };
     let key_file = config_dir.join(DOCKER_KEY_FILE_NAME);
     if !parts.key_files.is_file(&key_file) {
-        return Err(found(format!(
-            "the copy of its access key setup saves, {}, is missing",
-            key_file.display()
-        )));
+        return Err(UnrecordedError::KeyCopyMissing { folder, key_file });
     }
     let (hostname, tailnet) = existing.node.clone().unzip();
     Ok(Some(setup::Unrecorded {
@@ -77,39 +183,41 @@ fn unrecorded_docker<D>(
 /// the address it really has and an upgrade keeps its settings.
 fn unrecorded_service<D: crate::ServiceDefaults>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
-) -> Result<Option<setup::Unrecorded>, String> {
+) -> Result<Option<setup::Unrecorded>, UnrecordedError> {
     let service = parts.service;
     match service.ready() {
         Ok(()) => {}
         // No service can be installed here.
         Err(ServiceError::NoHome | ServiceError::Unsupported(_)) => return Ok(None),
-        Err(e) => return Err(e.to_string()),
+        Err(e) => return Err(UnrecordedError::ServiceState(e)),
     }
-    if !service.state().map_err(|e| e.to_string())?.installed {
+    if !service
+        .state()
+        .map_err(UnrecordedError::ServiceState)?
+        .installed
+    {
         return Ok(None);
     }
-    let found = |what: String| setup::unreadable_service(&what);
     let args = service
         .installed_args()
-        .map_err(|e| found(format!("its service file could not be read: {e}")))?
-        .ok_or_else(|| found("its service file went away while it was read".into()))?;
-    let unread = |e: String| found(format!("its settings could not be read: {e}"));
+        .map_err(UnrecordedError::ServiceFile)?
+        .ok_or(UnrecordedError::ServiceFileGone)?;
+    let unread = |e| UnrecordedError::Settings(e);
     let matches_defaults = parts
         .service_defaults
         .matches_defaults(&args)
-        .map_err(unread)?;
-    setup::service_runs_defaults(&args, matches_defaults)?;
+        .map_err(|e| unread(SettingsUnread::Defaults(e)))?;
+    setup::service_runs_defaults(&args, matches_defaults).map_err(UnrecordedError::Setup)?;
     let connection = connection::serve_connection(parts.connection, ConnectionOptions::NONE, false)
-        .map_err(|e| found(format!("its settings could not be read: {e}")))?;
+        .map_err(|e| unread(SettingsUnread::Connection(e)))?;
     let bind = parts
         .serve
         .bind()
-        .map_err(|e| found(format!("its settings could not be read: {e}")))?;
-    let shared = parts.remote.served(bind).map_err(|e| {
-        found(format!(
-            "whether it is shared over Tailscale is not known: {e}"
-        ))
-    })?;
+        .map_err(|e| unread(SettingsUnread::Bind(e)))?;
+    let shared = parts
+        .remote
+        .served(bind)
+        .map_err(UnrecordedError::Sharing)?;
     Ok(Some(setup::unrecorded_service(
         shared.as_ref().map(|node| node.dns_name.as_str()),
         connection.url,
@@ -142,12 +250,12 @@ impl<'a, 'p, C: ConnectionSource, D> InstallReads<'a, 'p, C, D> {
 /// asked, so a caller that stops at the record reads nothing more.
 impl<C: ConnectionSource, D: crate::ServiceDefaults> InstallReads<'_, '_, C, D> {
     /// This machine's setup record, if `kkt setup` wrote one.
-    pub fn record(&self) -> Result<Option<setup::Record>, String> {
+    pub fn record(&self) -> Result<Option<setup::Record>, ReadError> {
         read_setup(self.parts.serve, self.parts.setup_files)
     }
     /// The note of a setup not finished, if the install it noted is still
     /// here.
-    pub fn unfinished(&self) -> Result<Option<setup::Unfinished>, String> {
+    pub fn unfinished(&self) -> Result<Option<setup::Unfinished>, ReadError> {
         read_unfinished(
             self.parts.serve,
             self.parts.setup_files,
@@ -158,7 +266,9 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> InstallReads<'_, '_, C, D> 
     /// A server kkt installed here, in Docker or as a service, with no
     /// record. An error says how the server it is about runs, and why it
     /// cannot be made out.
-    pub fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, (setup::Purpose, String)> {
+    pub fn unrecorded(
+        &self,
+    ) -> Result<Option<setup::Unrecorded>, (setup::Purpose, UnrecordedError)> {
         read_unrecorded(self.parts, self.env, self.platform)
     }
 }
@@ -171,11 +281,14 @@ pub fn read_unfinished(
     files: &dyn SetupFiles,
     container: &dyn kkt_containerized_service::ServiceContainer,
     service: &dyn kkt_bare_service::Service,
-) -> Result<Option<setup::Unfinished>, String> {
+) -> Result<Option<setup::Unfinished>, ReadError> {
     let Some(config_dir) = serve.config_dir() else {
         return Ok(None);
     };
-    let Some(unfinished) = files.read_unfinished(&config_dir)? else {
+    let Some(unfinished) = files
+        .read_unfinished(&config_dir)
+        .map_err(ReadError::Files)?
+    else {
         return Ok(None);
     };
     let present = match unfinished.install_check() {
@@ -187,7 +300,7 @@ pub fn read_unfinished(
             service
                 .ready()
                 .and_then(|()| service.state())
-                .map_err(|e| e.to_string())?
+                .map_err(ReadError::ServiceState)?
                 .installed
         }
         setup::InstallCheck::Gone => false,
@@ -204,7 +317,7 @@ pub fn unfinished_mode(
     env: &Env,
     platform: Platform,
     unfinished: &setup::Unfinished,
-) -> Result<setup::Mode, String> {
+) -> Result<setup::Mode, kkt_deployment::NoDockerHome> {
     unfinished.mode(docker_folder(env, platform))
 }
 
@@ -212,11 +325,11 @@ pub fn unfinished_mode(
 pub fn read_setup(
     serve: &dyn crate::ServeFacts,
     files: &dyn SetupFiles,
-) -> Result<Option<setup::Record>, String> {
+) -> Result<Option<setup::Record>, ReadError> {
     let Some(config_dir) = serve.config_dir() else {
         return Ok(None);
     };
-    files.read_record(&config_dir)
+    files.read_record(&config_dir).map_err(ReadError::Files)
 }
 
 /// Refuses to start a server on a machine `kkt setup` set up otherwise.
@@ -225,7 +338,7 @@ pub fn check_setup(
     files: &dyn SetupFiles,
     service: &dyn kkt_bare_service::Service,
     output: &dyn Output,
-) -> Result<(), String> {
+) -> Result<(), ServeCheckError> {
     let record = read_setup(serve, files)?;
     let service_running = match record.as_ref().map(|r| &r.mode) {
         Some(setup::Mode::Service { .. }) => {
@@ -246,8 +359,8 @@ pub fn check_setup(
         record.as_ref().map(crate::deployment::recorded).as_ref(),
         service_running,
         false,
-    )
-    .map_err(|e| e.to_string())
+    )?;
+    Ok(())
 }
 
 /// The warning `kkt serve` gives when it cannot tell whether the kkt
@@ -276,11 +389,11 @@ pub fn write_setup_record(
     serve: &dyn crate::ServeFacts,
     files: &dyn SetupFiles,
     record: &setup::Record,
-) -> Result<(), String> {
-    let config_dir = serve
-        .config_dir()
-        .ok_or("set HOME to keep the setup record")?;
-    files.write_record(&config_dir, record)
+) -> Result<(), WriteError> {
+    let config_dir = serve.config_dir().ok_or(WriteError::NoHome)?;
+    files
+        .write_record(&config_dir, record)
+        .map_err(WriteError::Files)
 }
 
 /// This machine's setup record. Without one, the error says so, and names a
@@ -290,8 +403,8 @@ pub fn recorded_setup<D: crate::ServiceDefaults>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     platform: Platform,
-) -> Result<setup::Record, String> {
-    setup::recorded_setup(
+) -> Result<setup::Record, RecordedError> {
+    Ok(setup::recorded_setup(
         read_setup(parts.serve, parts.setup_files)?,
         || {
             read_unfinished(
@@ -302,8 +415,7 @@ pub fn recorded_setup<D: crate::ServiceDefaults>(
             )
         },
         || read_unrecorded(parts, env, platform),
-    )
-    .map_err(|e| e.to_string())
+    )?)
 }
 
 #[cfg(test)]

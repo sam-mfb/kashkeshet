@@ -191,12 +191,15 @@ pub fn service_plan<D>(
         access_key_file: access_key_file.map(absolute).transpose()?,
         no_access_key: no_access_key.then_some(true),
     };
-    let inputs = parts.serve.service_settings(config, flags)?;
+    let inputs = parts
+        .serve
+        .service_settings(config, flags)
+        .map_err(|e| e.to_string())?;
     let plan = kkt_deployment::plan(inputs.request, &|path: &Path| {
         parts.key_files.try_exists(path)
     })
     .map_err(|e| e.to_string())?;
-    let checked = inputs.check.check(&plan)?;
+    let checked = inputs.check.check(&plan).map_err(|e| e.to_string())?;
     Ok(ServicePlan {
         spec: plan.spec(program).map_err(|e| e.to_string())?,
         new_key: plan.new_key,

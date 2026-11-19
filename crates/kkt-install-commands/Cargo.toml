@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+thiserror.workspace = true
 kkt-keys = { path = "../kkt-keys" }
 kkt-backup = { path = "../kkt-backup" }
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }

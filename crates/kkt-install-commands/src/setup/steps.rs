@@ -82,7 +82,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             Some(node) => {
                 self.parts
                     .remote
-                    .serve(self.parts.serve.bind()?)
+                    .serve(self.parts.serve.bind().map_err(|e| e.to_string())?)
                     .map_err(|e| e.to_string())?;
                 format!("https://{}/mcp", node.dns_name)
             }
@@ -106,7 +106,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         allow_hosts: &[String],
     ) -> Result<(setup::Installed, setup::DockerSetup), String> {
         let options = &self.options;
-        let folder = docker_folder(self.env, self.platform)?;
+        let folder = docker_folder(self.env, self.platform).map_err(|e| e.to_string())?;
         let key_file = self
             .parts
             .serve
@@ -243,6 +243,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             self.parts.container,
             self.parts.service,
         )
+        .map_err(|e| e.to_string())
     }
 
     fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), String> {
@@ -254,13 +255,17 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         self.parts
             .setup_files
             .write_unfinished(&config_dir, unfinished)
+            .map_err(|e| e.to_string())
     }
 
     fn forget_unfinished(&self) -> Result<(), String> {
         let Some(config_dir) = self.parts.serve.config_dir() else {
             return Ok(());
         };
-        self.parts.setup_files.remove_unfinished(&config_dir)
+        self.parts
+            .setup_files
+            .remove_unfinished(&config_dir)
+            .map_err(|e| e.to_string())
     }
 
     fn add_admin_key(&self, record: &setup::Record, name: &AdminName) -> Result<PathBuf, String> {
@@ -316,12 +321,18 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     }
 
     fn check_lanes(&self, folder: &Path, purpose: setup::Purpose) -> Result<usize, String> {
-        self.parts.import_lanes.check(folder, purpose)
+        self.parts
+            .import_lanes
+            .check(folder, purpose)
+            .map_err(|e| e.to_string())
     }
 
     fn import_lanes(&self, record: &setup::Record, folder: &Path) -> Result<String, String> {
         // `check_lanes` warned of the skipped files before setup began.
-        self.parts.import_lanes.import(record, folder)
+        self.parts
+            .import_lanes
+            .import(record, folder)
+            .map_err(|e| e.to_string())
     }
 
     fn check_typed_key(&self, key: &str) -> Result<(), String> {
@@ -341,11 +352,12 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
     }
 
     fn recorded(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.parts.serve, self.parts.setup_files)
+        read_setup(self.parts.serve, self.parts.setup_files).map_err(|e| e.to_string())
     }
 
     fn write_record(&self, record: &setup::Record) -> Result<(), String> {
         write_setup_record(self.parts.serve, self.parts.setup_files, record)
+            .map_err(|e| e.to_string())
     }
 
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
@@ -381,11 +393,12 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> 
     }
 
     fn recorded(&self) -> Result<Option<setup::Record>, String> {
-        read_setup(self.parts.serve, self.parts.setup_files)
+        read_setup(self.parts.serve, self.parts.setup_files).map_err(|e| e.to_string())
     }
 
     fn write_record(&self, record: &setup::Record) -> Result<(), String> {
         write_setup_record(self.parts.serve, self.parts.setup_files, record)
+            .map_err(|e| e.to_string())
     }
 
     fn connect(&self, client: Client, record: &setup::Record) -> Result<String, String> {
@@ -428,7 +441,7 @@ fn connect(
     client: Client,
     record: &setup::Record,
 ) -> Result<String, String> {
-    let executable = program.kkt_path()?;
+    let executable = program.kkt_path().map_err(|e| e.to_string())?;
     let client_config = client.file(env, host).map_err(|e| e.to_string())?;
     let server = record.for_clients();
     let setup = Setup {
@@ -481,18 +494,21 @@ fn check_key(
 
 impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::AdoptSteps for OsSteps<'_, '_, C, D> {
     fn unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
-        if read_setup(self.parts.serve, self.parts.setup_files)?.is_some()
+        if read_setup(self.parts.serve, self.parts.setup_files)
+            .map_err(|e| e.to_string())?
+            .is_some()
             || read_unfinished(
                 self.parts.serve,
                 self.parts.setup_files,
                 self.parts.container,
                 self.parts.service,
-            )?
+            )
+            .map_err(|e| e.to_string())?
             .is_some()
         {
             return Ok(None);
         }
-        read_unrecorded(self.parts, self.env, self.platform).map_err(|(_, e)| e)
+        read_unrecorded(self.parts, self.env, self.platform).map_err(|(_, e)| e.to_string())
     }
 }
 
@@ -567,11 +583,11 @@ mod tests {
     }
 
     impl crate::ConfigText for ConfigFile {
-        fn read(&self, path: &Path) -> Result<Option<String>, String> {
+        fn read(&self, path: &Path) -> Result<Option<String>, crate::PartError> {
             self.read.borrow_mut().push(path.to_path_buf());
             Ok(self.text.map(str::to_string))
         }
-        fn write(&self, path: &Path, text: &str) -> Result<(), String> {
+        fn write(&self, path: &Path, text: &str) -> Result<(), crate::PartError> {
             self.written
                 .borrow_mut()
                 .push((path.to_path_buf(), text.to_string()));
@@ -579,13 +595,13 @@ mod tests {
         }
         /// The program's edit, as its own test pins it, for the texts
         /// these tests give.
-        fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, String> {
+        fn with_allowed_host(&self, text: &str, host: &str) -> Result<String, crate::PartError> {
             assert_eq!(host, "h.example");
             match text {
                 "" => Ok("allow_hosts = [\"h.example\"]\n".to_string()),
                 "allow_hosts = [\"h.example\"]\n" => Ok(text.to_string()),
                 "allow_hosts = [" => {
-                    Err("config is not valid TOML: unclosed array, expected `]`".to_string())
+                    Err("config is not valid TOML: unclosed array, expected `]`".into())
                 }
                 other => panic!("no edit given for {other:?}"),
             }
@@ -597,16 +613,20 @@ mod tests {
     struct Home(bool);
 
     impl crate::ServeFacts for Home {
-        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, String> {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
-        fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
-        fn database(&self, _: Option<PathBuf>, _: Option<PathBuf>) -> Result<PathBuf, String> {
+        fn database(
+            &self,
+            _: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<PathBuf, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
-        fn bind(&self) -> Result<std::net::SocketAddr, String> {
+        fn bind(&self) -> Result<std::net::SocketAddr, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
         fn default_access_key(&self) -> Option<PathBuf> {
@@ -628,7 +648,7 @@ mod tests {
             &self,
             _: Option<PathBuf>,
             _: kkt_deployment::ServiceSettings,
-        ) -> Result<crate::ServiceInputs<'_>, String> {
+        ) -> Result<crate::ServiceInputs<'_>, crate::PartError> {
             unreachable!("the host edit reads no settings")
         }
     }

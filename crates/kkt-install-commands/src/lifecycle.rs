@@ -26,7 +26,9 @@ pub fn backup<D>(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    let mode = read_setup(parts.serve, parts.setup_files)?.map(|record| record.mode);
+    let mode = read_setup(parts.serve, parts.setup_files)
+        .map_err(|e| e.to_string())?
+        .map(|record| record.mode);
     match backup::backup_of(
         &server_here(mode.as_ref()),
         folder,
@@ -78,25 +80,30 @@ pub async fn status<D: ServiceDefaults>(
     env: &Env,
     platform: Platform,
 ) -> Result<(), String> {
+    // The reasons a read failed are kept as they are, to say in the lines.
     let unfinished = read_unfinished(
         parts.serve,
         parts.setup_files,
         parts.container,
         parts.service,
-    );
-    let recorded = read_setup(parts.serve, parts.setup_files)?;
+    )
+    .map_err(kkt_deployment::Unknown::new);
+    let recorded = read_setup(parts.serve, parts.setup_files).map_err(|e| e.to_string())?;
     let unrecorded = if kkt_deployment::status_looks_for_unrecorded(recorded.as_ref(), &unfinished)
     {
-        read_unrecorded(parts, env, platform).map_err(|(_, e)| e)
+        read_unrecorded(parts, env, platform).map_err(|(_, e)| kkt_deployment::Unknown::new(e))
     } else {
         Ok(None)
     };
     let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
     let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
-    if let Some(path) = local_web_key(parts, found_unfinished, found_unrecorded)? {
+    if let Some(path) =
+        local_web_key(parts, found_unfinished, found_unrecorded).map_err(|e| e.to_string())?
+    {
         parts.output.output(format_args!("{}", web_key_line(&path)));
     }
-    let admin_key = local_operator_key(parts, found_unfinished, found_unrecorded, KeyKind::Admin)?;
+    let admin_key = local_operator_key(parts, found_unfinished, found_unrecorded, KeyKind::Admin)
+        .map_err(|e| e.to_string())?;
     let admin_key = match admin_key {
         Some(path) if !key_file_there(parts.key_files, &path)? => None,
         other => other,
@@ -123,11 +130,11 @@ pub async fn status<D: ServiceDefaults>(
     for line in &said.lines {
         parts.output.output(format_args!("{line}\n"));
     }
-    match said.then? {
+    match said.then.map_err(|e| e.to_string())? {
         kkt_deployment::StatusThen::Service => {
             // Status reads local configuration, not a running server's
             // command line.
-            let config = parts.serve.config(None)?;
+            let config = parts.serve.config(None).map_err(|e| e.to_string())?;
             parts.output.output(format_args!(
                 "{}",
                 configured_name_pack_line(&config.name_pack)
@@ -163,7 +170,7 @@ pub async fn upgrade<D: ServiceDefaults>(
     platform: Platform,
     allow_downgrade: bool,
 ) -> Result<(), String> {
-    let record = recorded_setup(parts, env, platform)?;
+    let record = recorded_setup(parts, env, platform).map_err(|e| e.to_string())?;
     let recorded = deployment::recorded(&record);
     let running = match kkt_deployment::running_version(&recorded).map_err(|e| e.to_string())? {
         kkt_deployment::RunningVersion::DockerSettings(folder) => {
@@ -227,7 +234,7 @@ pub async fn upgrade<D: ServiceDefaults>(
     // The record now names the version the server runs.
     let mut record = record;
     record.written_by = Build::CURRENT.version.to_string();
-    write_setup_record(parts.serve, parts.setup_files, &record)?;
+    write_setup_record(parts.serve, parts.setup_files, &record).map_err(|e| e.to_string())?;
     parts.output.output(format_args!("{}\n", plan.said));
     Ok(())
 }
@@ -250,7 +257,7 @@ pub async fn uninstall<D: ServiceDefaults>(
     env: &Env,
     platform: Platform,
 ) -> Result<(), String> {
-    let record = recorded_setup(parts, env, platform)?;
+    let record = recorded_setup(parts, env, platform).map_err(|e| e.to_string())?;
     let stays_client = uninstall_record(&record, Build::CURRENT.version);
     match record.mode {
         setup::Mode::Docker(install) => {
@@ -266,7 +273,7 @@ pub async fn uninstall<D: ServiceDefaults>(
         setup::Mode::Client => {}
     }
     if let Some(client) = stays_client {
-        write_setup_record(parts.serve, parts.setup_files, &client)?;
+        write_setup_record(parts.serve, parts.setup_files, &client).map_err(|e| e.to_string())?;
         parts
             .output
             .output(format_args!("{}", uninstall_line(Some(&client))));
@@ -276,7 +283,10 @@ pub async fn uninstall<D: ServiceDefaults>(
         .serve
         .config_dir()
         .ok_or("set HOME to find the setup record")?;
-    parts.setup_files.remove_record(&config_dir)?;
+    parts
+        .setup_files
+        .remove_record(&config_dir)
+        .map_err(|e| e.to_string())?;
     parts
         .output
         .output(format_args!("{}", uninstall_line(None)));
@@ -292,7 +302,9 @@ fn stop_sharing(
     remote: &dyn kkt_remote_access::RemoteAccess,
 ) -> Result<(), String> {
     if shared {
-        remote.stop(serve.bind()?).map_err(|e| e.to_string())?;
+        remote
+            .stop(serve.bind().map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -304,7 +316,10 @@ fn existing_db<D>(
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
-    let path = parts.serve.database(db, config_db)?;
+    let path = parts
+        .serve
+        .database(db, config_db)
+        .map_err(|e| e.to_string())?;
     if !parts.database.exists(&path) {
         return Err(format!(
             "no database at {}; pass --db with the server's database file",
@@ -322,7 +337,7 @@ fn local_backup<D>(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    let config = parts.serve.config(config)?;
+    let config = parts.serve.config(config).map_err(|e| e.to_string())?;
     let database = existing_db(parts, db, config.db.clone())?;
     let default_access_key = parts.serve.default_access_key();
     let backup::BackupKeys {
@@ -624,19 +639,23 @@ mod tests {
     struct Asked(RefCell<Vec<&'static str>>);
 
     impl ServeFacts for Asked {
-        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, String> {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, crate::PartError> {
             self.0.borrow_mut().push("config");
             Err("not asked here".into())
         }
-        fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, crate::PartError> {
             self.0.borrow_mut().push("configured_access_key");
             Err("not asked here".into())
         }
-        fn database(&self, _: Option<PathBuf>, _: Option<PathBuf>) -> Result<PathBuf, String> {
+        fn database(
+            &self,
+            _: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<PathBuf, crate::PartError> {
             self.0.borrow_mut().push("database");
             Err("not asked here".into())
         }
-        fn bind(&self) -> Result<std::net::SocketAddr, String> {
+        fn bind(&self) -> Result<std::net::SocketAddr, crate::PartError> {
             self.0.borrow_mut().push("bind");
             Ok("127.0.0.1:7420".parse().expect("an address"))
         }
@@ -661,7 +680,7 @@ mod tests {
             &self,
             _: Option<PathBuf>,
             _: kkt_deployment::ServiceSettings,
-        ) -> Result<crate::ServiceInputs<'_>, String> {
+        ) -> Result<crate::ServiceInputs<'_>, crate::PartError> {
             self.0.borrow_mut().push("service_settings");
             Err("not asked here".into())
         }
@@ -810,11 +829,13 @@ mod tests {
     }
 
     impl crate::ImportLanes for Untouched {
-        fn check(&self, _: &Path, _: setup::Purpose) -> Result<usize, String> {
+        fn check(&self, _: &Path, _: setup::Purpose) -> Result<usize, crate::PartError> {
             self.refused("import_lanes.check")
+                .map_err(crate::PartError::from)
         }
-        fn import(&self, _: &setup::Record, _: &Path) -> Result<String, String> {
+        fn import(&self, _: &setup::Record, _: &Path) -> Result<String, crate::PartError> {
             self.refused("import_lanes.import")
+                .map_err(crate::PartError::from)
         }
     }
 
@@ -861,8 +882,9 @@ mod tests {
     }
 
     impl ServiceDefaults for Untouched {
-        fn matches_defaults(&self, _: &[String]) -> Result<bool, String> {
+        fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
             self.refused("service_defaults.matches_defaults")
+                .map_err(crate::PartError::from)
         }
     }
 
@@ -941,14 +963,17 @@ mod tests {
     }
 
     impl crate::ConfigText for Untouched {
-        fn read(&self, _: &Path) -> Result<Option<String>, String> {
+        fn read(&self, _: &Path) -> Result<Option<String>, crate::PartError> {
             self.refused("config_file.read")
+                .map_err(crate::PartError::from)
         }
-        fn write(&self, _: &Path, _: &str) -> Result<(), String> {
+        fn write(&self, _: &Path, _: &str) -> Result<(), crate::PartError> {
             self.refused("config_file.write")
+                .map_err(crate::PartError::from)
         }
-        fn with_allowed_host(&self, _: &str, _: &str) -> Result<String, String> {
+        fn with_allowed_host(&self, _: &str, _: &str) -> Result<String, crate::PartError> {
             self.refused("config_file.with_allowed_host")
+                .map_err(crate::PartError::from)
         }
     }
 
@@ -1010,7 +1035,7 @@ mod tests {
     struct UnsharedRecord(RefCell<Vec<String>>);
 
     impl crate::SetupFiles for UnsharedRecord {
-        fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, String> {
+        fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
             self.0.borrow_mut().push("read the record".into());
             Ok(Some(setup::Record {
                 mode: setup::Mode::Service { tailscale: false },
@@ -1020,25 +1045,29 @@ mod tests {
                 clients: None,
             }))
         }
-        fn read_unfinished(&self, _: &Path) -> Result<Option<setup::Unfinished>, String> {
+        fn read_unfinished(&self, _: &Path) -> Result<Option<setup::Unfinished>, crate::PartError> {
             self.0.borrow_mut().push("read the unfinished note".into());
             Err("not asked here".into())
         }
-        fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), String> {
+        fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), crate::PartError> {
             self.0.borrow_mut().push("wrote a record".into());
             Err("not asked here".into())
         }
-        fn write_unfinished(&self, _: &Path, _: &setup::Unfinished) -> Result<(), String> {
+        fn write_unfinished(
+            &self,
+            _: &Path,
+            _: &setup::Unfinished,
+        ) -> Result<(), crate::PartError> {
             self.0.borrow_mut().push("wrote an unfinished note".into());
             Err("not asked here".into())
         }
-        fn remove_unfinished(&self, _: &Path) -> Result<(), String> {
+        fn remove_unfinished(&self, _: &Path) -> Result<(), crate::PartError> {
             self.0
                 .borrow_mut()
                 .push("removed the unfinished note".into());
             Err("not asked here".into())
         }
-        fn kkt_path(&self) -> Result<PathBuf, String> {
+        fn kkt_path(&self) -> Result<PathBuf, crate::PartError> {
             self.0.borrow_mut().push("asked kkt's path".into());
             Err("not asked here".into())
         }
@@ -1059,7 +1088,7 @@ mod tests {
         fn canonicalize(&self, _: &Path) -> std::io::Result<PathBuf> {
             Err(std::io::Error::other("not asked here"))
         }
-        fn remove_record(&self, dir: &Path) -> Result<(), String> {
+        fn remove_record(&self, dir: &Path) -> Result<(), crate::PartError> {
             self.0
                 .borrow_mut()
                 .push(format!("removed the record in {}", dir.display()));
@@ -1250,7 +1279,7 @@ mod tests {
             read(&container, &untouched).expect_err("refused without the key's copy");
         assert_eq!(purpose, setup::Purpose::Docker);
         assert_eq!(
-            refused,
+            refused.to_string(),
             format!(
                 "Found a kkt server in Docker from {}, not recorded, but the copy of its access key setup saves, {}, is missing.",
                 folder.display(),
@@ -1504,7 +1533,7 @@ mod tests {
     /// Settings that run the defaults, or that cannot say so.
     struct Defaults(bool);
     impl ServiceDefaults for Defaults {
-        fn matches_defaults(&self, _: &[String]) -> Result<bool, String> {
+        fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
             match self.0 {
                 true => Ok(true),
                 false => Err("the config file is unreadable".into()),
@@ -1563,16 +1592,20 @@ mod tests {
     /// Serving facts under the home `/home/k` whose address cannot be read.
     struct NoBind;
     impl ServeFacts for NoBind {
-        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, String> {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, crate::PartError> {
             unreachable!("no config is read")
         }
-        fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, crate::PartError> {
             unreachable!("no config is read")
         }
-        fn database(&self, _: Option<PathBuf>, _: Option<PathBuf>) -> Result<PathBuf, String> {
+        fn database(
+            &self,
+            _: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<PathBuf, crate::PartError> {
             unreachable!("no database is asked")
         }
-        fn bind(&self) -> Result<std::net::SocketAddr, String> {
+        fn bind(&self) -> Result<std::net::SocketAddr, crate::PartError> {
             Err("bind is not an address".into())
         }
         fn default_access_key(&self) -> Option<PathBuf> {
@@ -1594,7 +1627,7 @@ mod tests {
             &self,
             _: Option<PathBuf>,
             _: kkt_deployment::ServiceSettings,
-        ) -> Result<crate::ServiceInputs<'_>, String> {
+        ) -> Result<crate::ServiceInputs<'_>, crate::PartError> {
             unreachable!("no service is planned")
         }
     }

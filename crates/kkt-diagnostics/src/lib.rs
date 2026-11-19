@@ -24,9 +24,9 @@ pub use probe::{
 use std::path::Path;
 use std::time::Duration;
 pub use this_machine::{
-    DockerKkt, ServiceSeen, Setup, TailscaleLogin, UnrecordedServer, WebKeyCopy, admin_key_fix,
-    docker_check, docker_web_key_check, server_fix, service_check, tailscale_login_check,
-    unrecorded_check, web_key_fix,
+    DockerKkt, ServiceSeen, Setup, TailscaleLogin, Unknown, UnrecordedServer, WebKeyCopy,
+    admin_key_fix, docker_check, docker_web_key_check, server_fix, service_check,
+    tailscale_login_check, unrecorded_check, web_key_fix,
 };
 pub use wait::{SetupServer, Wait, setup_wait, until_reachable};
 

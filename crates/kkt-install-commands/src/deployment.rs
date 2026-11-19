@@ -6,7 +6,7 @@ use kkt_deployment::connection::{RecordedServer, ServerAddress};
 use kkt_deployment::{
     Deployment, DeploymentEndpoint, RecordedDeployment, ServerVersion, UnrecordedDeployment,
 };
-use kkt_deployment::{ServerKeys, UnfinishedSetup};
+use kkt_deployment::{ServerKeys, UnfinishedSetup, Unknown};
 use kkt_machine::{Env, Platform};
 use kkt_setup as setup;
 
@@ -64,10 +64,10 @@ pub fn recorded_server(record: &setup::Record) -> RecordedServer {
 /// the install finished, otherwise from where it puts the server, in the
 /// folder `kkt setup` keeps kkt's Docker files in.
 pub fn setup_not_finished(
-    unfinished: &Result<Option<setup::Unfinished>, String>,
+    unfinished: &Result<Option<setup::Unfinished>, Unknown>,
     env: &Env,
     platform: Platform,
-) -> Result<Option<UnrecordedDeployment>, String> {
+) -> Result<Option<UnrecordedDeployment>, Unknown> {
     let Some(unfinished) = unfinished.as_ref().map_err(Clone::clone)? else {
         return Ok(None);
     };
@@ -81,7 +81,8 @@ pub fn setup_not_finished(
             .map(|mode| DeploymentEndpoint {
                 deployment: deployment(&mode),
                 url: None,
-            }),
+            })
+            .map_err(Unknown::new),
     };
     Ok(Some(UnrecordedDeployment {
         summary: unfinished.summary(),
@@ -91,8 +92,8 @@ pub fn setup_not_finished(
 
 /// A server found installed with no record, for `kkt status`.
 pub fn found_without_record(
-    unrecorded: &Result<Option<setup::Unrecorded>, String>,
-) -> Result<Option<UnrecordedDeployment>, String> {
+    unrecorded: &Result<Option<setup::Unrecorded>, Unknown>,
+) -> Result<Option<UnrecordedDeployment>, Unknown> {
     Ok(unrecorded
         .as_ref()
         .map_err(Clone::clone)?
