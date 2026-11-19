@@ -84,7 +84,14 @@ impl Agent {
             && let [.., flag, _] = args.as_slice()
             && flag == "--default-log-file"
         {
-            return self.config_log(&args);
+            match self.config_log(&args) {
+                Ok(log) => return Ok(log),
+                Err(ServiceError::LogConfig(_)) => system.warn(&format!(
+                    "Could not read the service config. Using the default log at {}.",
+                    self.log_file().display()
+                )),
+                Err(error) => return Err(error),
+            }
         }
         Ok(self.log_file())
     }

@@ -104,6 +104,10 @@ impl Fake {
 }
 
 impl System for Fake {
+    fn warn(&self, message: &str) {
+        self.ran.borrow_mut().push(message.to_owned());
+    }
+
     fn user_id(&self) -> io::Result<u32> {
         Ok(501)
     }
@@ -614,6 +618,29 @@ fn status_and_logs_follow_the_configured_file_only_for_a_new_plist() {
     assert_eq!(
         manager.logs(&system, 5, false).expect("logs"),
         [format!("No log yet at {MAC_LOG}")]
+    );
+}
+
+#[test]
+fn unreadable_config_uses_the_default_log_for_status_and_follow() {
+    let mut manager = mac();
+    manager.configured_log = Box::new(|_| {
+        Err(ServiceError::LogConfig(
+            io::Error::from(io::ErrorKind::PermissionDenied).into(),
+        ))
+    });
+    let system = Fake::default()
+        .with_file(PLIST)
+        .with_file(MAC_LOG)
+        .not_loaded();
+    let notice = format!("Could not read the service config. Using the default log at {MAC_LOG}.");
+    let status = manager.status(&system).expect("status");
+    assert!(status.iter().any(|line| line.starts_with("Not loaded")));
+    assert!(status.contains(&format!("Log: {MAC_LOG}")));
+    manager.logs(&system, 7, true).expect("follow");
+    assert_eq!(
+        system.ran(),
+        [PRINT, &notice, &notice, &format!("tail -n 7 -F {MAC_LOG}")]
     );
 }
 
