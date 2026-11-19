@@ -394,6 +394,10 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
         connected_clients(self.env, self.parts.clients).map_err(step_error)
     }
 
+    fn client_url(&self, client: Client) -> Result<Option<String>, setup::StepError> {
+        client_url(self.env, self.parts.clients, client).map_err(step_error)
+    }
+
     fn recorded(&self) -> Result<Option<setup::Record>, setup::StepError> {
         read_setup(self.parts.serve, self.parts.setup_files).map_err(step_error)
     }
@@ -435,6 +439,10 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> 
         connected_clients(self.env, self.parts.clients).map_err(step_error)
     }
 
+    fn client_url(&self, client: Client) -> Result<Option<String>, setup::StepError> {
+        client_url(self.env, self.parts.clients, client).map_err(step_error)
+    }
+
     fn recorded(&self) -> Result<Option<setup::Record>, setup::StepError> {
         read_setup(self.parts.serve, self.parts.setup_files).map_err(step_error)
     }
@@ -473,6 +481,18 @@ fn connected_clients(env: &Env, host: &dyn clients::Host) -> Result<Vec<Client>,
         }
     }
     Ok(connected)
+}
+
+/// The kkt server URL currently in `client`'s config, if present and safe to
+/// print by kkt-deployment's server-address rule.
+fn client_url(
+    env: &Env,
+    host: &dyn clients::Host,
+    client: Client,
+) -> Result<Option<String>, StepFailure> {
+    Ok(client
+        .configured_url(env, host)?
+        .and_then(|url| kkt_deployment::connection::server_address(&url, None).ok()))
 }
 
 /// Points `client` at the server `record`'s clients use.

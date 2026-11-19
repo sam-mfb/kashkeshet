@@ -165,7 +165,10 @@ pub fn backup<D>(
                 .output(format_args!("Backed up to {}\n", written.display()));
             Ok(())
         }
-        backup::BackupOf::Local { into } => Ok(local_backup(parts, &into, db, config)?),
+        backup::BackupOf::Local { into } => {
+            let on_client = matches!(mode, Some(setup::Mode::Client));
+            Ok(local_backup(parts, &into, db, config, on_client)?)
+        }
     }
 }
 
@@ -379,7 +382,7 @@ pub async fn upgrade<D: ServiceDefaults>(
             // program is this one, the binary just installed by the user.
             let service = service_plan(parts, ServiceInstall::NONE)?;
             let folder = backup::service_backup_folder(parts.serve.config_dir())?;
-            local_backup(parts, &folder, None, None)?;
+            local_backup(parts, &folder, None, None, false)?;
             if let Some(key) = &service.new_web_key {
                 new_key_file(parts.key_files, parts.entropy, key, false)?;
                 parts.output.output(format_args!(
@@ -503,20 +506,74 @@ fn existing_db<D>(
     Ok(path)
 }
 
+/// Reads the highest message ID from the finished backup copy and records it
+/// in `about.txt`. Returns a plain reason if it could not be recorded; never
+/// fails the backup.
+fn record_highest_message_id<D>(
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
+    written: &Path,
+) -> Option<String> {
+    match parts
+        .database
+        .highest_message_id(&written.join(backup::DATABASE_FILE))
+    {
+        Ok(Some(highest)) => parts
+            .backups
+            .record_highest(written, highest)
+            .err()
+            .map(|e| e.to_string()),
+        Ok(None) => None,
+        Err(e) => Some(e.to_string()),
+    }
+}
+
 /// Backs up the database `kkt serve` would use (or `db`), with the config
-/// file and existing keys it would read, into `folder`.
+/// file and existing keys it would read, into `folder`. On a client
+/// machine (`on_client`), default config and key files belong to no local
+/// server: with no `--config`, only the database is backed up; with an
+/// explicit `--config`, only that config and the keys it names are copied.
 fn local_backup<D>(
     parts: &InstallParts<'_, impl ConnectionSource, D>,
     folder: &Path,
     db: Option<PathBuf>,
     config: Option<PathBuf>,
+    on_client: bool,
 ) -> Result<(), LocalBackupError> {
+    if on_client && config.is_none() {
+        let database = existing_db(parts, db, None)?;
+        let contents = backup::Contents {
+            database: &database,
+            config: None,
+            access_key: None,
+            web_key: None,
+            admin_key: None,
+            admin_name: None,
+        };
+        let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
+        let written = parts.backups.write(folder, &layout)?;
+        let not_recorded = record_highest_message_id(parts, &written);
+        let out = parts.output;
+        out.output(format_args!("Backed up to {}\n", written.display()));
+        out.output(format_args!("  database {}\n", database.display()));
+        out.output(format_args!(
+            "Backed up only the database: no --config was given on a client machine, so default \
+             config and key files were skipped.\n"
+        ));
+        if let Some(why) = &not_recorded {
+            out.output(format_args!(
+                "Highest message ID not recorded in about.txt: {why}\n"
+            ));
+        }
+        return Ok(());
+    }
     let config = parts
         .serve
         .config(config)
         .map_err(LocalBackupError::Config)?;
     let database = existing_db(parts, db, config.db.clone())?;
-    let default_access_key = parts.serve.default_access_key();
+    let default_access_key = (!on_client)
+        .then(|| parts.serve.default_access_key())
+        .flatten();
     let backup::BackupKeys {
         access_key,
         web_key,
@@ -544,18 +601,7 @@ fn local_backup<D>(
     // so it is exact and the database being backed up is never opened.
     // It is optional: any failure leaves the backup complete without
     // the line, and says so in one line below instead of failing.
-    let not_recorded = match parts
-        .database
-        .highest_message_id(&written.join(backup::DATABASE_FILE))
-    {
-        Ok(Some(highest)) => parts
-            .backups
-            .record_highest(&written, highest)
-            .err()
-            .map(|e| e.to_string()),
-        Ok(None) => None,
-        Err(e) => Some(e.to_string()),
-    };
+    let not_recorded = record_highest_message_id(parts, &written);
     let out = parts.output;
     out.output(format_args!("Backed up to {}\n", written.display()));
     out.output(format_args!("  database {}\n", database.display()));

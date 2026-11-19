@@ -818,3 +818,75 @@ async fn a_new_database_needs_no_backup() {
     assert!(!server.log.contains("backed up"), "{}", server.log);
     assert!(!home.join("upgrade-backups").exists());
 }
+
+#[tokio::test]
+async fn client_db_only_backup_records_highest_id_when_readable_and_omits_when_not() {
+    let (_source_home, db) = messaged_home("client-db-only-highest").await;
+    let client_home = temp_home("client-db-only-highest-home");
+    let config_dir = client_home.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).expect("config dir");
+    std::fs::write(
+        config_dir.join("setup.toml"),
+        "format = 1\nmode = \"client\"\nwritten_by = \"1.0.0\"\nurl = \"https://example.invalid/mcp\"\n",
+    )
+    .expect("client record");
+
+    // Readable messages: about.txt records highest message ID.
+    let folder_ok = client_home.join("backups-ok");
+    let (success, text) = finish(kkt(
+        &client_home,
+        &[
+            "backup",
+            &folder_ok.display().to_string(),
+            "--db",
+            &db.display().to_string(),
+        ],
+    ))
+    .await;
+    assert!(success, "{text}");
+    assert!(
+        text.contains("Backed up only the database: no --config was given on a client machine"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("Highest message ID not recorded in about.txt"),
+        "{text}"
+    );
+    let backup = backups_in(&folder_ok).pop().expect("one backup");
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert!(about.contains("highest message ID: 3\n"), "{about}");
+    assert!(!backup.join("config.toml").exists());
+    assert!(!backup.join("access-key").exists());
+
+    // Unreadable messages table (bare SQLite DB): backup still succeeds,
+    // omits the line in about.txt, and prints the plain reason.
+    let bare_db = client_home.join("bare.db");
+    Connection::open(&bare_db)
+        .expect("open bare")
+        .execute("CREATE TABLE other (id INTEGER)", [])
+        .expect("create table");
+    let folder_unreadable = client_home.join("backups-unreadable");
+    let (success, text) = finish(kkt(
+        &client_home,
+        &[
+            "backup",
+            &folder_unreadable.display().to_string(),
+            "--db",
+            &bare_db.display().to_string(),
+        ],
+    ))
+    .await;
+    assert!(success, "{text}");
+    assert!(
+        text.contains("Backed up only the database: no --config was given on a client machine"),
+        "{text}"
+    );
+    assert!(
+        text.contains("Highest message ID not recorded in about.txt:"),
+        "{text}"
+    );
+    let backup = backups_in(&folder_unreadable).pop().expect("one backup");
+    assert!(backup.join("kashkeshet.db").exists());
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert!(!about.contains("highest message ID"), "{about}");
+}

@@ -40,7 +40,10 @@ the result to the host folder you named. With Docker, `kkt backup` without
 a folder keeps the result in the managed `docker/backups` folder only;
 with a service or no setup record, the destination folder is required. On a client machine,
 give a destination folder and use `--db` or `--config` to select a local
-server. With neither flag, run the backup on the server machine.
+server. With `--db` alone and no `--config`, kkt backs up only the database
+and skips default config and key files, printing a note that it did so; with
+`--config`, it copies that config file and only the keys it names. With
+neither flag, run the backup on the server machine.
 
 Without a setup record, `kkt backup` uses the database, config file and keys
 that `kkt serve` would use. Give `--db` or `--config` if the server uses

@@ -272,7 +272,6 @@ pub struct HereLanes<'n, 'a, D> {
 impl<D> LaneServers for HereLanes<'_, '_, D> {
     fn here(
         &self,
-        action: &kkt_operator_commands::lanes::LanesAction,
         db: Option<PathBuf>,
         config: Option<PathBuf>,
     ) -> Result<Box<dyn LaneServer + '_>, kkt_operator_commands::PartError> {
@@ -280,7 +279,6 @@ impl<D> LaneServers for HereLanes<'_, '_, D> {
         let on = kkt_operator_commands::lanes::lanes_on(
             deployment.as_ref(),
             db.is_some() || config.is_some(),
-            action,
         )
         .map_err(operator_part)?;
         Ok(self.native.lanes_on(on, db, config))
