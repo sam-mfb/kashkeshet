@@ -165,6 +165,12 @@ fn json_clients_merge_without_losing_other_settings_and_back_up_once() {
         let home = Home::new();
         let original = serde_json::json!({"theme":"custom", group:{"other":{"url":"https://other"},"kkt":{"enabled":true,"headers":{"X-Custom":"keep","authorization":"stale"}}}}).to_string();
         let file = home.put(name, &original);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644))
+                .expect("fixture mode");
+        }
         let key = home.put("key", &format!("{KEY}\n"));
         let env = home.env();
         let setup = Setup {

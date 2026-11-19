@@ -323,12 +323,16 @@ pub fn configure(
             setup.source,
         )?;
     } else {
-        files::replace(host, setup.client_config, original.as_deref(), &updated).map_err(from)?;
-        // A file that holds a key ends private, even when the file it
-        // replaced was not: `replace` otherwise keeps its mode.
-        if client.copies_key() {
-            files::restrict(host, setup.client_config).map_err(from)?;
-        }
+        // A file that holds a key is private from the moment it lands:
+        // `replace` sets the final mode before the file is moved in.
+        files::replace(
+            host,
+            setup.client_config,
+            original.as_deref(),
+            &updated,
+            client.copies_key(),
+        )
+        .map_err(from)?;
     }
     let mut out = format!("Configured: {}", setup.client_config.display());
     if client.copies_key() && setup.key_file.is_some() {

@@ -143,6 +143,12 @@ fn client_config_overrides_select_file_client_previews_writes_and_backups() {
             };
             if existing {
                 home.put(&format!("custom profile/{name}"), &original);
+                #[cfg(unix)]
+                {
+                    use std::os::unix::fs::PermissionsExt;
+                    std::fs::set_permissions(&file, std::fs::Permissions::from_mode(0o644))
+                        .expect("fixture mode");
+                }
             }
             let run = |write| {
                 let mut command = home.command();
