@@ -1531,14 +1531,11 @@ mod tests {
         }
     }
 
-    /// Settings that run the defaults, or that cannot say so.
-    struct Defaults(bool);
+    /// Settings that run the defaults or not, or that cannot say.
+    struct Defaults(Option<bool>);
     impl ServiceDefaults for Defaults {
         fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
-            match self.0 {
-                true => Ok(true),
-                false => Err("the config file is unreadable".into()),
-            }
+            self.0.ok_or_else(|| "the config file is unreadable".into())
         }
     }
 
@@ -1696,7 +1693,13 @@ mod tests {
         };
         let failed = |step: &str| format!("`service {step}` failed: refused");
         assert_eq!(
-            read(&Unseen, &none, &Defaults(true), &Reached(true), &asked),
+            read(
+                &Unseen,
+                &none,
+                &Defaults(Some(true)),
+                &Reached(true),
+                &asked
+            ),
             Err((
                 setup::Purpose::Docker,
                 format!(
@@ -1709,7 +1712,7 @@ mod tests {
             read(
                 &empty,
                 &Failing("ready"),
-                &Defaults(true),
+                &Defaults(Some(true)),
                 &Reached(true),
                 &asked
             ),
@@ -1719,7 +1722,7 @@ mod tests {
             read(
                 &empty,
                 &Failing("state"),
-                &Defaults(true),
+                &Defaults(Some(true)),
                 &Reached(true),
                 &asked
             ),
@@ -1729,7 +1732,7 @@ mod tests {
             read(
                 &empty,
                 &Failing("args"),
-                &Defaults(true),
+                &Defaults(Some(true)),
                 &Reached(true),
                 &asked
             ),
@@ -1742,7 +1745,7 @@ mod tests {
             read(
                 &empty,
                 &Failing("gone"),
-                &Defaults(true),
+                &Defaults(Some(true)),
                 &Reached(true),
                 &asked
             ),
@@ -1752,7 +1755,7 @@ mod tests {
             read(
                 &empty,
                 &Failing(""),
-                &Defaults(false),
+                &Defaults(None),
                 &Reached(true),
                 &asked
             ),
@@ -1764,7 +1767,7 @@ mod tests {
             read(
                 &empty,
                 &Failing(""),
-                &Defaults(true),
+                &Defaults(Some(true)),
                 &Reached(false),
                 &asked
             ),
@@ -1776,7 +1779,7 @@ mod tests {
             read(
                 &empty,
                 &Failing(""),
-                &Defaults(true),
+                &Defaults(Some(true)),
                 &Reached(true),
                 &NoBind
             ),
@@ -1788,12 +1791,134 @@ mod tests {
             read(
                 &empty,
                 &Failing(""),
-                &Defaults(true),
+                &Defaults(Some(true)),
                 &Reached(true),
                 &asked
             ),
             Err(service(
                 "whether it is shared over Tailscale is not known: tailscale is not here"
+            ))
+        );
+    }
+
+    /// A host where nothing is shared over Tailscale.
+    struct NotShared;
+    impl kkt_remote_access::RemoteAccess for NotShared {
+        fn prepare(&self) -> Result<kkt_remote_access::Node, kkt_remote_access::SharingError> {
+            unreachable!("nothing is shared")
+        }
+        fn serve(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
+            unreachable!("nothing is shared")
+        }
+        fn served(
+            &self,
+            _: std::net::SocketAddr,
+        ) -> Result<Option<kkt_remote_access::Node>, kkt_remote_access::SharingError> {
+            Ok(None)
+        }
+        fn stop(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
+            unreachable!("nothing is shared")
+        }
+    }
+
+    /// A service that does not run the default settings, and a server in
+    /// Docker installed beside a service: kkt-setup's refusals, passed on
+    /// word for word, with how the server runs.
+    #[test]
+    fn kkt_setups_refusals_of_an_unrecorded_server_are_passed_on() {
+        let home = PathBuf::from("/home/k");
+        let env = Env {
+            home: Some(home.clone()),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let folder = kkt_deployment::docker_folder(&env, Platform::Xdg).expect("a Docker folder");
+        let key_file = home
+            .join(".config/kkt")
+            .join(crate::record::DOCKER_KEY_FILE_NAME);
+        let untouched = Untouched::default();
+        let installed = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let inputs = kkt_containerized_service::Inputs {
+            version: "0.4.0".into(),
+            project: "kkt".into(),
+            port: 7420,
+            allow_hosts: vec![],
+            sharing: None,
+        };
+        let copies = kkt_containerized_service::KeyCopies {
+            access: key_file.clone(),
+            web: home.join("web"),
+            admin: home.join("admin"),
+        };
+        futures::executor::block_on(kkt_containerized_service::ServiceContainer::provision(
+            &installed,
+            &NoClock,
+            &untouched,
+            &kkt_container::Folder(folder.clone()),
+            &inputs,
+            &copies,
+        ))
+        .expect("installed");
+        let empty = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let key_files = kkt_keys::testing::Memory::new().with_file(key_file, "key\n");
+        let record = UnsharedRecord(RefCell::new(Vec::new()));
+        let said = Said::default();
+        let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {
+            panic!("finding an install tried an address")
+        };
+        let serve = Asked::default();
+        let read = |container: &dyn kkt_containerized_service::ServiceContainer,
+                    defaults: &Defaults| {
+            let parts = InstallParts {
+                container,
+                container_configs: &untouched,
+                service: &Failing(""),
+                try_bind: &try_bind,
+                remote: &NotShared,
+                clients: &untouched,
+                client_command: &untouched,
+                prober: &NoProbes,
+                import_lanes: &untouched,
+                connection: &Reached(true),
+                clock: std::sync::Arc::new(NoClock),
+                serve: &serve,
+                service_defaults: defaults,
+                setup_files: &record,
+                key_files: &key_files,
+                entropy: &kkt_entropy::testing::SeqEntropy::new(0),
+                database: &untouched,
+                backups: &untouched,
+                output: &said,
+                mcp_path: "/mcp",
+                login_link: &untouched,
+                lines: &untouched,
+                config_file: &untouched,
+            };
+            read_unrecorded(&parts, &env, Platform::Xdg)
+                .map(|_| ())
+                .map_err(|(purpose, e)| (purpose, e.to_string()))
+        };
+        // kkt-setup's own sentence, which its tests pin.
+        let not_defaults = setup::service_runs_defaults(&["serve".to_string()], false)
+            .expect_err("refused")
+            .to_string();
+        assert_eq!(
+            read(&empty, &Defaults(Some(false))),
+            Err((setup::Purpose::Service, not_defaults))
+        );
+        assert_eq!(
+            read(&installed, &Defaults(Some(true))),
+            Err((
+                setup::Purpose::Docker,
+                format!(
+                    "Found a kkt server in Docker from {}, for clients at \
+                     http://127.0.0.1:7420/mcp, not recorded. A kkt service is installed here \
+                     too, so which one clients use is not known; remove one (`kkt service \
+                     uninstall`, or `docker compose down` in the Docker folder) and run `kkt \
+                     setup` again",
+                    folder.display()
+                )
             ))
         );
     }
