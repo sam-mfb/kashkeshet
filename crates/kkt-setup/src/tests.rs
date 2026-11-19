@@ -225,7 +225,7 @@ fn with_no_one_to_ask_a_question_names_its_flag() {
         default: None,
     };
     assert_eq!(
-        unanswered(q),
+        unanswered(q).to_string(),
         "What is this machine for? No terminal to ask on: pass --mode."
     );
 }
@@ -365,7 +365,7 @@ mod flow {
             question: Question,
             options: &[&str],
             default: usize,
-        ) -> Result<usize, String> {
+        ) -> Result<usize, AskError> {
             assert_eq!(Purpose::ALL[default], Purpose::Docker);
             match self.next(question) {
                 Reply::Enter => Ok(default),
@@ -373,7 +373,7 @@ mod flow {
                 _ => panic!("expected a choice for {}", question.text),
             }
         }
-        fn confirm(&self, question: Question) -> Result<bool, String> {
+        fn confirm(&self, question: Question) -> Result<bool, AskError> {
             assert!(
                 question.default.is_some(),
                 "no default for {}",
@@ -385,7 +385,7 @@ mod flow {
                 _ => panic!("expected yes or no for {}", question.text),
             }
         }
-        fn text(&self, question: Question, default: &str) -> Result<String, String> {
+        fn text(&self, question: Question, default: &str) -> Result<String, AskError> {
             match self.next(question) {
                 Reply::Enter => Ok(default.to_string()),
                 Reply::Text(text) => Ok(if text.trim().is_empty() {
@@ -633,13 +633,16 @@ mod flow {
     }
 
     impl SwitchSteps for Fake {
-        fn connected_clients(&self) -> Result<Vec<Client>, String> {
+        fn connected_clients(&self) -> Result<Vec<Client>, StepError> {
             Ok(self.connected.clone())
         }
-        fn recorded(&self) -> Result<Option<Record>, String> {
-            self.earlier.clone().transpose()
+        fn recorded(&self) -> Result<Option<Record>, StepError> {
+            self.earlier
+                .clone()
+                .transpose()
+                .map_err(|said| StepError(said.into()))
         }
-        fn write_record(&self, record: &Record) -> Result<(), String> {
+        fn write_record(&self, record: &Record) -> Result<(), StepError> {
             let clients = match &record.clients {
                 Some(server) => format!(" clients={}", server.url),
                 None => String::new(),
@@ -651,7 +654,7 @@ mod flow {
             ));
             Ok(())
         }
-        fn connect(&self, client: Client, record: &Record) -> Result<String, String> {
+        fn connect(&self, client: Client, record: &Record) -> Result<String, StepError> {
             let server = record.for_clients();
             let key = server.key_file.as_deref().map(|k| k.display().to_string());
             self.did(format!(
@@ -660,48 +663,55 @@ mod flow {
                 key.unwrap_or_default()
             ));
             match self.fail_connect {
-                Some(failing) if failing == client => Err("bad config file".into()),
-                _ if self.fails_once(client.name()) => Err("bad config file".into()),
+                Some(failing) if failing == client => Err(StepError("bad config file".into())),
+                _ if self.fails_once(client.name()) => Err(StepError("bad config file".into())),
                 _ => Ok(format!("connected {}", client.name())),
             }
         }
         /// Refuses an address that is not http:// or https://, as the
         /// program's steps do with kkt-deployment's rule, before any server
         /// is asked.
-        fn check_address(&self, url: &str) -> Result<(), String> {
+        fn check_address(&self, url: &str) -> Result<(), StepError> {
             if !(url.starts_with("http://") || url.starts_with("https://")) {
-                return Err("URL must be an absolute http:// or https:// address".into());
+                return Err(StepError(
+                    "URL must be an absolute http:// or https:// address".into(),
+                ));
             }
             let checked = format!("address {url}");
             let gone = self.flaky == Some(url) && self.checked().contains(&checked);
             self.checked.borrow_mut().push(checked);
             if gone || self.bad_addresses.contains(&url) {
-                return Err("problem: server: connection refused".into());
+                return Err(StepError("problem: server: connection refused".into()));
             }
             Ok(())
         }
-        fn check_key(&self, url: &str, key: &ClientKey) -> Result<(), String> {
+        fn check_key(&self, url: &str, key: &ClientKey) -> Result<(), StepError> {
             let key = shown(key);
             self.checked
                 .borrow_mut()
                 .push(format!("key {key} for {url}"));
             if self.flaky == Some(url) {
-                return Err("problem: MCP: connection reset".into());
+                return Err(StepError("problem: MCP: connection reset".into()));
             }
             if self.bad_keys.contains(&key) {
-                return Err("problem: key accepted: server returned 401".into());
+                return Err(StepError(
+                    "problem: key accepted: server returned 401".into(),
+                ));
             }
             Ok(())
         }
     }
 
     impl AdoptSteps for Fake {
-        fn unrecorded(&self) -> Result<Option<Unrecorded>, String> {
+        fn unrecorded(&self) -> Result<Option<Unrecorded>, StepError> {
             // As the real steps: a note covers the server.
             if self.unfinished.borrow().is_some() {
                 return Ok(None);
             }
-            self.unrecorded.clone().transpose()
+            self.unrecorded
+                .clone()
+                .transpose()
+                .map_err(|said| StepError(said.into()))
         }
     }
 
@@ -1249,13 +1259,13 @@ mod flow {
         fn interactive(&self) -> bool {
             false
         }
-        fn choose(&self, question: Question, _: &[&str], _: usize) -> Result<usize, String> {
+        fn choose(&self, question: Question, _: &[&str], _: usize) -> Result<usize, AskError> {
             Err(unanswered(question))
         }
-        fn confirm(&self, question: Question) -> Result<bool, String> {
+        fn confirm(&self, question: Question) -> Result<bool, AskError> {
             Err(unanswered(question))
         }
-        fn text(&self, question: Question, _: &str) -> Result<String, String> {
+        fn text(&self, question: Question, _: &str) -> Result<String, AskError> {
             Err(unanswered(question))
         }
         fn tell(&self, _: &str) {}
@@ -2618,17 +2628,17 @@ mod flow {
             fn interactive(&self) -> bool {
                 true
             }
-            fn choose(&self, _: Question, _: &[&str], _: usize) -> Result<usize, String> {
-                Err("no choice expected".into())
+            fn choose(&self, _: Question, _: &[&str], _: usize) -> Result<usize, AskError> {
+                panic!("no choice expected")
             }
-            fn confirm(&self, question: Question) -> Result<bool, String> {
+            fn confirm(&self, question: Question) -> Result<bool, AskError> {
                 // Shown as [Y/n]: Enter adopts.
                 assert_eq!(question.default, Some(true), "{}", question.text);
                 self.0.borrow_mut().push(question.text.to_string());
                 Ok(true)
             }
-            fn text(&self, _: Question, _: &str) -> Result<String, String> {
-                Err("no text expected".into())
+            fn text(&self, _: Question, _: &str) -> Result<String, AskError> {
+                panic!("no text expected")
             }
             fn tell(&self, _: &str) {}
         }
@@ -3014,6 +3024,48 @@ mod flow {
     mod switching {
         use super::*;
 
+        /// Every sentence `kkt switch` refuses with, pinned exactly.
+        #[test]
+        fn every_switch_refusal_says_what_it_always_said() {
+            let said = |how: &Switch, steps: &Fake| {
+                switch(how, "0.8.0", &Script::default(), steps)
+                    .expect_err("refused")
+                    .to_string()
+            };
+            assert_eq!(
+                said(&to(OTHER), &Fake::default()),
+                "this machine is not set up yet; run `kkt setup` first"
+            );
+            let local = Switch {
+                to: Target::Local,
+                key_file: None,
+                clients: None,
+            };
+            assert_eq!(
+                said(&local, &on(client_record())),
+                "--local is for a machine that runs a kkt server, and this one is a client of https://old.example/mcp; give the server's address instead"
+            );
+            let unreachable = Fake {
+                bad_addresses: vec![OTHER],
+                ..on(client_record())
+            };
+            assert_eq!(
+                said(&to(OTHER), &unreachable),
+                format!(
+                    "the server at {OTHER} did not pass its check, so nothing was changed:\nproblem: server: connection refused"
+                )
+            );
+            let failing = Fake {
+                connected: vec![Client::ClaudeCode, Client::Codex],
+                fail_connect: Some(Client::Codex),
+                ..on(client_record())
+            };
+            assert_eq!(
+                said(&to(OTHER), &failing),
+                "could not connect Codex, so the record still names https://old.example/mcp; fix that and run `kkt switch` again"
+            );
+        }
+
         fn to(url: &str) -> Switch {
             Switch {
                 to: Target::Url(url.into()),
@@ -3087,14 +3139,16 @@ mod flow {
                     ..on(client_record())
                 },
             ] {
-                let error =
-                    switch(&to(OTHER), "0.8.0", &Script::default(), &steps).expect_err("check");
+                let error = switch(&to(OTHER), "0.8.0", &Script::default(), &steps)
+                    .expect_err("check")
+                    .to_string();
                 assert!(error.contains("nothing was changed"), "{error}");
                 assert!(steps.done().is_empty(), "{:?}", steps.done());
             }
             let steps = on(client_record());
             let error = switch(&to("kkt.example/mcp"), "0.8.0", &Script::default(), &steps)
-                .expect_err("url");
+                .expect_err("url")
+                .to_string();
             assert!(error.contains("must be an absolute http://"), "{error}");
             assert!(steps.done().is_empty());
         }
@@ -3160,7 +3214,9 @@ mod flow {
                 key_file: None,
                 clients: None,
             };
-            let error = switch(&how, "0.8.0", &Script::default(), &steps).expect_err("client");
+            let error = switch(&how, "0.8.0", &Script::default(), &steps)
+                .expect_err("client")
+                .to_string();
             assert!(
                 error.contains("--local is for a machine that runs"),
                 "{error}"
@@ -3171,7 +3227,9 @@ mod flow {
         #[test]
         fn a_machine_with_no_record_is_told_to_run_setup() {
             let steps = Fake::default();
-            let error = switch(&to(OTHER), "0.8.0", &Script::default(), &steps).expect_err("none");
+            let error = switch(&to(OTHER), "0.8.0", &Script::default(), &steps)
+                .expect_err("none")
+                .to_string();
             assert!(error.contains("run `kkt setup` first"), "{error}");
             assert!(steps.done().is_empty());
         }
@@ -3235,7 +3293,9 @@ mod flow {
                 fail_connect: Some(Client::Codex),
                 ..on(client_record())
             };
-            let error = switch(&to(OTHER), "0.8.0", &Script::default(), &steps).expect_err("fail");
+            let error = switch(&to(OTHER), "0.8.0", &Script::default(), &steps)
+                .expect_err("fail")
+                .to_string();
             assert!(error.contains("could not connect Codex"), "{error}");
             assert!(
                 error.contains("still names https://old.example/mcp"),

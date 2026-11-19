@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "0c576c92",
+ "commit": "a700edb7",
  "crates": [
   {
    "bins": [
@@ -9304,7 +9304,8 @@ window.KKT_GRAPH = {
       "ServiceFileGone",
       "Settings",
       "Sharing",
-      "Setup"
+      "NotDefaults",
+      "BothInstalled"
      ]
     },
     {
@@ -17061,6 +17062,17 @@ window.KKT_GRAPH = {
    ],
    "items": [
     {
+     "doc": "Why `--adopt` cannot record a server here.",
+     "kind": "enum",
+     "path": "AdoptError",
+     "variants": [
+      "NothingFound",
+      "Unreadable",
+      "Differs",
+      "Ask"
+     ]
+    },
+    {
      "doc": "How setup finds a server to adopt: the part of `super::Steps` it uses.",
      "kind": "trait",
      "methods": [
@@ -17100,6 +17112,24 @@ window.KKT_GRAPH = {
       "text"
      ],
      "path": "Ask"
+    },
+    {
+     "doc": "Why a question got no answer.",
+     "kind": "enum",
+     "path": "AskError",
+     "variants": [
+      "NoTerminal",
+      "NoAnswer",
+      "Read"
+     ]
+    },
+    {
+     "doc": "Both a server in Docker and a kkt service are installed here with no record: which one clients use is not known.",
+     "fields": [
+      "summary"
+     ],
+     "kind": "struct",
+     "path": "BothInstalled"
     },
     {
      "doc": "The key a client-only machine uses for its server.",
@@ -17143,6 +17173,11 @@ window.KKT_GRAPH = {
      "path": "Installed"
     },
     {
+     "doc": "Why the terminal could not be read: the caller's own error, passed on unread.",
+     "kind": "struct",
+     "path": "LineError"
+    },
+    {
      "doc": "The caller's line input and output for setup's questions.",
      "kind": "trait",
      "methods": [
@@ -17176,6 +17211,14 @@ window.KKT_GRAPH = {
       "Found",
       "FoundUnreadable"
      ]
+    },
+    {
+     "doc": "An installed kkt service with no record that runs with settings other than the default config file's, which a record could not keep.",
+     "fields": [
+      "args"
+     ],
+     "kind": "struct",
+     "path": "NotDefaults"
     },
     {
      "doc": "What this machine is for, as chosen with `--mode` or asked.",
@@ -17278,6 +17321,11 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "A step's failure: the caller's own error, passed on unread.",
+     "kind": "struct",
+     "path": "StepError"
+    },
+    {
      "doc": "What `kkt setup` does to the machine.",
      "kind": "trait",
      "methods": [
@@ -17308,6 +17356,20 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Switch"
+    },
+    {
+     "doc": "Why `kkt switch` changed nothing.",
+     "kind": "enum",
+     "path": "SwitchError",
+     "variants": [
+      "NotSetUp",
+      "LocalOnClient",
+      "CheckFailed",
+      "NotConnected",
+      "Record",
+      "Clients",
+      "Ask"
+     ]
     },
     {
      "doc": "What `kkt switch` does to the machine: the part of `super::Steps` it uses.",
@@ -17390,6 +17452,21 @@ window.KKT_GRAPH = {
       "text"
      ],
      "path": "ask::Ask"
+    },
+    {
+     "doc": "Why a question got no answer.",
+     "kind": "enum",
+     "path": "ask::AskError",
+     "variants": [
+      "NoTerminal",
+      "NoAnswer",
+      "Read"
+     ]
+    },
+    {
+     "doc": "Why the terminal could not be read: the caller's own error, passed on unread.",
+     "kind": "struct",
+     "path": "ask::LineError"
     },
     {
      "doc": "The caller's line input and output for setup's questions.",
@@ -21161,6 +21238,7 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Answers",
+    "LineError",
     "Lines",
     "Mode",
     "Purpose",
@@ -21184,6 +21262,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Answers",
+      "LineError",
       "Lines",
       "Mode",
       "Purpose",
@@ -25649,6 +25728,7 @@ window.KKT_GRAPH = {
    "items": [
     "AdoptSteps",
     "Answers",
+    "BothInstalled",
     "ClientKey",
     "DockerSetup",
     "InstallCheck",
@@ -25656,9 +25736,11 @@ window.KKT_GRAPH = {
     "Lines",
     "Mode",
     "NoRecord",
+    "NotDefaults",
     "Purpose",
     "Record",
     "Server",
+    "StepError",
     "Steps",
     "Switch",
     "SwitchSteps",
@@ -25696,6 +25778,7 @@ window.KKT_GRAPH = {
       "NoRecord",
       "Purpose",
       "Record",
+      "StepError",
       "Unfinished",
       "Unrecorded",
       "recorded_setup",
@@ -25717,7 +25800,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "LineError"
+   ],
    "to": "kkt-setup"
   },
   {

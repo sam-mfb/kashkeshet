@@ -4,30 +4,69 @@
 use super::ask::{Ask, Question};
 use super::flow::{ClientKey, switch_note};
 use super::record::{Record, Server};
+use crate::{AskError, StepError};
 use kkt_llm_agent_config::Client;
 use std::path::PathBuf;
+
+/// Why `kkt switch` changed nothing.
+#[derive(Debug, thiserror::Error)]
+pub enum SwitchError {
+    /// There is no setup record to switch.
+    #[error("this machine is not set up yet; run `kkt setup` first")]
+    NotSetUp,
+    /// `--local` was given on a client machine.
+    #[error(
+        "--local is for a machine that runs a kkt server, and this one is a client of {url}; give the server's address instead"
+    )]
+    LocalOnClient { url: String },
+    /// The new server did not pass its check.
+    #[error("the server at {url} did not pass its check, so nothing was changed:\n{problem}")]
+    CheckFailed {
+        url: String,
+        #[source]
+        problem: StepError,
+    },
+    /// Some clients could not be pointed at it, so the record was kept.
+    #[error(
+        "could not connect {}, so the record still names {before}; fix that and run `kkt switch` again",
+        clients.join(", ")
+    )]
+    NotConnected {
+        clients: Vec<String>,
+        before: String,
+    },
+    /// The setup record could not be read or written.
+    #[error(transparent)]
+    Record(StepError),
+    /// The clients with a kkt entry could not be found.
+    #[error(transparent)]
+    Clients(StepError),
+    /// The key file question got no answer.
+    #[error(transparent)]
+    Ask(AskError),
+}
 
 /// What `kkt switch` does to the machine: the part of [`super::Steps`] it
 /// uses.
 pub trait SwitchSteps {
     /// The clients whose config has a kkt entry now, whatever server it
     /// names.
-    fn connected_clients(&self) -> Result<Vec<Client>, String>;
+    fn connected_clients(&self) -> Result<Vec<Client>, StepError>;
     /// The setup record, if there is one.
-    fn recorded(&self) -> Result<Option<Record>, String>;
+    fn recorded(&self) -> Result<Option<Record>, StepError>;
     /// Writes the setup record, replacing any earlier one whole.
-    fn write_record(&self, record: &Record) -> Result<(), String>;
+    fn write_record(&self, record: &Record) -> Result<(), StepError>;
     /// Points `client` at the server `record`'s clients use
     /// ([`Record::for_clients`]). Returns what it did.
-    fn connect(&self, client: Client, record: &Record) -> Result<String, String>;
+    fn connect(&self, client: Client, record: &Record) -> Result<String, StepError>;
     /// Checks, changing nothing, that `url` is a server address a client
     /// may be given, then that a server answers there and accepts its host
     /// name. A refused address is refused before any server is asked.
     /// Returns the problems found as an error.
-    fn check_address(&self, url: &str) -> Result<(), String>;
+    fn check_address(&self, url: &str) -> Result<(), StepError>;
     /// Checks, changing nothing, that the server at `url` accepts `key`.
     /// Returns the problems found as an error.
-    fn check_key(&self, url: &str, key: &ClientKey) -> Result<(), String>;
+    fn check_key(&self, url: &str, key: &ClientKey) -> Result<(), StepError>;
 }
 
 /// What to switch to, as given with `kkt switch`.
@@ -67,18 +106,17 @@ pub fn switch(
     version: &str,
     ask: &dyn Ask,
     steps: &dyn SwitchSteps,
-) -> Result<Record, String> {
+) -> Result<Record, SwitchError> {
     let record = steps
-        .recorded()?
-        .ok_or("this machine is not set up yet; run `kkt setup` first")?;
+        .recorded()
+        .map_err(SwitchError::Record)?
+        .ok_or(SwitchError::NotSetUp)?;
     let before = record.for_clients();
     let server = match &how.to {
         Target::Local if !record.runs_server() => {
-            return Err(format!(
-                "--local is for a machine that runs a kkt server, and this one is a client of \
-                 {}; give the server's address instead",
-                record.url
-            ));
+            return Err(SwitchError::LocalOnClient {
+                url: record.url.clone(),
+            });
         }
         Target::Local => record.own_server(),
         Target::Url(url) if record.runs_server() && url.trim() == record.url => {
@@ -98,16 +136,14 @@ pub fn switch(
     steps
         .check_address(&server.url)
         .and_then(|()| steps.check_key(&server.url, &key))
-        .map_err(|problem| {
-            format!(
-                "the server at {} did not pass its check, so nothing was changed:\n{problem}",
-                server.url
-            )
+        .map_err(|problem| SwitchError::CheckFailed {
+            url: server.url.clone(),
+            problem,
         })?;
 
     let chosen = match &how.clients {
         Some(chosen) => chosen.clone(),
-        None => steps.connected_clients()?,
+        None => steps.connected_clients().map_err(SwitchError::Clients)?,
     };
     let switched = record.switched(server, version);
     if record.runs_server() && switched.clients.is_some() {
@@ -124,14 +160,12 @@ pub fn switch(
         }
     }
     if !failed.is_empty() {
-        return Err(format!(
-            "could not connect {}, so the record still names {}; fix that and run `kkt switch` \
-             again",
-            failed.join(", "),
-            before.url
-        ));
+        return Err(SwitchError::NotConnected {
+            clients: failed.iter().map(|c| c.to_string()).collect(),
+            before: before.url.clone(),
+        });
     }
-    steps.write_record(&switched)?;
+    steps.write_record(&switched).map_err(SwitchError::Record)?;
 
     let after = switched.for_clients();
     if chosen.is_empty() {
@@ -150,7 +184,7 @@ pub fn switch(
 
 /// The key file for a new server: `--key-file`, else asked at a terminal
 /// offering the current one, else the current one.
-fn key_file(how: &Switch, current: &Server, ask: &dyn Ask) -> Result<Option<PathBuf>, String> {
+fn key_file(how: &Switch, current: &Server, ask: &dyn Ask) -> Result<Option<PathBuf>, SwitchError> {
     if let Some(path) = &how.key_file {
         return Ok(Some(path.clone()));
     }
@@ -163,7 +197,7 @@ fn key_file(how: &Switch, current: &Server, ask: &dyn Ask) -> Result<Option<Path
         .map(|path| path.display().to_string())
         .unwrap_or_default();
     loop {
-        let answer = ask.text(KEY_FILE, &offered)?;
+        let answer = ask.text(KEY_FILE, &offered).map_err(SwitchError::Ask)?;
         match answer.trim() {
             "" | "none" => return Ok(None),
             path if PathBuf::from(path).is_absolute() => return Ok(Some(PathBuf::from(path))),

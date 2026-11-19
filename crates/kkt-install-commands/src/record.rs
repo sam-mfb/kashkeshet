@@ -57,10 +57,14 @@ pub enum UnrecordedError {
         ))
     )]
     Sharing(#[source] SharingError),
-    /// kkt-setup's own refusal: a service that does not run the defaults,
-    /// or both kinds of server installed.
-    #[error("{0}")]
-    Setup(String),
+    /// kkt-setup's refusal of a service that does not run with the
+    /// default config file's settings.
+    #[error(transparent)]
+    NotDefaults(#[from] setup::NotDefaults),
+    /// kkt-setup's refusal when a server in Docker and a service are both
+    /// installed.
+    #[error(transparent)]
+    BothInstalled(setup::BothInstalled),
 }
 
 /// Which of an installed service's settings could not be read.
@@ -132,7 +136,7 @@ pub fn read_unrecorded<D: crate::ServiceDefaults>(
         unrecorded_docker(parts, env, platform).map_err(|e| (setup::Purpose::Docker, e))?;
     let service = unrecorded_service(parts).map_err(|e| (setup::Purpose::Service, e))?;
     setup::unrecorded_here(docker, service)
-        .map_err(|(purpose, said)| (purpose, UnrecordedError::Setup(said)))
+        .map_err(|(purpose, e)| (purpose, UnrecordedError::BothInstalled(e)))
 }
 
 /// kkt in Docker in the folder `kkt setup` uses, with the access key's host
@@ -207,7 +211,7 @@ fn unrecorded_service<D: crate::ServiceDefaults>(
         .service_defaults
         .matches_defaults(&args)
         .map_err(|e| unread(SettingsUnread::Defaults(e)))?;
-    setup::service_runs_defaults(&args, matches_defaults).map_err(UnrecordedError::Setup)?;
+    setup::service_runs_defaults(&args, matches_defaults)?;
     let connection = connection::serve_connection(parts.connection, ConnectionOptions::NONE, false)
         .map_err(|e| unread(SettingsUnread::Connection(e)))?;
     let bind = parts

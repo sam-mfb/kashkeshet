@@ -14,7 +14,9 @@ impl kkt_setup::Lines for TerminalLines {
     fn say(&self, text: &str) {
         Terminal.output(format_args!("{text}\n"));
     }
-    fn read_line(&self, prompt: &str) -> Result<Option<String>, String> {
-        Terminal.read_line(prompt)
+    fn read_line(&self, prompt: &str) -> Result<Option<String>, kkt_setup::LineError> {
+        Terminal
+            .read_line(prompt)
+            .map_err(|said| kkt_setup::LineError(said.into()))
     }
 }
