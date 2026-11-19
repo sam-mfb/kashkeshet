@@ -1,6 +1,7 @@
 //! kkt's database contract ([`kkt_db`]) over SQLite: the only crate that
-//! knows SQLite. Stores never see it; the program picks it and hands
-//! stores the [`kkt_db::Database`] it opens.
+//! knows SQLite. The program picks it and hands stores the
+//! [`kkt_db::Backend`] it opens. Reads and writes run on tokio's
+//! blocking pool, since SQLite blocks.
 //!
 //! One connection writes, behind a lock, so writes run one at a time; each
 //! write is an immediate transaction. Several read-only connections read,
@@ -11,29 +12,21 @@
 //! The schema is made by kkt-db's migration steps ([`ddl`]); the versions
 //! applied are recorded per set in `kkt_db_versions`, and `user_version`
 //! is set to [`MANAGED`] to say so. Search indexes are FTS5 tables over
-//! kkt-db's words ([`kkt_db::search`]), kept in the same transaction as
+//! the words kkt-db hands with each write, kept in the same transaction as
 //! their rows.
 
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod adopt;
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod conn;
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod ddl;
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod open;
-#[cfg(any(test, feature = "real", feature = "testing"))]
 mod sql;
 
 #[cfg(test)]
 mod tests;
 
-#[cfg(any(test, feature = "real"))]
-pub use adopt::Legacy;
 #[cfg(any(test, feature = "testing"))]
 pub use open::MemoryPlace;
-#[cfg(any(test, feature = "real"))]
-pub use open::{SqlitePlace, copy_database};
+pub use open::{CreateError, SqlitePlace, copy_database};
 
 use std::time::Duration;
 
@@ -49,4 +42,13 @@ pub struct Options {
     pub readers: usize,
     /// How long a connection waits for a lock another process holds.
     pub busy_timeout: Duration,
+}
+
+impl Options {
+    /// Four read-only connections beside the one writer, and a five-second
+    /// wait for a lock before failing.
+    pub const DEFAULT: Options = Options {
+        readers: 4,
+        busy_timeout: Duration::from_secs(5),
+    };
 }

@@ -48,7 +48,8 @@ enum Start {
     /// In this process, with the web key and a clock the test moves.
     KeyedWithClock(Arc<TestClock>),
     /// In this process, with an access key but no web key: settings only
-    /// this process can have, since `kkt serve` makes a web key.
+    /// this process can have, since beside an access key `kkt serve` makes
+    /// a web key and kkt-keymode requires one.
     OpenWebPage,
 }
 
@@ -205,7 +206,11 @@ async fn a_wrong_key_is_refused() {
         .await;
     assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
     assert!(header(&response, "set-cookie").is_none());
-    assert!(response.text().await.expect("body").contains("wrong"));
+    let body = response.text().await.expect("body");
+    assert!(
+        body.contains(r#"<p class="error">the access key is wrong</p>"#),
+        "{body}"
+    );
 }
 
 #[tokio::test]

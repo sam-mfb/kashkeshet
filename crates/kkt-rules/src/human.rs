@@ -3,18 +3,25 @@
 //! rules as agents', made as [`Actor::Operator`].
 
 use super::*;
-use kkt_config::{WEB_ACTIVITY_BUCKET, WEB_ACTIVITY_WINDOW};
 use std::collections::{BTreeMap, HashMap};
+use std::time::Duration;
 
 impl Rules {
     /// The front page: every channel with how much it is used, every agent
-    /// with the channels it is in, and this server run.
-    pub async fn overview(&self, operator: &Operator) -> Result<Overview> {
+    /// with the channels it is in, and this server run. Each channel's
+    /// recent activity covers the last `window`, counted in stretches of
+    /// `bucket`: the caller gives the activity chart's shape.
+    pub async fn overview(
+        &self,
+        operator: &Operator,
+        window: Duration,
+        bucket: Duration,
+    ) -> Result<Overview> {
         operator.may(Permission::Read)?;
         let rules = self.clone();
         let run_id = self.inner.deps.run_id;
-        let preview = self.limits().member_preview;
-        let (since, now) = self.activity_window()?;
+        let preview = self.settings().member_preview;
+        let (since, now) = self.activity_window(window)?;
         self.db()
             .read(move |store, swarm| {
                 let channels = channel_activity(
@@ -22,6 +29,7 @@ impl Rules {
                     swarm,
                     &store.all_channel_ids(swarm, None)?,
                     &since,
+                    bucket,
                     |id| channel_info(store, swarm, id, None, None, preview),
                 )?;
                 let mut member_of: HashMap<String, Vec<ChannelRef>> = HashMap::new();
@@ -41,11 +49,7 @@ impl Rules {
                         })
                     })
                     .collect::<Result<Vec<_>>>()?;
-                let current_run = store
-                    .server_runs()?
-                    .into_iter()
-                    .find(|r| r.id == run_id)
-                    .map(ServerRunInfo::from);
+                let current_run = store.server_runs()?.into_iter().find(|r| r.id == run_id);
                 Ok(Overview {
                     channels,
                     agents,
@@ -56,12 +60,19 @@ impl Rules {
             .await
     }
 
-    /// The hidden channels, with how much they were used, in name order.
-    /// Only the human sees them; to agents they do not exist.
-    pub async fn hidden_channels(&self, operator: &Operator) -> Result<Vec<ChannelActivity>> {
+    /// The hidden channels, with how much they were used, in name order,
+    /// their recent activity shaped by `window` and `bucket` as in
+    /// [`Rules::overview`]. Only the human sees them; to agents they do not
+    /// exist.
+    pub async fn hidden_channels(
+        &self,
+        operator: &Operator,
+        window: Duration,
+        bucket: Duration,
+    ) -> Result<Vec<ChannelActivity>> {
         operator.may(Permission::Read)?;
-        let preview = self.limits().member_preview;
-        let (since, _) = self.activity_window()?;
+        let preview = self.settings().member_preview;
+        let (since, _) = self.activity_window(window)?;
         self.db()
             .read(move |store, swarm| {
                 channel_activity(
@@ -69,6 +80,7 @@ impl Rules {
                     swarm,
                     &store.hidden_channel_ids(swarm)?,
                     &since,
+                    bucket,
                     |id| human_readable_channel(store, swarm, id, preview).map(|(info, _)| info),
                 )
             })
@@ -79,36 +91,31 @@ impl Rules {
     pub async fn server_runs(&self, operator: &Operator) -> Result<Vec<ServerRunInfo>> {
         operator.may(Permission::Read)?;
         self.db()
-            .read(|store, _| {
-                Ok(store
-                    .server_runs()?
-                    .into_iter()
-                    .map(ServerRunInfo::from)
-                    .collect())
-            })
+            .read(|store, _| Ok(store.server_runs()?.into_iter().collect()))
             .await
     }
 
-    /// The start of `WEB_ACTIVITY_WINDOW` and now, as stored times.
-    fn activity_window(&self) -> Result<(String, String)> {
+    /// The start of the last `window` and now, as stored times.
+    fn activity_window(&self, window: Duration) -> Result<(String, String)> {
         let now = self.inner.deps.clock.now();
-        let window = Span::from_std(WEB_ACTIVITY_WINDOW)
-            .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
+        let window =
+            Span::from_std(window).map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
         Ok((clock::to_text(now - window), clock::to_text(now)))
     }
 
-    /// One channel with a page of its messages, hidden or not: the human
-    /// may read a hidden channel, though nobody can change it.
+    /// One channel with a page of at most `page_messages` of its messages,
+    /// hidden or not: the human may read a hidden channel, though nobody can
+    /// change it.
     pub async fn channel_view(
         &self,
         operator: &Operator,
         id: String,
         before_id: Option<i64>,
+        page_messages: usize,
     ) -> Result<ChannelView> {
         operator.may(Permission::Read)?;
         let rules = self.clone();
-        let preview = self.limits().member_preview;
-        let page_messages = self.limits().web_page_messages;
+        let preview = self.settings().member_preview;
         self.db()
             .read(move |store, swarm| {
                 let (channel, hidden) = human_readable_channel(store, swarm, &id, preview)?;
@@ -124,15 +131,11 @@ impl Rules {
                     .collect::<Result<Vec<_>>>()?;
                 let mut latest_messages = Vec::new();
                 for m in &members {
-                    latest_messages.extend(
-                        store
-                            .latest_message_from(&SentFilter {
-                                agent: m.handle.clone(),
-                                channel_id: Some(id.clone()),
-                                scope: access::scope(swarm, Viewer::Operator, Need::See),
-                            })?
-                            .map(Message::from),
-                    );
+                    latest_messages.extend(store.latest_message_from(&SentFilter {
+                        agent: m.handle.clone(),
+                        channel_id: Some(id.clone()),
+                        scope: access::scope(swarm, Viewer::Operator, Need::See),
+                    })?);
                 }
                 let page = super::messages::read_channel(
                     store,
@@ -163,7 +166,7 @@ impl Rules {
     pub async fn agent_view(&self, operator: &Operator, handle: String) -> Result<AgentView> {
         operator.may(Permission::Read)?;
         let rules = self.clone();
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         self.db()
             .read(move |store, swarm| {
                 let agent = store
@@ -213,86 +216,15 @@ impl Rules {
     }
 }
 
-/// What the human sees on the front page.
-#[derive(Clone, Debug)]
-pub struct Overview {
-    /// In name order.
-    pub channels: Vec<ChannelActivity>,
-    /// Most recently seen first.
-    pub agents: Vec<AgentActivity>,
-    /// This server run, if it is recorded (it always is for a running
-    /// server).
-    pub current_run: Option<ServerRunInfo>,
-    /// The server's time when this was read, so the page can tell how long
-    /// ago things happened without trusting the viewer's clock.
-    pub now: String,
-}
-
-/// A channel and how much it is used.
-#[derive(Clone, Debug)]
-pub struct ChannelActivity {
-    pub info: ChannelInfo,
-    pub message_count: i64,
-    pub last_message_at: Option<String>,
-    pub last_speaker: Option<String>,
-    /// The messages of the last `WEB_ACTIVITY_WINDOW`, counted in
-    /// stretches of `WEB_ACTIVITY_BUCKET`, oldest first.
-    pub recent_activity: Vec<ActivityCount>,
-}
-
-/// How many messages a channel got in the stretch starting at `start`.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ActivityCount {
-    pub start: String,
-    pub count: i64,
-}
-
-/// An agent and the channels it is in.
-#[derive(Clone, Debug)]
-pub struct AgentActivity {
-    pub info: AgentInfo,
-    /// In the order it joined them.
-    pub channels: Vec<ChannelRef>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ChannelRef {
-    pub id: String,
-    pub name: String,
-}
-
-/// One start of the server and what produced it.
-#[derive(Clone, Debug)]
-pub struct ServerRunInfo {
-    pub id: i64,
-    pub started_at: String,
-    pub version: String,
-    pub git_commit: String,
-    pub settings: String,
-    pub instructions_sha256: String,
-}
-
-impl From<ServerRunRecord> for ServerRunInfo {
-    fn from(r: ServerRunRecord) -> ServerRunInfo {
-        ServerRunInfo {
-            id: r.id,
-            started_at: r.started_at,
-            version: r.version,
-            git_commit: r.git_commit,
-            settings: r.settings,
-            instructions_sha256: r.instructions_sha256,
-        }
-    }
-}
-
 /// Each of `ids`, described by `info`, with how much it was used: its
 /// messages, its newest one, and those since `since` counted in stretches of
-/// `WEB_ACTIVITY_BUCKET`.
+/// `bucket`.
 fn channel_activity(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     ids: &[String],
     since: &str,
+    bucket: Duration,
     info: impl Fn(&str) -> Result<ChannelInfo>,
 ) -> Result<Vec<ChannelActivity>> {
     let mut used: HashMap<String, ChannelUseRecord> = store
@@ -302,7 +234,7 @@ fn channel_activity(
         .collect();
     let mut recent: HashMap<String, BTreeMap<String, i64>> = HashMap::new();
     for m in store.message_times_since(swarm, since)? {
-        let start = clock::floor_text(&m.created_at, WEB_ACTIVITY_BUCKET).unwrap_or(m.created_at);
+        let start = clock::floor_text(&m.created_at, bucket).unwrap_or(m.created_at);
         *recent
             .entry(m.channel_id)
             .or_default()
@@ -328,27 +260,4 @@ fn channel_activity(
             })
         })
         .collect()
-}
-
-#[derive(Clone, Debug)]
-pub struct ChannelView {
-    pub channel: ChannelInfo,
-    /// The channel is hidden: agents cannot see it, and nobody can change it.
-    pub hidden: bool,
-    pub members: Vec<AgentInfo>,
-    /// Each member's latest message in the channel, for the members that
-    /// have sent one, in the order of `members`.
-    pub latest_messages: Vec<Message>,
-    pub messages: Vec<Message>,
-    /// Set when older messages exist.
-    pub older_before_id: Option<i64>,
-}
-
-#[derive(Clone, Debug)]
-pub struct AgentView {
-    pub agent: AgentInfo,
-    pub channels: Vec<ChannelInfo>,
-    pub message_count: i64,
-    /// Every entry in its memory, whole, in name order.
-    pub memory: Vec<super::MemoryEntry>,
 }

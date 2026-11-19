@@ -14,10 +14,49 @@
 //! importing a lane changes nothing.
 
 /// The file name extension of a lane file.
-pub const EXTENSION: &str = "md";
+pub(crate) const EXTENSION: &str = "md";
 
 /// The line that opens and closes the header.
 const FENCE: &str = "---";
+
+/// What is wrong with a lane file, worded for the person who wrote it.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum ParseError {
+    #[error("it must start with a {FENCE} line, then name: and description: lines, then {FENCE}")]
+    NoHeader,
+    #[error("header line {line:?} is not `name: ...` or `description: ...`")]
+    NotAHeaderLine { line: String },
+    #[error("the header has {key:?}; it takes only name and description")]
+    UnknownKey { key: String },
+    #[error("the header gives {0} twice")]
+    Twice(HeaderKey),
+    #[error("the header has no closing {FENCE} line")]
+    NoClosingLine,
+    #[error("the header has no name: line")]
+    NoName,
+    #[error(
+        "the header names the lane {name:?}, but the file is {stem}.{EXTENSION}; they must match"
+    )]
+    NameMismatch { name: String, stem: String },
+    #[error("the header has no description: line")]
+    NoDescription,
+}
+
+/// A line a lane file's header takes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum HeaderKey {
+    Name,
+    Description,
+}
+
+impl std::fmt::Display for HeaderKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            HeaderKey::Name => "name",
+            HeaderKey::Description => "description",
+        })
+    }
+}
 
 /// A lane as a file holds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -59,12 +98,9 @@ pub fn has_header(contents: &str) -> bool {
 /// the instructions; everything else is, as written. Lines may end with
 /// `\r\n`. Whether the name, description and instructions are acceptable is
 /// for the lane rules to say.
-pub fn parse(stem: &str, contents: &str) -> Result<LaneFile, String> {
+pub fn parse(stem: &str, contents: &str) -> Result<LaneFile, ParseError> {
     if !has_header(contents) {
-        return Err(format!(
-            "it must start with a {FENCE} line, then name: and description: lines, then \
-             {FENCE}"
-        ));
+        return Err(ParseError::NoHeader);
     }
     let contents = contents.strip_prefix('\u{feff}').unwrap_or(contents);
     let mut lines = contents.split_inclusive('\n');
@@ -85,34 +121,35 @@ pub fn parse(stem: &str, contents: &str) -> Result<LaneFile, String> {
             continue;
         }
         let Some((key, value)) = text.split_once(':') else {
-            return Err(format!(
-                "header line {text:?} is not `name: ...` or `description: ...`"
-            ));
+            return Err(ParseError::NotAHeaderLine {
+                line: text.to_string(),
+            });
         };
-        let slot = match key.trim() {
-            "name" => &mut name,
-            "description" => &mut description,
+        let (slot, key) = match key.trim() {
+            "name" => (&mut name, HeaderKey::Name),
+            "description" => (&mut description, HeaderKey::Description),
             other => {
-                return Err(format!(
-                    "the header has {other:?}; it takes only name and description"
-                ));
+                return Err(ParseError::UnknownKey {
+                    key: other.to_string(),
+                });
             }
         };
         if slot.is_some() {
-            return Err(format!("the header gives {} twice", key.trim()));
+            return Err(ParseError::Twice(key));
         }
         *slot = Some(value.trim().to_string());
     }
     if !closed {
-        return Err(format!("the header has no closing {FENCE} line"));
+        return Err(ParseError::NoClosingLine);
     }
-    let name = name.ok_or("the header has no name: line")?;
+    let name = name.ok_or(ParseError::NoName)?;
     if name != stem {
-        return Err(format!(
-            "the header names the lane {name:?}, but the file is {stem}.{EXTENSION}; they must match"
-        ));
+        return Err(ParseError::NameMismatch {
+            name,
+            stem: stem.to_string(),
+        });
     }
-    let description = description.ok_or("the header has no description: line")?;
+    let description = description.ok_or(ParseError::NoDescription)?;
     let rest = &contents[used..];
     let rest = strip_line_end_prefix(rest);
     let text = strip_line_end_suffix(rest);
@@ -240,7 +277,7 @@ mod tests {
             ),
         ];
         for (contents, says) in cases {
-            let error = parse("reviewer", contents).expect_err(contents);
+            let error = parse("reviewer", contents).expect_err(contents).to_string();
             assert!(error.contains(says), "{contents:?}: {error}");
         }
     }

@@ -1,0 +1,16 @@
+[package]
+name = "kkt-rolling-file"
+description = "A file on disk that rolls over at a size and prunes old copies by age"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-clock = { path = "../kkt-clock" }
+thiserror.workspace = true
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-scratch = { path = "../kkt-scratch" }

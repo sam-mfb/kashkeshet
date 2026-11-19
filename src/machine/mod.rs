@@ -2,9 +2,18 @@
 //! setup record, key files, how a client reaches the server, agent
 //! credential files, and the database file.
 
+pub mod agent_parts;
+mod browser;
+pub mod client_config;
+mod config_disk;
 pub mod connection;
 pub(crate) mod credentials;
 pub mod database;
+pub mod diagnostics;
 pub mod keys;
-pub mod record;
+pub mod native;
+mod serve_options;
+pub mod server_run;
+pub(crate) mod service;
 pub mod settings;
+pub mod sharing_node;

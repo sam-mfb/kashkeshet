@@ -1,6 +1,6 @@
 //! A fake product with two swarms, for tests only: the shared crates
 //! assembled the way a product other than kkt would assemble them, with
-//! the real server (`kkt_server::listen`) in the test's process.
+//! the real server (`kkt_listen::listen`) in the test's process.
 //!
 //! Callers are let in by any bearer token (`Admission::Bearer`), and
 //! [`FakeIdentify`] decides who each made-up bearer is: a swarm's agents,
@@ -12,20 +12,18 @@
 //! program serves it over a database file, to look at by hand. Never part
 //! of a release; see `[package.metadata.kkt]` in Cargo.toml.
 
-pub mod client;
-
 use kkt_admission::{AdminAdmission, Admission, Principal};
+use kkt_api_admin::Swarms;
+use kkt_api_agent::{Agent, Audit, Code, Operator, Permission, Permissions, RuleError, SwarmId};
 use kkt_clock::Clock;
-use kkt_config::Limits;
-use kkt_hosts::AllowedHosts;
-use kkt_identity::{Identified, Identify, Identifying, KeyMode};
-use kkt_names::{AdminName, Entropy};
-use kkt_rules::{
-    self as rules, Agent, Audit, Code, Operator, Permission, Permissions, RuleError, Rules, SwarmId,
-};
+use kkt_entropy::Entropy;
+use kkt_identity::{Identified, Identify, Identifying};
+use kkt_identity_keymode::KeyMode;
+use kkt_names::AdminName;
+use kkt_rules::{Db, NewServerRun, Startup};
 use kkt_server::{AppConfig, Parts};
 use kkt_shutdown::Shutdown;
-use kkt_store::{Db, NewServerRunRecord};
+use kkt_terminal::Terminal;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -93,7 +91,7 @@ enum Role {
 pub struct FakeIdentify;
 
 impl FakeIdentify {
-    fn bearer(principal: &Principal) -> rules::Result<(SwarmId, Role)> {
+    fn bearer(principal: &Principal) -> kkt_api_agent::Result<(SwarmId, Role)> {
         let refused = || RuleError::new(Code::Unauthenticated, "not a bearer the fake knows");
         let Principal::Bearer(token) = principal else {
             return Err(refused());
@@ -109,7 +107,7 @@ impl FakeIdentify {
         }
     }
 
-    fn agents_swarm(principal: &Principal) -> rules::Result<SwarmId> {
+    fn agents_swarm(principal: &Principal) -> kkt_api_agent::Result<SwarmId> {
         match FakeIdentify::bearer(principal)? {
             (swarm, Role::Agents) => Ok(swarm),
             (_, Role::Operator | Role::Admin) => Err(RuleError::new(
@@ -123,13 +121,13 @@ impl FakeIdentify {
 impl Identify for FakeIdentify {
     fn avatar<'a>(
         &'a self,
-        rules: &'a Rules,
+        tokens: &'a dyn kkt_identity::Tokens,
         principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
         Box::pin(async move {
             let swarm = FakeIdentify::agents_swarm(principal)?;
-            let actor = rules.in_swarm(swarm.clone()).authenticate(token).await?;
+            let actor = tokens.authenticate(swarm.clone(), token).await?;
             Ok(Identified { swarm, actor })
         })
     }
@@ -153,7 +151,7 @@ impl Identify for FakeIdentify {
                     ),
                 }),
                 (swarm, Role::Admin) => {
-                    let name = AdminName::new(ADMIN_NAME, kkt_config::MAX_ADMIN_NAME_CHARS)
+                    let name = AdminName::new(ADMIN_NAME, kkt_names::MAX_ADMIN_NAME_CHARS)
                         .map_err(|e| RuleError::new(Code::Internal, e.to_string()))?;
                     Ok(Identified {
                         swarm,
@@ -169,6 +167,29 @@ impl Identify for FakeIdentify {
     }
 }
 
+/// Each part's settings, as the product gives them.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// What the rules enforce and fill in.
+    pub rules: kkt_rules::Settings,
+    /// How large a response may be.
+    pub fmt: kkt_mcp::result_format::Settings,
+    /// How much the web page shows at once, and how long a sign-in lasts.
+    pub web: kkt_web::Settings,
+    /// How the MCP endpoints' event streams keep in touch with clients.
+    pub mcp: kkt_mcp::Settings,
+}
+
+impl Settings {
+    /// Every part's defaults.
+    pub const DEFAULT: Settings = Settings {
+        rules: kkt_rules::Settings::DEFAULT,
+        fmt: kkt_mcp::result_format::Settings::DEFAULT,
+        web: kkt_web::Settings::DEFAULT,
+        mcp: kkt_mcp::Settings::DEFAULT,
+    };
+}
+
 /// The fake product, serving on a loopback port until dropped or stopped.
 pub struct Product {
     pub address: SocketAddr,
@@ -176,57 +197,80 @@ pub struct Product {
 }
 
 impl Product {
-    /// Starts the product with `limits`, over `db`, a new database with
-    /// the core's tables, in which it makes the second swarm. Its time comes
+    /// Starts the product with `settings`, over `db`, a new database with
+    /// the core's tables: it records its run and makes the second swarm
+    /// through the rules (`Swarms::create_swarm`). Its time comes
     /// from `clock` and its randomness from `entropy`: the system's, or a
     /// test's fixed clock and seeded entropy, so two runs can be compared.
     pub async fn start(
         db: Db,
         clock: Arc<dyn Clock>,
         entropy: Arc<dyn Entropy>,
-        limits: Limits,
+        settings: Settings,
     ) -> Product {
-        let now = kkt_clock::to_text(clock.now());
-        let run_id = db
-            .write(move |w| {
-                let run_id = w.insert_server_run(&NewServerRunRecord {
-                    started_at: now.clone(),
-                    version: "fake".into(),
-                    git_commit: "fake".into(),
-                    settings: "fake".into(),
-                    instructions_sha256: "fake".into(),
-                })?;
-                w.insert_swarm(&other(), &now, run_id)?;
-                Ok::<_, kkt_store::StoreError>(run_id)
-            })
+        let shutdown = Shutdown::new();
+        let rules = kkt_rules::start(
+            NewServerRun {
+                version: "fake".into(),
+                git_commit: "fake".into(),
+                settings: "fake".into(),
+                instructions_sha256: "fake".into(),
+            },
+            Startup {
+                db,
+                swarm: SwarmId::main(),
+                shutdown: shutdown.clone(),
+                clock: clock.clone(),
+                entropy: entropy.clone(),
+                settings: settings.rules,
+                wording: Arc::new(kkt_rules::DefaultWording),
+            },
+        )
+        .await
+        .expect("a server run");
+        Swarms::create_swarm(&rules, other())
             .await
-            .expect("a server run and the second swarm");
-        let parts = Parts::new(db, clock, entropy, Arc::new(FakeIdentify), &limits, run_id);
+            .expect("the second swarm");
+        let server_settings = kkt_server::ServerSettings {
+            formatter: settings.fmt,
+            web: settings.web,
+            mcp: settings.mcp,
+            ..kkt_server::ServerSettings::DEFAULT
+        };
+        let server_settings = server_settings.check([]).expect("valid server settings");
+        let parts = Parts::new(
+            Arc::new(rules),
+            clock,
+            entropy,
+            Arc::new(FakeIdentify),
+            Arc::new(kkt_log_tracing::TracingLog),
+            server_settings,
+        );
         let config = AppConfig {
             admission: Admission::Bearer,
             web_admission: Admission::Bearer,
             admin_admission: Some(AdminAdmission::Bearer),
-            limits,
-            allowed_origins: Vec::new(),
-            allowed_hosts: AllowedHosts::new(&[]).expect("loopback hosts"),
             instructions: None,
         };
-        Product::serve(parts, config, Shutdown::new()).await
+        Product::serve(parts, config, shutdown).await
     }
 
     /// Serves the product assembled from `parts` and `config` on a loopback
     /// port until `shutdown` stops.
     async fn serve(parts: Parts, config: AppConfig, shutdown: Shutdown) -> Product {
         let app = kkt_server::build(parts, config, shutdown.child());
-        let listening = kkt_server::listen(app, SocketAddr::from(([127, 0, 0, 1], 0)))
-            .await
-            .expect("a loopback port");
+        let listening =
+            kkt_listen::listen(app.into_router(), SocketAddr::from(([127, 0, 0, 1], 0)))
+                .await
+                .expect("a loopback port");
         let address = listening.address().expect("the bound address");
         let stop = shutdown.clone();
         tokio::spawn(async move {
             listening
                 .serve_until(async move { stop.stopped().await }, |e| {
-                    eprintln!("kkt-fake-product: could not set TCP_NODELAY on a connection: {e}")
+                    Terminal.errors(format_args!(
+                        "kkt-fake-product: could not set TCP_NODELAY on a connection: {e}\n"
+                    ))
                 })
                 .await
                 .expect("serving")

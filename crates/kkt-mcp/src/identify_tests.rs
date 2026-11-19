@@ -3,22 +3,23 @@
 //! [`KeyMode`] acts in the one swarm.
 
 use crate::mcp_transport::Transport;
+use crate::result_format::Formatter;
 use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use kkt_admission::{Principal, ServerKey};
+use kkt_api_agent::{Agent, Audit, Operator, SwarmId};
+use kkt_api_agent::{Code, RuleError};
 use kkt_clock::Time;
 use kkt_clock::testing::FixedClock;
-use kkt_config::Limits;
-use kkt_events::Events;
-use kkt_format::Formatter;
+use kkt_entropy::testing::SeqEntropy;
 use kkt_hosts::AllowedHosts;
-use kkt_identity::{Identified, Identify, Identifying, KeyMode};
-use kkt_names::testing::SeqEntropy;
-use kkt_rules::{Agent, Audit, Operator, Rules, SwarmId};
-use kkt_rules::{Code, Deps, OperatorWording, RuleError};
+use kkt_identity::{Identified, Identify, Identifying};
+use kkt_identity_keymode::KeyMode;
+use kkt_log::{Level, Log, testing::CapturedLog};
+use kkt_rules::OperatorWording;
+use kkt_rules::Rules;
 use kkt_shutdown::Shutdown;
-use kkt_store::Db;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -34,15 +35,12 @@ struct Elsewhere {
 impl Identify for Elsewhere {
     fn avatar<'a>(
         &'a self,
-        rules: &'a Rules,
+        tokens: &'a dyn kkt_identity::Tokens,
         _principal: &'a Principal,
         token: Option<&'a str>,
     ) -> Identifying<'a, Identified<Agent>> {
         Box::pin(async move {
-            let actor = rules
-                .in_swarm(self.swarm.clone())
-                .authenticate(token)
-                .await?;
+            let actor = tokens.authenticate(self.swarm.clone(), token).await?;
             Ok(Identified {
                 swarm: self.swarm.clone(),
                 actor,
@@ -85,56 +83,50 @@ async fn rules() -> Rules {
     let clock = Arc::new(FixedClock::new(
         Time::from_parts(2026, 11, 9, 0, 0, 0).unwrap(),
     ));
-    let db = {
-        let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
-        Db::new(
-            place
-                .open(&[kkt_store::schema()])
-                .expect("the core's tables"),
-        )
-    };
-    let run_id = db
-        .write(|w| {
-            let run_id = w.insert_server_run(&kkt_store::NewServerRunRecord {
-                started_at: "2026-11-09T00:00:00Z".into(),
-                version: "test".into(),
-                git_commit: "test".into(),
-                settings: "test".into(),
-                instructions_sha256: "test".into(),
-            })?;
-            w.insert_swarm(&SwarmId::new("sw_other"), "2026-11-09T00:00:00Z", run_id)?;
-            Ok::<_, kkt_store::StoreError>(run_id)
-        })
-        .await
-        .expect("a server run and a second swarm");
-    Rules::new(Deps {
-        db,
-        swarm: SwarmId::main(),
-        events: Events::new(),
-        clock,
-        entropy: Arc::new(SeqEntropy::new(1)),
-        run_id,
-        limits: Limits::DEFAULT,
+    let rules = kkt_rules::testing::memory(kkt_rules::testing::Memory {
         wording: Arc::new(Plain),
+        ..kkt_rules::testing::Memory::new(clock, Arc::new(SeqEntropy::new(1)))
     })
+    .await
+    .expect("rules over a new database");
+    kkt_api_admin::Swarms::create_swarm(&rules, SwarmId::new("sw_other"))
+        .await
+        .expect("a second swarm");
+    rules
 }
 
 /// Both endpoints over `rules`, identifying calls with `identify`, with
 /// `principal` left on every request as admission would.
 fn endpoints(rules: &Rules, identify: Arc<dyn Identify>, principal: Option<Principal>) -> Router {
+    endpoints_with_log(rules, identify, principal, Arc::new(CapturedLog::default()))
+}
+
+fn endpoints_with_log(
+    rules: &Rules,
+    identify: Arc<dyn Identify>,
+    principal: Option<Principal>,
+    log: Arc<dyn Log>,
+) -> Router {
     let fmt = Formatter::new(100_000, Arc::new(FixedClock::new(Time::UNIX_EPOCH)), "test");
-    let transport = Transport::new(Vec::new(), &AllowedHosts::any(), &Shutdown::new());
+    let transport = Transport::new(
+        Vec::new(),
+        &AllowedHosts::any(),
+        crate::Settings::DEFAULT,
+        &Shutdown::new(),
+    );
     let router = crate::endpoint(
-        rules.clone(),
+        Arc::new(rules.clone()),
         identify.clone(),
+        log.clone(),
         fmt.clone(),
         "".into(),
         "test",
         &transport,
     )
     .merge(crate::mcp_admin::endpoint(
-        rules.clone(),
+        Arc::new(rules.clone()),
         identify,
+        log,
         fmt,
         "test",
         &transport,
@@ -245,7 +237,7 @@ async fn every_call_acts_in_the_swarm_identify_names() {
     let channels = theirs
         .list_channels(
             &me,
-            kkt_rules::ChannelQuery {
+            kkt_api_agent::ChannelQuery {
                 query: None,
                 member_only: false,
                 with_agent: None,
@@ -282,7 +274,7 @@ async fn every_call_acts_in_the_swarm_identify_names() {
     rules
         .create_channel(
             &home,
-            kkt_rules::NewChannel {
+            kkt_api_agent::NewChannel {
                 name: "home".into(),
                 open: true,
                 purpose: None,
@@ -355,5 +347,37 @@ async fn register_and_reclaim_act_in_the_swarm_identify_names() {
             .expect_err("not home")
             .code,
         Code::Unauthenticated
+    );
+}
+
+#[tokio::test]
+async fn a_missing_principal_is_reported_to_the_injected_log() {
+    let rules = rules().await;
+    let log = Arc::new(CapturedLog::default());
+    let router = endpoints_with_log(&rules, Arc::new(KeyMode::new(None)), None, log.clone());
+    let reply = call(&router, "/mcp", "register", json!({})).await;
+    assert!(
+        reply
+            .to_string()
+            .contains("the server could not tell who is calling"),
+        "{reply}"
+    );
+    let entries = log.entries();
+    let entry = entries
+        .iter()
+        .find(|entry| entry.message == "a call reached the endpoint without admission's principal")
+        .expect("admission failure logged");
+    assert_eq!(entry.level, Level::Error);
+    assert_eq!(entry.target, "kkt_mcp");
+    assert!(entry.fields.is_empty());
+    let failed = entries
+        .iter()
+        .find(|entry| entry.message == "tool call failed")
+        .expect("tool failure logged");
+    assert_eq!(failed.fields[0].0, "error");
+    assert!(
+        failed.fields[0]
+            .1
+            .contains("the server could not tell who is calling")
     );
 }

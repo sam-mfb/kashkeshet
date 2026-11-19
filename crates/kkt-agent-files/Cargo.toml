@@ -1,0 +1,15 @@
+[package]
+name = "kkt-agent-files"
+description = "Agent credential files and kkt watch's state files on this machine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+thiserror.workspace = true
+libc.workspace = true
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }

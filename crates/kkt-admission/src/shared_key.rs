@@ -1,9 +1,7 @@
 //! One key shared by every caller, kept only as a hash.
 
 use crate::{Credentials, Decision, Mode, Principal, Refusal, ServerKey};
-use kkt_config::{self as config, InvalidSetting, NEW_ACCESS_KEY_CHARS};
-use kkt_names::{Entropy, random_chars};
-use sha2::{Digest, Sha256};
+use kkt_keys::{SettingError, check_access_key};
 
 /// One of the server's keys, shared by every caller that holds it. It keeps
 /// which key it is, a SHA-256 of the key (not the key), and where the key
@@ -18,25 +16,19 @@ impl SharedKey {
     /// The server's key `key`, in `text`, without surrounding whitespace
     /// (so a file's final newline is not part of it). `source` says where it
     /// came from, such as the file path. Fails if the key is not one
-    /// `config::check_access_key` accepts.
+    /// `check_access_key` accepts.
     pub fn new(
         key: ServerKey,
         text: &str,
         source: impl Into<String>,
-    ) -> Result<SharedKey, InvalidSetting> {
+    ) -> Result<SharedKey, SettingError> {
         let text = text.trim();
-        config::check_access_key(text)?;
+        check_access_key(text)?;
         Ok(SharedKey {
             key,
-            digest: Sha256::digest(text.as_bytes()).into(),
+            digest: kkt_hash::sha256(text.as_bytes()),
             source: source.into(),
         })
-    }
-
-    /// A new random key, such as `kkt key create` writes. It passes
-    /// `config::check_access_key`.
-    pub fn generate(entropy: &dyn Entropy) -> String {
-        random_chars(entropy, NEW_ACCESS_KEY_CHARS)
     }
 
     /// Where the key came from.
@@ -48,7 +40,7 @@ impl SharedKey {
     /// `presented` is: both sides are hashed to the same length, and every
     /// byte is compared.
     pub fn matches(&self, presented: &[u8]) -> bool {
-        let presented: [u8; 32] = Sha256::digest(presented).into();
+        let presented: [u8; 32] = kkt_hash::sha256(presented);
         let diff = self
             .digest
             .iter()
@@ -101,13 +93,11 @@ mod tests {
     }
 
     #[test]
-    fn generated_keys_are_accepted_and_differ() {
-        use kkt_names::testing::SeqEntropy;
-        let entropy = SeqEntropy::new(3);
-        let first = SharedKey::generate(&entropy);
-        let second = SharedKey::generate(&entropy);
-        assert_eq!(first.len(), NEW_ACCESS_KEY_CHARS);
-        assert_ne!(first, second);
+    fn a_generated_key_is_a_shared_key_that_matches_it() {
+        use kkt_entropy::Entropy;
+        use kkt_entropy::testing::SeqEntropy;
+        let first =
+            SeqEntropy::new(3).random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS);
         let key =
             SharedKey::new(ServerKey::Access, &first, "file").expect("a generated key is valid");
         assert!(key.matches(first.as_bytes()));

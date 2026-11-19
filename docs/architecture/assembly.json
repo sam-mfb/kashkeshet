@@ -1,89 +1,164 @@
 {
- "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and which implementation the program passes to which slots (wiring): one entry per implementation and crate, naming every function it goes to. An implementation is a public item (crate::path), or, for a type of the program's own that is not public, a description (own). generate.py stops if a step names an item that is gone, or a wiring names an item or a slot that is not there. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs (DryRun fits every Manager method that takes a system, but is passed only to install). \"injectors\" lists the wiring that a shared crate does itself (kkt-server, which assembles the server), in the same form; an entry that passes on what it was given names it in \"own\" and its supplier in \"supplier\".",
+ "about": "Written by hand: how each program assembles the server from the shared crates, as an ordered flow (steps), and what the program injects into which slots (wiring): one entry per thing injected and receiving crate, naming every function it goes to. An injection is one of four; the fourth, \"produces\", is a value a contract's operation gave the injector. \"impl\": another crate's implementation, a public item (crate::path); its crate is never the receiving crate, since a value of the receiving crate's own type (a holder such as Db, Parts, Prompter or Inspector, or its own default such as DefaultWording) is not an injection into it: what goes into that value is recorded instead. \"own\": a type of the injector's own, described, with \"suppliers\", each crate whose implementation does part of the work it adapts, as {\"crate\", \"item\"} (the item where one does); a single supplier that is the injector itself marks the injector's own work, not another crate's implementation. \"passes_on\": what an injector was given and passes on, described, with \"from\", the injector's own slots that some program fills with it; a path through the injectors is joined on those slots, never on the wording. generate.py stops if a step names an item that is gone, a wiring names an item, a supplier or a slot that is not there, an impl's crate is the receiving crate, or a passes_on has no \"from\" or names a slot of the injector that no program fills. A program with \"inferred\": false shows only its hand-written wiring: for kkt, pairing by names gives wrong pairs. \"injectors\" lists the wiring that a shared crate does itself, in the same form: kkt-server, which assembles the server, and the three assemblies, kkt-install-commands, kkt-operator-commands and kkt-agent-commands, which pass on what the program gave their parts. \"not_passed_on\" lists each place generate.py finds where a crate could hand on a contract value it was given to another crate's slot, but does not, with why: every such place is either wired or listed. \"not_filled\" lists each slot generate.py finds that a program may fill (the program names it, and it takes a workspace contract, a value a contract's operation gives, or an outside trait the wiring check can verify) but does not, with why: every such slot is either wired under programs or listed.",
  "programs": {
   "kashkeshet": {
    "title": "kkt serve",
    "steps": [
     {
      "title": "Settings",
-     "text": "Flags, the config file and defaults become the server's settings and limits; the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
+     "text": "Flags, the config file (found from the machine's facts, which kkt-machine-os' OsMachine reads through kkt-machine's Machine; read by kkt-config-file's files over kkt-files, which the program adapts to its Disk, and parsed by kkt-config-file) and defaults, such as kkt-setup's default database, become each owner's settings: ServeOptions layers the flags over the file, and its resolve fills the rest from the owners' defaults, mapping the keys kkt-server builds with onto ServerSettings (server_settings); the key files are checked, which gives the admission of /mcp, the web page and /mcp-admin.",
      "items": [
-      "kkt-settings::ServeSettings",
-      "kkt-config::Limits",
+      "kkt-machine::Machine",
+      "kkt-machine-os::OsMachine",
+      "kkt-config-file::config_file",
+      "kkt-config-file::files::read_named",
+      "kkt-config-file::files::read_default",
+      "kkt-files::Files",
+      "kkt-config-file::parse_file",
+      "kkt-deployment::default_db",
+      "kashkeshet::machine::settings::ServeOptions",
+      "kashkeshet::machine::settings::ServeSettings",
+      "kashkeshet::machine::settings::server_settings",
+      "kkt-rules::Settings",
+      "kkt-backup::Settings",
       "kkt-admission::server_keys::check",
       "kkt-admission::server_keys::ServerKeys"
      ]
     },
     {
      "title": "Database",
-     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db, opens it with the core's tables; the kkt-db Database it gives is the store's database.",
+     "text": "A SqlitePlace for the database file, adopting a database from before kkt-db as kkt-rules' history describes it in kkt-db's Legacy shape, with the program's too-old message, opens it with the core's tables; the kkt-db Backend its open gives is the store's database.",
      "items": [
       "kkt-db-sqlite::SqlitePlace",
       "kkt-db-sqlite::Options",
-      "kkt-db-sqlite::Legacy",
-      "kkt-store::schema",
-      "kkt-db::Database",
-      "kkt-store::Db"
+      "kkt-db::Legacy",
+      "kkt-rules::legacy",
+      "kkt-rules::schema",
+      "kkt-db::Backend",
+      "kkt-rules::Db"
      ],
-     "fills": "kkt-store::Db::new (database)"
+     "fills": "kkt-rules::Db::new (database)"
     },
     {
      "title": "Run record",
-     "text": "What produced this run is stored, and new rows carry its ID.",
+     "text": "The owners word their settings and the program supplies its own plain record lines; ServerSettings orders them. The program maps the run into NewServerRun, and kkt-rules start records it and builds the Rules.",
      "items": [
+      "kkt-server::ServerSettings",
       "kkt-provenance::ServerRun",
-      "kkt-server::record_run"
+      "kkt-rules::NewServerRun",
+      "kkt-rules::Startup",
+      "kkt-rules::start"
      ]
     },
     {
      "title": "Parts",
-     "text": "The store, the system clock, the operating system's randomness and key mode's identity go into the server's parts.",
+     "text": "The Rules start built, the system clock and the operating system's randomness they were built with, and key mode's identity go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the checked settings snapshot.",
      "items": [
       "kkt-server::Parts",
-      "kkt-clock::SystemClock",
-      "kkt-names::OsEntropy",
-      "kkt-identity::KeyMode"
+      "kkt-clock-system::SystemClock",
+      "kkt-entropy-os::OsEntropy",
+      "kkt-identity-keymode::KeyMode",
+      "kkt-server::ServerSettings",
+      "kkt-api-admin::AdminApi",
+      "kkt-server::CheckedSettings"
      ],
-     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, checked)"
     },
     {
      "title": "Config",
-     "text": "The three admissions from the key check, the allowed hosts and the limits go into the server's config: admin_admission is the admin key, as AdminAdmission::SharedKey.",
+     "text": "The three admissions and optional instructions text go into AppConfig; component settings and the checked hosts go through Parts.",
      "items": [
       "kkt-server::AppConfig",
       "kkt-admission::Admission",
-      "kkt-admission::AdminAdmission",
-      "kkt-hosts::AllowedHosts",
-      "kkt-config::Limits"
+      "kkt-admission::AdminAdmission"
      ]
     },
     {
      "title": "Build and run",
-     "text": "build assembles the server from the parts and config; listen binds it; serve_until answers until a stop signal, and the program logs a socket option it could not set.",
+     "text": "build assembles the server from the parts and config; listen binds the router the program takes out of it; serve_until answers until a stop signal, and the program logs any socket option that fails to set.",
      "items": [
       "kkt-server::build",
       "kkt-shutdown::Shutdown",
-      "kkt-server::listen",
-      "kkt-server::Listening",
-      "kkt-shutdown::StopSignals"
+      "kkt-listen::listen",
+      "kkt-listen::Listening",
+      "kkt-shutdown-os::StopSignals",
+      "kkt-shutdown::Signals"
      ]
     }
    ],
    "also": [
     {
-     "title": "kkt watch",
-     "text": "The command picks a client for the server, Remote (as an agent) or AdminRemote (with --admin), and hands it to kkt-watch's run with the system clock.",
+     "title": "The agents' commands",
+     "text": "kkt register, reclaim, watch and connect run in kkt-agent-commands over AgentParts, which main.rs builds once, beside the operator's parts, with agent_parts from the implementations it chooses: kkt-deployment's connection question answered from this machine's setup record and serve settings (ConnectionReads), kkt-agent-client-mcp's Mcp, injected as it is as kkt-agent-client's Servers, kkt-agent-files' credential and state files under kkt-setup's credential-file rule, the key files, kkt's path, the terminal and the system clock.",
      "items": [
-      "kkt-agent-client::Remote",
-      "kkt-agent-client::AdminRemote",
-      "kkt-watch::run",
-      "kkt-clock::SystemClock"
+      "kashkeshet::machine::agent_parts::agent_parts",
+      "kkt-agent-commands::AgentParts",
+      "kashkeshet::machine::connection::ConnectionReads",
+      "kkt-agent-client-mcp::Mcp",
+      "kkt-agent-client::Servers",
+      "kkt-agent-client::Watched",
+      "kkt-agent-commands::register",
+      "kkt-agent-commands::reclaim",
+      "kkt-agent-commands::watch::run",
+      "kkt-agent-commands::connect::run",
+      "kkt-clock-system::SystemClock",
+      "kkt-terminal::Terminal"
+     ]
+    },
+    {
+     "title": "The install and operator commands",
+     "text": "main.rs builds the program's parts once, a NativeParts with the service capability (ServeArgs). From it come InstallParts for the commands that install and look after kkt (setup, switch, status, upgrade, uninstall, backup, service and doctor): native containers, services, client files, probes, clock, setup and key files, database, backups and terminal. InstallReads reads what is installed here over those parts, and InstalledOnThisMachine reads it into kkt-operator-commands' InstalledHere, which the program hands to OperatorParts, which the key, agent and lanes commands take, with the lane disk and git, and to HereLanes, which picks from it the server kkt lanes acts on (LaneServers): the program's ContainerLanes, kkt lanes run in the container over kkt-containerized-service's ServiceContainer, or kkt-operator-commands' LocalLanes, on the local database. Setup's lane check and import go through SetupLanes, the program's adapter of kkt-operator-commands' lane helpers, over LaneParts, to the install commands' ImportLanes, on a server picked the same way. ServeReads answers config, database, key and installed-service questions only when asked; ConnectionReads supplies the shared connection selection. Commands that can inspect an unrecorded service require ServiceDefaults, which only parts built with ServeArgs have. CLI parsing and serving remain in the program. Service planning reads the program's service inputs and retains its opaque source context in a deferred CheckService, called only after the plan succeeds. kkt-listen's try_bind checks the address before installation. Setup and switch compose their steps in the install commands, reading PATH once when detecting clients, staging keys and updating config text through supplied providers. TerminalLines asks the questions and TerminalLink supplies Docker login. Before kkt serve, check_setup reads the record through the same parts.",
+     "items": [
+      "kashkeshet::machine::native::NativeParts",
+      "kkt-install-commands::InstallParts",
+      "kkt-install-commands::record::InstallReads",
+      "kashkeshet::machine::native::InstalledOnThisMachine",
+      "kkt-operator-commands::InstalledHere",
+      "kkt-operator-commands::OperatorParts",
+      "kkt-operator-commands::LaneParts",
+      "kkt-operator-commands::lanes::LaneServers",
+      "kkt-operator-commands::lanes::LaneServer",
+      "kkt-operator-commands::lanes::LocalLanes",
+      "kashkeshet::machine::native::HereLanes",
+      "kkt-install-commands::ImportLanes",
+      "kashkeshet::machine::native::SetupLanes",
+      "kkt-install-commands::ServeFacts",
+      "kkt-install-commands::ServiceDefaults",
+      "kkt-install-commands::SetupFiles",
+      "kkt-keys::KeyFiles",
+      "kkt-install-commands::Databases",
+      "kkt-install-commands::Output",
+      "kkt-deployment::connection::ConnectionSource",
+      "kkt-operator-commands::agent::run",
+      "kkt-install-commands::doctor::run",
+      "kkt-operator-commands::lanes::run",
+      "kkt-operator-commands::key::create",
+      "kkt-install-commands::service::run",
+      "kkt-install-commands::service::service_plan",
+      "kkt-install-commands::ServiceInputs",
+      "kkt-install-commands::CheckService",
+      "kkt-install-commands::setup::run",
+      "kkt-install-commands::setup::run_switch",
+      "kkt-install-commands::setup::InstallOptions",
+      "kkt-install-commands::ConfigText",
+      "kkt-install-commands::lifecycle::status",
+      "kkt-install-commands::lifecycle::upgrade",
+      "kkt-install-commands::lifecycle::uninstall",
+      "kkt-install-commands::lifecycle::backup",
+      "kkt-install-commands::record::check_setup",
+      "kkt-backup::Backups"
      ]
     }
    ],
    "wiring": [
     {
-     "own": "the key files the settings name (a type of its own)",
+     "own": "ServerKeyFiles, adapting kkt-keys-os::OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      }
+     ],
      "crate": "kkt-admission",
      "to": [
       {
@@ -94,43 +169,29 @@
      "note": "kkt serve"
     },
     {
-     "impl": "kkt-names::OsEntropy",
-     "crate": "kkt-admission",
-     "to": [
-      {
-       "at": "SharedKey::generate",
-       "param": "entropy"
-      }
-     ],
-     "note": "kkt key create, and kkt serve's first key"
-    },
-    {
      "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "crate": "kkt-rules",
      "to": [
       {
        "at": "Db::new",
        "param": "database"
       }
      ],
-     "note": "SqlitePlace::open gives the kkt-db Database"
+     "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
     },
     {
-     "impl": "kkt-store::Db",
+     "impl": "kkt-rules::Rules",
      "crate": "kkt-server",
      "to": [
       {
        "at": "Parts::new",
-       "param": "db"
-      },
-      {
-       "at": "record_run",
-       "param": "db"
+       "param": "rules"
       }
-     ]
+     ],
+     "note": "start built them, after recording the run"
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "impl": "kkt-clock-system::SystemClock",
      "crate": "kkt-server",
      "to": [
       {
@@ -140,7 +201,17 @@
      ]
     },
     {
-     "impl": "kkt-names::OsEntropy",
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [
       {
@@ -150,7 +221,17 @@
      ]
     },
     {
-     "impl": "kkt-identity::KeyMode",
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-identity-keymode::KeyMode",
      "crate": "kkt-server",
      "to": [
       {
@@ -160,39 +241,1807 @@
      ]
     },
     {
-     "impl": "kkt-server::Parts",
+     "own": "AdminKeyHere, asking kkt-operator-commands' key finder (keys::selected_key_path) over the operator's parts on this machine",
+     "suppliers": [
+      {
+       "crate": "kkt-operator-commands",
+       "item": "keys::selected_key_path"
+      }
+     ],
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "admin_key"
+      }
+     ],
+     "note": "kkt watch --admin"
+    },
+    {
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "servers"
+      }
+     ],
+     "note": "kkt register, reclaim and watch: injected as it is",
+     "impl": "kkt-agent-client-mcp::Mcp"
+    },
+    {
+     "own": "CredentialFiles, applying kkt-agent-commands' credential-file rule to kkt-agent-files' credential and state files, with its warnings on kkt-terminal's standard error",
+     "suppliers": [
+      {
+       "crate": "kkt-agent-files",
+       "item": "CredentialFile"
+      },
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "credentials"
+      }
+     ],
+     "note": "kkt register, reclaim and watch"
+    },
+    {
+     "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      }
+     ],
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "key_files"
+      }
+     ],
+     "note": "kkt register, reclaim and watch"
+    },
+    {
+     "own": "ClientHost, adapting kkt-files' Files and kkt-machine-os' process_id",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-machine-os",
+       "item": "OsMachine"
+      }
+     ],
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "clients"
+      }
+     ],
+     "note": "kkt connect"
+    },
+    {
+     "own": "ThisProgram, adapting the program's kkt_path, over kkt-machine-os' OsMachine",
+     "suppliers": [
+      {
+       "crate": "kkt-machine-os",
+       "item": "OsMachine"
+      }
+     ],
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "program"
+      }
+     ],
+     "note": "kkt connect"
+    },
+    {
+     "own": "WatchOutput, adapting kkt-terminal::Terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "report"
+      }
+     ],
+     "note": "kkt watch"
+    },
+    {
+     "own": "TerminalOutput, adapting kkt-terminal::Terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "output"
+      }
+     ],
+     "note": "kkt register, reclaim and connect"
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "clock"
+      }
+     ],
+     "note": "kkt watch"
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-rolling-file",
+     "to": [
+      {
+       "at": "open_log_file",
+       "param": "clock"
+      }
+     ],
+     "note": "kkt serve --log-file"
+    },
+    {
+     "impl": "kkt-log-tracing::TracingLog",
      "crate": "kkt-server",
      "to": [
       {
-       "at": "build",
-       "param": "parts"
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
+     "note": "The MCP endpoints and web page share the program's log."
+    },
+    {
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "container"
+      }
+     ],
+     "impl": "kkt-containerized-service::Containerized",
+     "note": "kkt's containerized service, over Docker as the general Projects, injected into the install commands."
+    },
+    {
+     "own": "TerminalTell, the containerized service's lines on kkt-terminal's standard output, a line each",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "crate": "kkt-containerized-service",
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "tell"
+      }
+     ],
+     "note": "what the containerized service tells the person, such as a work folder in the container it could not remove"
+    },
+    {
+     "own": "TailscaleNode, a shared install's Tailscale login read from the Tailscale container's status answer by kkt-remote-access-tailscale's reader",
+     "suppliers": [
+      {
+       "crate": "kkt-remote-access-tailscale",
+       "item": "Tailscale"
+      }
+     ],
+     "crate": "kkt-containerized-service",
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "sharing"
+      }
+     ],
+     "note": "kkt status, for a shared install: whether its Tailscale container is logged in; kkt setup, for a shared install: its login link, its name and whether HTTPS is on"
+    },
+    {
+     "own": "OpenerBrowser, adapting kkt-browser's SystemBrowser to kkt-containerized-service's Browser",
+     "suppliers": [
+      {
+       "crate": "kkt-browser",
+       "item": "SystemBrowser"
+      }
+     ],
+     "crate": "kkt-containerized-service",
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "browser"
+      }
+     ],
+     "note": "kkt setup for Docker with sharing: the login link opens with the system's own opener"
+    },
+    {
+     "impl": "kkt-keys-os::OsKeyFiles",
+     "crate": "kkt-containerized-service",
+     "to": [
+      {
+       "at": "Containerized::new",
+       "param": "key_files"
+      }
+     ],
+     "note": "kkt setup for Docker: the server's key copies on this machine"
+    },
+    {
+     "own": "HereLanes, picking the server kkt lanes acts on from the deployment the setup record names, by kkt-operator-commands' lanes_on: its ContainerLanes, kkt lanes run in the container over the program's LanesInContainer, or its LocalLanes",
+     "suppliers": [
+      {
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
+      }
+     ],
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "lane_servers"
+      }
+     ],
+     "note": "kkt lanes export and import"
+    },
+    {
+     "own": "ContainerConfigs",
+     "suppliers": [
+      {
+       "crate": "kashkeshet"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "container_configs"
+      }
+     ],
+     "note": "the program's own work"
+    },
+    {
+     "impl": "kkt-bare-service-launchd::Launchd",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "service"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "service"
+      }
+     ],
+     "note": "On macOS: the program picks the service manager by platform and injects it directly."
+    },
+    {
+     "impl": "kkt-bare-service-systemd::Systemd",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "service"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "service"
+      }
+     ],
+     "note": "On Linux."
+    },
+    {
+     "impl": "kkt-bare-service::Unsupported",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "service"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "service"
+      }
+     ],
+     "note": "On any other system."
+    },
+    {
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "remote"
+      }
+     ],
+     "impl": "kkt-remote-access-tailscale::Tailscale",
+     "note": "The program injects the sharing implementation directly into the install commands."
+    },
+    {
+     "own": "ClientHost, adapting kkt-files' Files and kkt-machine-os' process_id",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-machine-os",
+       "item": "OsMachine"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "clients"
       }
      ]
     },
     {
-     "impl": "kkt-store::Db",
-     "crate": "kkt-rules",
+     "crate": "kkt-install-commands",
      "to": [
       {
-       "at": "CommandLine::new",
-       "param": "db"
+       "at": "InstallParts",
+       "param": "prober"
       }
      ],
-     "note": "kkt agent, kkt lanes"
+     "own": "Probe, adapting kkt-probe's HttpProber, and kkt-keys-os' OsKeyFiles for the key files, to kkt-diagnostics' Prober",
+     "suppliers": [
+      {
+       "crate": "kkt-probe",
+       "item": "HttpProber"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      }
+     ],
+     "note": "The program builds HttpProber with the doctor's settings and the client name it announces, and reads key files through OsKeyFiles."
     },
     {
-     "impl": "kkt-clock::SystemClock",
+     "own": "LaneDisk",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "lanes"
+      },
+      {
+       "at": "LaneParts",
+       "param": "lanes"
+      }
+     ]
+    },
+    {
+     "own": "LaneGit, adapting kkt-revision's Git to kkt-lane-files' LaneCommit",
+     "suppliers": [
+      {
+       "crate": "kkt-revision",
+       "item": "Git"
+      }
+     ],
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "lane_commit"
+      },
+      {
+       "at": "LaneParts",
+       "param": "lane_commit"
+      }
+     ],
+     "note": "The lane folder's commit, from the machine's git."
+    },
+    {
+     "own": "ServeReads, answering the program's serving questions lazily",
+     "suppliers": [
+      {
+       "crate": "kashkeshet"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "serve"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "serve"
+      },
+      {
+       "at": "record::read_setup",
+       "param": "serve"
+      }
+     ],
+     "note": "the program's own work"
+    },
+    {
+     "own": "ServeReads, answering the program's serving questions lazily",
+     "suppliers": [
+      {
+       "crate": "kashkeshet"
+      }
+     ],
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "serve"
+      },
+      {
+       "at": "LaneParts",
+       "param": "serve"
+      }
+     ],
+     "note": "the program's own work"
+    },
+    {
+     "own": "NativeSetupFiles, reading and writing setup's record and note through kkt-files' Files with kkt-setup's parse and render, and this program's path and $PATH through kkt-machine-os' OsMachine",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-machine-os",
+       "item": "OsMachine"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "setup_files"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "files"
+      },
+      {
+       "at": "record::read_setup",
+       "param": "files"
+      }
+     ]
+    },
+    {
+     "own": "NativeSetupFiles, making paths absolute and canonical through kkt-files' Files",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "paths"
+      },
+      {
+       "at": "lanes::ContainerLanes",
+       "param": "paths"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-keys-os::OsKeyFiles",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "key_files"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-keys-os::OsKeyFiles",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "key_files"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "own": "NativeDatabases, opening this program's database",
+     "suppliers": [
+      {
+       "crate": "kkt-db-sqlite",
+       "item": "SqlitePlace"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "database"
+      }
+     ]
+    },
+    {
+     "own": "NativeDatabases, opening this program's database",
+     "suppliers": [
+      {
+       "crate": "kkt-db-sqlite",
+       "item": "SqlitePlace"
+      }
+     ],
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "database"
+      },
+      {
+       "at": "LaneParts",
+       "param": "database"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-backup-os::OsBackups",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "backups"
+      }
+     ]
+    },
+    {
+     "own": "NativeOutput, adapting kkt-terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "output"
+      },
+      {
+       "at": "record::check_setup",
+       "param": "output"
+      }
+     ]
+    },
+    {
+     "own": "NativeOutput, adapting kkt-terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "output"
+      },
+      {
+       "at": "LaneParts",
+       "param": "output"
+      },
+      {
+       "at": "lanes::ContainerLanes",
+       "param": "output"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "clock"
+      },
+      {
+       "at": "LaneParts",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "own": "ServiceCheck, keeping the program's loaded serve options and source context until the service plan is checked",
+     "suppliers": [
+      {
+       "crate": "kashkeshet"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "ServiceInputs",
+       "param": "check"
+      }
+     ],
+     "note": "the program's own work"
+    },
+    {
+     "own": "TerminalLink, adapting the terminal's half of the login link",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "BrowserLink"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "login_link"
+      }
+     ]
+    },
+    {
+     "own": "TerminalLines, adapting the terminal",
+     "suppliers": [
+      {
+       "crate": "kkt-terminal",
+       "item": "Terminal"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "lines"
+      }
+     ]
+    },
+    {
+     "own": "NativeConfigText, forwarding config text reads and writes to kkt-config-file's files over kkt-files",
+     "suppliers": [
+      {
+       "crate": "kkt-config-file",
+       "item": "files::read"
+      },
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "config_file"
+      }
+     ]
+    },
+    {
+     "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
+     "suppliers": [
+      {
+       "crate": "kkt-llm-agent-command",
+       "item": "Claude"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "client_command"
+      }
+     ],
+     "note": "kkt setup: Claude Code's own command"
+    },
+    {
+     "impl": "kkt-install-commands::record::InstallReads",
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "OperatorParts",
+       "param": "installed"
+      }
+     ],
+     "note": "What is installed here, read by the install commands over their parts."
+    },
+    {
+     "own": "SetupLanes, setup's lane check and import through kkt-operator-commands' lane helpers over LaneParts, on the server the program picks: ContainerLanes or LocalLanes",
+     "suppliers": [
+      {
+       "crate": "kkt-operator-commands",
+       "item": "lanes::import_lanes_for_setup"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "import_lanes"
+      }
+     ],
+     "note": "kkt setup --lanes"
+    },
+    {
+     "impl": "kkt-listen::try_bind",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "InstallParts",
+       "param": "try_bind"
+      }
+     ],
+     "note": "whether the service's server could listen on its address"
+    },
+    {
+     "own": "ConnectionReads, answering kkt-deployment's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      },
+      {
+       "crate": "kkt-entropy-os",
+       "item": "OsEntropy"
+      }
+     ],
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "doctor::run",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_operator_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_web_key",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::backup",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "parts"
+      },
+      {
+       "at": "record::InstallReads::new",
+       "param": "parts"
+      },
+      {
+       "at": "record::read_unrecorded",
+       "param": "parts"
+      },
+      {
+       "at": "record::recorded_setup",
+       "param": "parts"
+      },
+      {
+       "at": "service::run",
+       "param": "parts"
+      },
+      {
+       "at": "service::service_plan",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run_switch",
+       "param": "parts"
+      }
+     ],
+     "note": "in InstallParts' connection, which each command reads"
+    },
+    {
+     "produces": "kkt-machine::Env",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "doctor::run",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "env"
+      },
+      {
+       "at": "record::InstallReads::new",
+       "param": "env"
+      },
+      {
+       "at": "setup::run",
+       "param": "env"
+      },
+      {
+       "at": "setup::run_switch",
+       "param": "env"
+      }
+     ],
+     "note": "asked once at start"
+    },
+    {
+     "produces": "kkt-machine::Platform",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "doctor::run",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "platform"
+      },
+      {
+       "at": "record::InstallReads::new",
+       "param": "platform"
+      },
+      {
+       "at": "setup::run",
+       "param": "platform"
+      }
+     ],
+     "note": "asked once at start"
+    },
+    {
+     "own": "ClaudeCommand, adapting kkt-llm-agent-command's Claude to kkt-llm-agent-config's ClientCommand",
+     "suppliers": [
+      {
+       "crate": "kkt-llm-agent-command",
+       "item": "Claude"
+      }
+     ],
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "AgentParts",
+       "param": "client_command"
+      }
+     ],
+     "note": "kkt connect: Claude Code's own command"
+    },
+    {
+     "own": "ConnectionReads, answering kkt-deployment's connection question from this machine's setup record and serve settings: reading them through kkt-files' Files, making a missing default key with kkt-keys-os' OsKeyFiles and kkt-entropy-os' OsEntropy, and reading key files through OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      },
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      },
+      {
+       "crate": "kkt-entropy-os",
+       "item": "OsEntropy"
+      }
+     ],
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "register",
+       "param": "parts"
+      },
+      {
+       "at": "reclaim",
+       "param": "parts"
+      },
+      {
+       "at": "watch::run",
+       "param": "parts"
+      },
+      {
+       "at": "connect::run",
+       "param": "parts"
+      }
+     ],
+     "note": "in AgentParts' connection, which each command reads"
+    },
+    {
+     "impl": "kkt-rolling-file::RotatingFile",
+     "crate": "kkt-log-tracing",
+     "to": [
+      {
+       "at": "init_logging",
+       "param": "log_file"
+      }
+     ],
+     "note": "the server's log file, opened by open_log_file with the system clock"
+    },
+    {
+     "own": "the log-level check, a closure over parse_level",
+     "suppliers": [
+      {
+       "crate": "kkt-log-tracing",
+       "item": "parse_level"
+      }
+     ],
+     "crate": "kkt-config-file",
+     "to": [
+      {
+       "at": "parse_file",
+       "param": "level"
+      }
+     ],
+     "note": "the config file's log levels, as kkt-log-tracing reads them"
+    },
+    {
+     "produces": "kkt-machine::Env",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-deployment",
+     "to": [
+      {
+       "at": "default_db",
+       "param": "env"
+      },
+      {
+       "at": "docker_folder",
+       "param": "env"
+      }
+     ],
+     "note": "where the default database goes, and the Docker folder whose lane limit kkt setup --lanes checks against"
+    },
+    {
+     "produces": "kkt-machine::Platform",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-deployment",
+     "to": [
+      {
+       "at": "default_db",
+       "param": "platform"
+      },
+      {
+       "at": "docker_folder",
+       "param": "platform"
+      }
+     ],
+     "note": "where the default database goes, and the Docker folder whose lane limit kkt setup --lanes checks against"
+    },
+    {
+     "produces": "kkt-machine::Env",
+     "by": "kkt-machine-os::OsMachine",
+     "crate": "kkt-agent-commands",
+     "to": [
+      {
+       "at": "connect::run",
+       "param": "env"
+      }
+     ],
+     "note": "kkt connect"
+    },
+    {
+     "produces": "kkt-clock::Time",
+     "by": "kkt-clock-system::SystemClock",
+     "crate": "kkt-backup",
+     "to": [
+      {
+       "at": "layout",
+       "param": "at"
+      }
+     ],
+     "note": "the backup before an upgrade, named for the time"
+    },
+    {
+     "own": "ConfigDisk, adapting kkt-files' Files to kkt-config-file's Disk",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
+     "crate": "kkt-config-file",
+     "to": [
+      {
+       "at": "files::read",
+       "param": "disk"
+      },
+      {
+       "at": "files::read_default",
+       "param": "disk"
+      },
+      {
+       "at": "files::read_named",
+       "param": "disk"
+      },
+      {
+       "at": "files::read_instructions",
+       "param": "disk"
+      },
+      {
+       "at": "files::write",
+       "param": "disk"
+      }
+     ]
+    },
+    {
+     "own": "kkt-operator-commands' ContainerLanes or LocalLanes, the server SetupLanes picks for kkt setup --lanes: ContainerLanes runs kkt lanes in the container over kkt-containerized-service's Containerized",
+     "suppliers": [
+      {
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
+      }
+     ],
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "lanes::check_lanes_for_setup",
+       "param": "server"
+      },
+      {
+       "at": "lanes::import_lanes_for_setup",
+       "param": "server"
+      }
+     ],
+     "note": "kkt setup --lanes"
+    },
+    {
+     "own": "LanesInContainer, kkt installed in a container as the lane commands take it: kkt-containerized-service's Containerized in the install's folder, with the program's ContainerConfigs reading kkt's config file there for its lane limit",
+     "suppliers": [
+      {
+       "crate": "kkt-containerized-service",
+       "item": "Containerized"
+      }
+     ],
+     "crate": "kkt-operator-commands",
+     "to": [
+      {
+       "at": "lanes::ContainerLanes",
+       "param": "container"
+      }
+     ],
+     "note": "kkt lanes for kkt in Docker: the lanes run in the container."
+    }
+   ],
+   "inferred": false
+  },
+  "kkt-keymode": {
+   "title": "kkt-keymode",
+   "steps": [
+    {
+     "title": "Settings",
+     "text": "The same config file as kkt serve, read by kkt-config-file's files over kkt-files, parsed by kkt-config-file and turned by the program into each owner's settings, with the owners' defaults for the rest, and the same key check.",
+     "items": [
+      "kkt-config-file::files::read_named",
+      "kkt-files::Files",
+      "kkt-config-file::parse_file",
+      "kkt-rules::Settings",
+      "kkt-mcp::result_format::Settings",
+      "kkt-web::Settings",
+      "kkt-backup::Settings",
+      "kkt-admission::server_keys::check"
+     ]
+    },
+    {
+     "title": "Database",
+     "text": "A SqlitePlace opens the database file with the core's tables.",
+     "items": [
+      "kkt-db-sqlite::SqlitePlace",
+      "kkt-db-sqlite::Options",
+      "kkt-rules::schema",
+      "kkt-rules::Db"
+     ],
+     "fills": "kkt-rules::Db::new (database)"
+    },
+    {
+     "title": "Run record",
+     "text": "The owners word their settings and the program supplies its own plain record lines; ServerSettings orders them. The program maps the run into NewServerRun, and kkt-rules start records it and builds the Rules.",
+     "items": [
+      "kkt-server::ServerSettings",
+      "kkt-provenance::ServerRun",
+      "kkt-rules::NewServerRun",
+      "kkt-rules::Startup",
+      "kkt-rules::start"
+     ]
+    },
+    {
+     "title": "Parts and config",
+     "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission. Parts takes the API as Arc<dyn AdminApi>, the checked settings snapshot.",
+     "items": [
+      "kkt-server::Parts",
+      "kkt-clock-system::SystemClock",
+      "kkt-entropy-os::OsEntropy",
+      "kkt-identity-keymode::KeyMode",
+      "kkt-server::AppConfig",
+      "kkt-admission::AdminAdmission",
+      "kkt-hosts::AllowedHosts",
+      "kkt-server::ServerSettings",
+      "kkt-api-admin::AdminApi",
+      "kkt-server::CheckedSettings"
+     ],
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, checked)"
+    },
+    {
+     "title": "Build and run",
+     "text": "build, listen on its router, and serve_until a stop signal.",
+     "items": [
+      "kkt-server::build",
+      "kkt-listen::listen",
+      "kkt-listen::Listening",
+      "kkt-shutdown-os::StopSignals",
+      "kkt-shutdown::Signals"
+     ]
+    }
+   ],
+   "wiring": [
+    {
+     "own": "KeyFiles, adapting kkt-keys-os::OsKeyFiles",
+     "suppliers": [
+      {
+       "crate": "kkt-keys-os",
+       "item": "OsKeyFiles"
+      }
+     ],
+     "crate": "kkt-admission",
+     "to": [
+      {
+       "at": "server_keys::check",
+       "param": "texts"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-db-sqlite::SqlitePlace",
      "crate": "kkt-rules",
      "to": [
       {
-       "at": "CommandLine::new",
+       "at": "Db::new",
+       "param": "database"
+      }
+     ],
+     "note": "SqlitePlace::open gives the kkt-db Backend that goes in"
+    },
+    {
+     "impl": "kkt-rules::Rules",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "rules"
+      }
+     ],
+     "note": "start built them, after recording the run"
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-identity-keymode::KeyMode",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-log-tracing::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
+     "note": "The MCP endpoints and web page share the program's log."
+    },
+    {
+     "own": "the log-level check, a closure over parse_level",
+     "suppliers": [
+      {
+       "crate": "kkt-log-tracing",
+       "item": "parse_level"
+      }
+     ],
+     "crate": "kkt-config-file",
+     "to": [
+      {
+       "at": "parse_file",
+       "param": "level"
+      }
+     ],
+     "note": "the config file's log levels, as kkt-log-tracing reads them"
+    },
+    {
+     "own": "ConfigDisk, adapting kkt-files' Files to kkt-config-file's Disk",
+     "suppliers": [
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
+     "crate": "kkt-config-file",
+     "to": [
+      {
+       "at": "files::read_named",
+       "param": "disk"
+      },
+      {
+       "at": "files::read_instructions",
+       "param": "disk"
+      }
+     ]
+    }
+   ]
+  },
+  "kkt-fake-product": {
+   "title": "the fake product",
+   "steps": [
+    {
+     "title": "Database",
+     "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program.",
+     "items": [
+      "kkt-db-sqlite::SqlitePlace",
+      "kkt-rules::schema",
+      "kkt-rules::Db"
+     ],
+     "fills": "kkt-rules::Db::new (database)"
+    },
+    {
+     "title": "Parts",
+     "text": "kkt-rules' start records the product's run and builds the Rules, which make the second swarm (Swarms::create_swarm); the Rules, the clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role), go into the server's parts. Parts takes the API as Arc<dyn AdminApi>, the checked settings snapshot.",
+     "items": [
+      "kkt-rules::start",
+      "kkt-rules::Startup",
+      "kkt-rules::NewServerRun",
+      "kkt-api-admin::Swarms",
+      "kkt-server::Parts",
+      "kkt-fake-product::FakeIdentify",
+      "kkt-server::ServerSettings",
+      "kkt-api-admin::AdminApi",
+      "kkt-server::CheckedSettings"
+     ],
+     "fills": "kkt-server::Parts::new (rules, clock, entropy, identify, log, checked)"
+    },
+    {
+     "title": "Config",
+     "text": "The three admissions and optional instructions text go into AppConfig; component settings and the checked hosts go through Parts.",
+     "items": [
+      "kkt-server::AppConfig",
+      "kkt-admission::Admission",
+      "kkt-admission::AdminAdmission"
+     ]
+    },
+    {
+     "title": "Build and run",
+     "text": "build, then listen with its router on a loopback port and serve until the product is stopped.",
+     "items": [
+      "kkt-server::build",
+      "kkt-listen::listen",
+      "kkt-listen::Listening",
+      "kkt-shutdown::Shutdown",
+      "kkt-fake-product::Product"
+     ]
+    }
+   ],
+   "wiring": [
+    {
+     "impl": "kkt-db-sqlite::SqlitePlace",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Db::new",
+       "param": "database"
+      }
+     ],
+     "note": "its program; its tests use an in-memory database"
+    },
+    {
+     "impl": "kkt-rules::Rules",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "rules"
+      }
+     ],
+     "note": "start built them, after recording the run"
+    },
+    {
+     "impl": "kkt-fake-product::FakeIdentify",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-log-tracing::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ],
+     "note": "The MCP endpoints and web page share the program's log."
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
        "param": "clock"
       }
      ],
-     "note": "kkt agent, kkt lanes"
+     "note": "through Product::start, which its program calls with these; its tests pass a fixed clock and seeded entropy"
     },
     {
-     "impl": "kkt-agent-client::Remote",
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ],
+     "note": "through Product::start, which its program calls with these; its tests pass a fixed clock and seeded entropy"
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      }
+     ],
+     "note": "through Product::start, which its program calls with these; its tests pass a fixed clock and seeded entropy"
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "Parts::new",
+       "param": "entropy"
+      }
+     ],
+     "note": "through Product::start, which its program calls with these; its tests pass a fixed clock and seeded entropy"
+    }
+   ]
+  },
+  "kkt-webapp-preview": {
+   "title": "the web preview",
+   "inferred": false,
+   "steps": [
+    {
+     "title": "Settings",
+     "text": "Flags give the address, the seed, the feed's rate and the page size, checked by the program into kkt-api-sim's PreviewSettings and kkt-web's PageLimits; a non-loopback address names the hosts to answer to. Its log goes to standard error.",
+     "items": [
+      "kkt-api-sim::PreviewSettings",
+      "kkt-web::PageLimits",
+      "kkt-hosts::AllowedHosts",
+      "kkt-log-tracing::init_stderr_logging",
+      "kkt-log-tracing::TracingLog"
+     ]
+    },
+    {
+     "title": "Gate",
+     "text": "PreviewGate, with the access key read through kkt-keys-os' OsKeyFiles, or open; kkt-api-sim's stand-in for kkt-web's Gate, behind testing. The page's Sessions take the system clock and the operating system's randomness.",
+     "items": [
+      "kkt-api-sim::PreviewGate",
+      "kkt-keys-os::OsKeyFiles",
+      "kkt-web::Sessions",
+      "kkt-clock-system::SystemClock",
+      "kkt-entropy-os::OsEntropy"
+     ]
+    },
+    {
+     "title": "World",
+     "text": "kkt-api-sim's Preview simulates a swarm from SeededEntropy and the seed, and is an OperatorApi; its feed runs until the stop.",
+     "items": [
+      "kkt-api-sim::Preview",
+      "kkt-entropy::SeededEntropy",
+      "kkt-shutdown::Shutdown"
+     ]
+    },
+    {
+     "title": "Serve",
+     "text": "kkt-server's page builds the page alone, and kkt-listen serves its router until a stop signal.",
+     "items": [
+      "kkt-server::page",
+      "kkt-listen::listen",
+      "kkt-shutdown-os::StopSignals",
+      "kkt-shutdown::Signals"
+     ]
+    }
+   ],
+   "wiring": [
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-api-sim",
+     "to": [
+      {
+       "at": "Preview::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy::SeededEntropy",
+     "crate": "kkt-api-sim",
+     "to": [
+      {
+       "at": "Preview::new",
+       "param": "entropy"
+      }
+     ],
+     "note": "the simulated world, repeatable from the seed"
+    },
+    {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "Sessions::new",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy-os::OsEntropy",
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "Sessions::new",
+       "param": "entropy"
+      }
+     ],
+     "note": "the sessions' IDs"
+    },
+    {
+     "impl": "kkt-api-sim::PreviewGate",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "page",
+       "param": "gate"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-api-sim::Preview",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "page",
+       "param": "api"
+      }
+     ],
+     "note": "the simulated application, as kkt-api-operator's OperatorApi"
+    },
+    {
+     "impl": "kkt-log-tracing::TracingLog",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "page",
+       "param": "log"
+      }
+     ]
+    },
+    {
+     "impl": "kkt-entropy::SeededEntropy",
+     "crate": "kkt-api-sim",
+     "to": [
+      {
+       "at": "Preview::new",
+       "param": "entropy"
+      }
+     ],
+     "note": "seeded, so the simulated world is the same every time"
+    }
+   ]
+  }
+ },
+ "injectors": {
+  "kkt-server": {
+   "wiring": [
+    {
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "router",
+       "param": "api"
+      }
+     ],
+     "passes_on": "the AdminApi the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "rules"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "router",
+       "param": "gate"
+      }
+     ],
+     "own": "AdmissionGate, asking kkt-admission's web admission and the identity the program gave Parts",
+     "suppliers": [
+      {
+       "crate": "kkt-admission",
+       "item": "WebAdmission"
+      }
+     ],
+     "from": [
+      {
+       "at": "AdmissionGate::new",
+       "param": "identify"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-mcp",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "api"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "rules"
+      }
+     ],
+     "passes_on": "the AdminApi the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "rules"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-mcp",
+     "to": [
+      {
+       "at": "result_format::Formatter::new",
+       "param": "clock"
+      }
+     ],
+     "passes_on": "the clock the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      }
+     ],
+     "note": "kkt-server builds the Formatter it hands kkt-mcp's endpoints; the Formatter is kkt-mcp's own type, so the injection is the clock that goes into it"
+    },
+    {
+     "crate": "kkt-mcp",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "identify"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "identify"
+      }
+     ],
+     "passes_on": "the identity the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "Sessions::new",
+       "param": "clock"
+      },
+      {
+       "at": "Sessions::new",
+       "param": "entropy"
+      }
+     ],
+     "passes_on": "the clock and entropy the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "clock"
+      },
+      {
+       "at": "Parts::new",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-mcp",
+     "to": [
+      {
+       "at": "endpoint",
+       "param": "log"
+      },
+      {
+       "at": "mcp_admin::endpoint",
+       "param": "log"
+      }
+     ],
+     "passes_on": "the log the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-web",
+     "to": [
+      {
+       "at": "router",
+       "param": "log"
+      }
+     ],
+     "passes_on": "the log the program gave Parts",
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "log"
+      }
+     ]
+    },
+    {
+     "passes_on": "the identity the program gave Parts",
+     "crate": "kkt-server",
+     "to": [
+      {
+       "at": "AdmissionGate::new",
+       "param": "identify"
+      }
+     ],
+     "from": [
+      {
+       "at": "Parts::new",
+       "param": "identify"
+      }
+     ],
+     "note": "its own web gate, which it hands to kkt-web"
+    }
+   ]
+  },
+  "kkt-agent-commands": {
+   "wiring": [
+    {
      "crate": "kkt-watch",
      "to": [
       {
@@ -200,21 +2049,15 @@
        "param": "server"
       }
      ],
-     "note": "kkt watch"
-    },
-    {
-     "impl": "kkt-agent-client::AdminRemote",
-     "crate": "kkt-watch",
-     "to": [
+     "passes_on": "the Watched the program's Servers made",
+     "from": [
       {
-       "at": "run",
-       "param": "server"
+       "at": "AgentParts",
+       "param": "servers"
       }
-     ],
-     "note": "kkt watch --admin"
+     ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
      "crate": "kkt-watch",
      "to": [
       {
@@ -222,21 +2065,15 @@
        "param": "clock"
       }
      ],
-     "note": "kkt watch"
-    },
-    {
-     "impl": "kkt-clock::SystemClock",
-     "crate": "kkt-agent-client",
-     "to": [
+     "passes_on": "the clock the program gave AgentParts",
+     "from": [
       {
-       "at": "AdminRemote::new",
+       "at": "AgentParts",
        "param": "clock"
       }
-     ],
-     "note": "kkt watch --admin"
+     ]
     },
     {
-     "own": "the --state-file (a type of its own)",
      "crate": "kkt-watch",
      "to": [
       {
@@ -244,10 +2081,15 @@
        "param": "place"
       }
      ],
-     "note": "kkt watch"
+     "passes_on": "the credentials the program gave AgentParts",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "credentials"
+      }
+     ]
     },
     {
-     "own": "standard output and error (a type of its own)",
      "crate": "kkt-watch",
      "to": [
       {
@@ -255,25 +2097,182 @@
        "param": "report"
       }
      ],
-     "note": "kkt watch"
+     "passes_on": "the report the program gave AgentParts",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "report"
+      }
+     ]
     },
     {
-     "impl": "kashkeshet::terminal::ask::TerminalAsk",
+     "crate": "kkt-llm-agent-config",
+     "to": [
+      {
+       "at": "configure",
+       "param": "host"
+      },
+      {
+       "at": "Client::file",
+       "param": "host"
+      }
+     ],
+     "passes_on": "the client configs' host the program gave AgentParts",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "clients"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-deployment",
+     "to": [
+      {
+       "at": "connection::client_connection",
+       "param": "source"
+      },
+      {
+       "at": "connection::admin_connection",
+       "param": "source"
+      }
+     ],
+     "passes_on": "the connection question the program gave AgentParts",
+     "from": [
+      {
+       "at": "register",
+       "param": "parts"
+      },
+      {
+       "at": "reclaim",
+       "param": "parts"
+      },
+      {
+       "at": "watch::run",
+       "param": "parts"
+      },
+      {
+       "at": "connect::run",
+       "param": "parts"
+      }
+     ]
+    },
+    {
+     "passes_on": "the client command the program gave AgentParts",
+     "crate": "kkt-llm-agent-config",
+     "to": [
+      {
+       "at": "configure",
+       "param": "command"
+      }
+     ],
+     "note": "kkt connect",
+     "from": [
+      {
+       "at": "AgentParts",
+       "param": "client_command"
+      }
+     ]
+    },
+    {
+     "passes_on": "the Env the program gave connect::run",
+     "crate": "kkt-llm-agent-config",
+     "to": [
+      {
+       "at": "Client::file",
+       "param": "env"
+      },
+      {
+       "at": "Client::source",
+       "param": "env"
+      },
+      {
+       "at": "Setup",
+       "param": "env"
+      }
+     ],
+     "from": [
+      {
+       "at": "connect::run",
+       "param": "env"
+      }
+     ],
+     "note": "kkt connect"
+    }
+   ]
+  },
+  "kkt-install-commands": {
+   "wiring": [
+    {
+     "passes_on": "the prober the program gave InstallParts",
+     "crate": "kkt-diagnostics",
+     "to": [
+      {
+       "at": "Inspector::new",
+       "param": "prober"
+      },
+      {
+       "at": "inspect",
+       "param": "prober"
+      },
+      {
+       "at": "inspect_address",
+       "param": "prober"
+      },
+      {
+       "at": "inspect_with_key",
+       "param": "prober"
+      }
+     ],
+     "note": "kkt doctor, kkt setup",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "prober"
+      }
+     ]
+    },
+    {
+     "passes_on": "the clock the program gave InstallParts",
+     "crate": "kkt-diagnostics",
+     "to": [
+      {
+       "at": "until_reachable",
+       "param": "clock"
+      }
+     ],
+     "note": "kkt setup, waiting for a new server",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "passes_on": "the lines the program gave InstallParts",
      "crate": "kkt-setup",
      "to": [
       {
-       "at": "run",
-       "param": "ask"
-      },
-      {
-       "at": "switch",
-       "param": "ask"
+       "at": "ask::Prompter::new",
+       "param": "lines"
       }
      ],
-     "note": "kkt setup, kkt switch"
+     "note": "kkt setup, kkt switch",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "lines"
+      }
+     ]
     },
     {
-     "own": "setup's steps on this machine (a type of its own)",
+     "own": "OsSteps, setup's steps through the program's parts",
+     "suppliers": [
+      {
+       "crate": "kkt-install-commands"
+      }
+     ],
      "crate": "kkt-setup",
      "to": [
       {
@@ -281,10 +2280,15 @@
        "param": "steps"
       }
      ],
-     "note": "kkt setup"
+     "note": "kkt setup: the assembly's own work"
     },
     {
-     "own": "switch's steps on this machine (a type of its own)",
+     "own": "OsSwitchSteps, switch's steps through the program's parts",
+     "suppliers": [
+      {
+       "crate": "kkt-install-commands"
+      }
+     ],
      "crate": "kkt-setup",
      "to": [
       {
@@ -292,188 +2296,11 @@
        "param": "steps"
       }
      ],
-     "note": "kkt switch"
+     "note": "kkt switch: the assembly's own work"
     },
     {
-     "impl": "kkt-container::OsHost",
-     "crate": "kkt-container",
-     "to": [
-      {
-       "at": "provision",
-       "param": "host"
-      },
-      {
-       "at": "upgrade",
-       "param": "host"
-      },
-      {
-       "at": "status",
-       "param": "host"
-      },
-      {
-       "at": "compare_web_key",
-       "param": "host"
-      },
-      {
-       "at": "lane_limit",
-       "param": "host"
-      },
-      {
-       "at": "import_lanes",
-       "param": "host"
-      },
-      {
-       "at": "export_lanes",
-       "param": "host"
-      },
-      {
-       "at": "backup",
-       "param": "host"
-      },
-      {
-       "at": "down",
-       "param": "host"
-      },
-      {
-       "at": "existing",
-       "param": "host"
-      },
-      {
-       "at": "add_admin_key",
-       "param": "host"
-      }
-     ],
-     "note": "kkt setup, upgrade, status, doctor, lanes, backup and uninstall, for a Docker install"
-    },
-    {
-     "impl": "kkt-clock::SystemClock",
-     "crate": "kkt-container",
-     "to": [
-      {
-       "at": "provision",
-       "param": "clock"
-      },
-      {
-       "at": "upgrade",
-       "param": "clock"
-      },
-      {
-       "at": "add_admin_key",
-       "param": "clock"
-      }
-     ],
-     "note": "kkt setup and upgrade, for a Docker install"
-    },
-    {
-     "impl": "kashkeshet::terminal::browser_login::TerminalLink",
-     "crate": "kkt-container",
-     "to": [
-      {
-       "at": "provision",
-       "param": "login"
-      }
-     ],
-     "note": "kkt setup for Docker, with Tailscale"
-    },
-    {
-     "impl": "kkt-service::OsSystem",
-     "crate": "kkt-service",
-     "to": [
-      {
-       "at": "Manager::install",
-       "param": "system"
-      },
-      {
-       "at": "Manager::state",
-       "param": "system"
-      },
-      {
-       "at": "Manager::check_started",
-       "param": "system"
-      },
-      {
-       "at": "Manager::uninstall",
-       "param": "system"
-      },
-      {
-       "at": "Manager::start",
-       "param": "system"
-      },
-      {
-       "at": "Manager::stop",
-       "param": "system"
-      },
-      {
-       "at": "Manager::status",
-       "param": "system"
-      },
-      {
-       "at": "Manager::logs",
-       "param": "system"
-      },
-      {
-       "at": "Manager::add_key",
-       "param": "system"
-      },
-      {
-       "at": "Manager::installed_args",
-       "param": "system"
-      }
-     ],
-     "note": "kkt service, setup, upgrade, status and doctor"
-    },
-    {
-     "impl": "kkt-service::DryRun",
-     "crate": "kkt-service",
-     "to": [
-      {
-       "at": "Manager::install",
-       "param": "system"
-      }
-     ],
-     "note": "kkt service install --dry-run"
-    },
-    {
-     "impl": "kkt-clock::SystemClock",
-     "crate": "kkt-service",
-     "to": [
-      {
-       "at": "Manager::install",
-       "param": "clock"
-      },
-      {
-       "at": "Manager::check_started",
-       "param": "clock"
-      }
-     ],
-     "note": "kkt service install, kkt upgrade"
-    },
-    {
-     "impl": "kkt-remote-access::OsHost",
-     "crate": "kkt-remote-access",
-     "to": [
-      {
-       "at": "prepare",
-       "param": "host"
-      },
-      {
-       "at": "serve",
-       "param": "host"
-      },
-      {
-       "at": "served",
-       "param": "host"
-      },
-      {
-       "at": "stop",
-       "param": "host"
-      }
-     ],
-     "note": "kkt setup with Tailscale, status, uninstall"
-    },
-    {
-     "impl": "kkt-client-config::OsHost",
-     "crate": "kkt-client-config",
+     "passes_on": "the client configs' host the program gave InstallParts",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
        "at": "configure",
@@ -500,51 +2327,369 @@
        "param": "host"
       }
      ],
-     "note": "kkt connect, kkt setup, kkt doctor"
+     "note": "kkt setup, kkt doctor",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "clients"
+      }
+     ]
     },
     {
-     "impl": "kkt-diagnostics::OsProber",
-     "crate": "kkt-diagnostics",
+     "passes_on": "the client command the program gave InstallParts",
+     "crate": "kkt-llm-agent-config",
      "to": [
       {
-       "at": "Inspector::new",
-       "param": "prober"
+       "at": "configure",
+       "param": "command"
       }
      ],
-     "note": "kkt doctor, kkt setup"
+     "note": "kkt setup",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "client_command"
+      }
+     ]
     },
     {
-     "impl": "kkt-diagnostics::Inspector",
-     "crate": "kkt-diagnostics",
+     "passes_on": "the bind check the program gave InstallParts",
+     "crate": "kkt-deployment",
      "to": [
       {
-       "at": "ServerLines::inspect",
-       "param": "inspector"
-      },
-      {
-       "at": "Plan::checks",
-       "param": "inspector"
-      },
-      {
-       "at": "until_reachable",
-       "param": "inspector"
+       "at": "check_bind",
+       "param": "try_bind"
       }
      ],
-     "note": "kkt doctor, kkt setup"
+     "note": "kkt service install",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "try_bind"
+      }
+     ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
-     "crate": "kkt-diagnostics",
+     "passes_on": "the connection question the program gave each command",
+     "crate": "kkt-deployment",
      "to": [
       {
-       "at": "until_reachable",
+       "at": "connection::client_connection",
+       "param": "source"
+      },
+      {
+       "at": "connection::serve_connection",
+       "param": "source"
+      }
+     ],
+     "note": "how a command reaches the server",
+     "from": [
+      {
+       "at": "doctor::run",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_operator_key",
+       "param": "parts"
+      },
+      {
+       "at": "keys::local_web_key",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::backup",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::uninstall",
+       "param": "parts"
+      },
+      {
+       "at": "lifecycle::upgrade",
+       "param": "parts"
+      },
+      {
+       "at": "record::InstallReads::new",
+       "param": "parts"
+      },
+      {
+       "at": "record::read_unrecorded",
+       "param": "parts"
+      },
+      {
+       "at": "record::recorded_setup",
+       "param": "parts"
+      },
+      {
+       "at": "service::run",
+       "param": "parts"
+      },
+      {
+       "at": "service::service_plan",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run",
+       "param": "parts"
+      },
+      {
+       "at": "setup::run_switch",
+       "param": "parts"
+      }
+     ]
+    },
+    {
+     "passes_on": "the Env the program gave each command",
+     "crate": "kkt-llm-agent-config",
+     "to": [
+      {
+       "at": "allow_kkt",
+       "param": "env"
+      },
+      {
+       "at": "codex_password_store_hint",
+       "param": "env"
+      },
+      {
+       "at": "Client::installed",
+       "param": "env"
+      },
+      {
+       "at": "Client::connected",
+       "param": "env"
+      },
+      {
+       "at": "Client::file",
+       "param": "env"
+      },
+      {
+       "at": "Client::source",
+       "param": "env"
+      },
+      {
+       "at": "Setup",
+       "param": "env"
+      }
+     ],
+     "note": "kkt setup, kkt doctor",
+     "from": [
+      {
+       "at": "setup::run",
+       "param": "env"
+      },
+      {
+       "at": "doctor::run",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "passes_on": "the Env the program gave each command",
+     "crate": "kkt-deployment",
+     "to": [
+      {
+       "at": "docker_folder",
+       "param": "env"
+      }
+     ],
+     "note": "kkt setup, kkt status",
+     "from": [
+      {
+       "at": "setup::run",
+       "param": "env"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "passes_on": "the Platform the program gave each command",
+     "crate": "kkt-deployment",
+     "to": [
+      {
+       "at": "docker_folder",
+       "param": "platform"
+      }
+     ],
+     "note": "kkt setup, kkt status",
+     "from": [
+      {
+       "at": "setup::run",
+       "param": "platform"
+      },
+      {
+       "at": "lifecycle::status",
+       "param": "platform"
+      }
+     ]
+    },
+    {
+     "produces": "kkt-clock::Time",
+     "from": [
+      {
+       "at": "InstallParts",
        "param": "clock"
       }
      ],
-     "note": "kkt setup, waiting for a new server"
+     "crate": "kkt-backup",
+     "to": [
+      {
+       "at": "layout",
+       "param": "at"
+      }
+     ],
+     "note": "the backup's time"
     },
     {
-     "impl": "kkt-lane-files::OsDisk",
+     "passes_on": "the key files the program gave InstallParts",
+     "crate": "kkt-deployment",
+     "to": [
+      {
+       "at": "admin_name_line",
+       "param": "files"
+      },
+      {
+       "at": "new_key_file",
+       "param": "files"
+      }
+     ],
+     "note": "kkt setup, kkt service install, kkt upgrade, kkt status",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "key_files"
+      }
+     ]
+    },
+    {
+     "passes_on": "the entropy the program gave InstallParts",
+     "crate": "kkt-deployment",
+     "to": [
+      {
+       "at": "new_key_file",
+       "param": "entropy"
+      }
+     ],
+     "note": "kkt setup, kkt service install, kkt upgrade, kkt status",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "entropy"
+      }
+     ]
+    },
+    {
+     "passes_on": "the setup files, container and service the program gave InstallParts",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "record::read_unfinished",
+       "param": "files"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "container"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "service"
+      },
+      {
+       "at": "record::write_setup_record",
+       "param": "files"
+      }
+     ],
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "setup_files"
+      },
+      {
+       "at": "InstallParts",
+       "param": "container"
+      },
+      {
+       "at": "InstallParts",
+       "param": "service"
+      }
+     ],
+     "note": "doctor, status, setup and upgrade read and write the setup record through these"
+    },
+    {
+     "passes_on": "the serving facts the program gave InstallParts",
+     "crate": "kkt-install-commands",
+     "to": [
+      {
+       "at": "record::read_setup",
+       "param": "serve"
+      },
+      {
+       "at": "record::read_unfinished",
+       "param": "serve"
+      },
+      {
+       "at": "record::write_setup_record",
+       "param": "serve"
+      }
+     ],
+     "note": "the setup record and the note of an unfinished setup, in the config folder the serving facts name",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "serve"
+      }
+     ]
+    }
+   ]
+  },
+  "kkt-operator-commands": {
+   "wiring": [
+    {
+     "passes_on": "the clock the program gave OperatorParts",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "DirectAccess::new",
+       "param": "clock"
+      }
+     ],
+     "note": "kkt agent, kkt lanes",
+     "from": [
+      {
+       "at": "OperatorParts",
+       "param": "clock"
+      },
+      {
+       "at": "LaneParts",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "passes_on": "the lane folder's disk the program gave OperatorParts",
+     "crate": "kkt-lane-files",
+     "to": [
+      {
+       "at": "read_folder",
+       "param": "disk"
+      }
+     ],
+     "note": "kkt lanes import",
+     "from": [
+      {
+       "at": "OperatorParts",
+       "param": "lanes"
+      }
+     ]
+    },
+    {
+     "passes_on": "the lane folder's disk the program gave LaneParts",
      "crate": "kkt-lane-files",
      "to": [
       {
@@ -556,395 +2701,468 @@
        "param": "disk"
       }
      ],
-     "note": "kkt lanes import and export, kkt setup --lanes"
-    },
-    {
-     "impl": "kkt-clock::SystemClock",
-     "crate": "kkt-logs",
-     "to": [
+     "note": "the lane check and import kkt setup --lanes asks for, kkt lanes import's helpers, and LocalLanes' export",
+     "from": [
       {
-       "at": "RotatingFile::open",
-       "param": "clock"
-      }
-     ],
-     "note": "kkt serve --log-file"
-    }
-   ],
-   "inferred": false
-  },
-  "kkt-keymode": {
-   "title": "kkt-keymode",
-   "steps": [
-    {
-     "title": "Settings",
-     "text": "The same config file as kkt serve, read through kkt-settings, and the same key check.",
-     "items": [
-      "kkt-settings::ServeSettings",
-      "kkt-admission::server_keys::check"
-     ]
-    },
-    {
-     "title": "Database",
-     "text": "A SqlitePlace opens the database file with the core's tables. It adopts no database from before kkt-db.",
-     "items": [
-      "kkt-db-sqlite::SqlitePlace",
-      "kkt-db-sqlite::Options",
-      "kkt-store::schema",
-      "kkt-store::Db"
-     ],
-     "fills": "kkt-store::Db::new (database)"
-    },
-    {
-     "title": "Run record",
-     "text": "The run is recorded as kkt serve's is.",
-     "items": [
-      "kkt-provenance::ServerRun",
-      "kkt-server::record_run"
-     ]
-    },
-    {
-     "title": "Parts and config",
-     "text": "The same parts as kkt serve, with KeyMode; the admin key, if there is one, is the admin admission.",
-     "items": [
-      "kkt-server::Parts",
-      "kkt-clock::SystemClock",
-      "kkt-names::OsEntropy",
-      "kkt-identity::KeyMode",
-      "kkt-server::AppConfig",
-      "kkt-admission::AdminAdmission",
-      "kkt-hosts::AllowedHosts"
-     ],
-     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
-    },
-    {
-     "title": "Build and run",
-     "text": "build, listen, and serve_until a stop signal.",
-     "items": [
-      "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
-      "kkt-shutdown::StopSignals"
-     ]
-    }
-   ],
-   "wiring": [
-    {
-     "own": "the key files its config file names (a type of its own)",
-     "crate": "kkt-admission",
-     "to": [
-      {
-       "at": "server_keys::check",
-       "param": "texts"
+       "at": "LaneParts",
+       "param": "lanes"
       }
      ]
     },
     {
-     "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "passes_on": "the lane folder's commit the program gave OperatorParts",
+     "crate": "kkt-lane-files",
      "to": [
       {
-       "at": "Db::new",
-       "param": "database"
+       "at": "read_folder",
+       "param": "commits"
       }
      ],
-     "note": "SqlitePlace::open gives the kkt-db Database"
-    },
-    {
-     "impl": "kkt-store::Db",
-     "crate": "kkt-server",
-     "to": [
+     "note": "kkt lanes import and export, and the lane import kkt setup --lanes asks for",
+     "from": [
       {
-       "at": "Parts::new",
-       "param": "db"
+       "at": "OperatorParts",
+       "param": "lane_commit"
       },
       {
-       "at": "record_run",
-       "param": "db"
+       "at": "LaneParts",
+       "param": "lane_commit"
       }
      ]
     },
     {
-     "impl": "kkt-clock::SystemClock",
-     "crate": "kkt-server",
+     "passes_on": "the key files the program gave OperatorParts",
+     "crate": "kkt-deployment",
      "to": [
       {
-       "at": "Parts::new",
-       "param": "clock"
+       "at": "admin_name_line",
+       "param": "files"
+      },
+      {
+       "at": "new_key_file",
+       "param": "files"
+      }
+     ],
+     "note": "kkt key",
+     "from": [
+      {
+       "at": "OperatorParts",
+       "param": "key_files"
       }
      ]
     },
     {
-     "impl": "kkt-names::OsEntropy",
-     "crate": "kkt-server",
+     "passes_on": "the entropy the program gave OperatorParts",
+     "crate": "kkt-deployment",
      "to": [
       {
-       "at": "Parts::new",
+       "at": "new_key_file",
        "param": "entropy"
       }
-     ]
-    },
-    {
-     "impl": "kkt-identity::KeyMode",
-     "crate": "kkt-server",
-     "to": [
+     ],
+     "note": "kkt key",
+     "from": [
       {
-       "at": "Parts::new",
-       "param": "identify"
-      }
-     ]
-    },
-    {
-     "impl": "kkt-server::Parts",
-     "crate": "kkt-server",
-     "to": [
-      {
-       "at": "build",
-       "param": "parts"
+       "at": "OperatorParts",
+       "param": "entropy"
       }
      ]
     }
    ]
   },
-  "kkt-fake-product": {
-   "title": "the fake product",
-   "steps": [
-    {
-     "title": "Database",
-     "text": "A database with the core's tables: in memory in its tests, a SqlitePlace file for its program. The product makes the second swarm in it.",
-     "items": [
-      "kkt-db-sqlite::SqlitePlace",
-      "kkt-store::schema",
-      "kkt-store::Db"
-     ],
-     "fills": "kkt-store::Db::new (database)"
-    },
-    {
-     "title": "Parts",
-     "text": "The clock and entropy the caller gives (the system's in its program; a fixed clock and seeded entropy in its differential test), and FakeIdentify, which maps made-up bearers to (swarm, role).",
-     "items": [
-      "kkt-server::Parts",
-      "kkt-fake-product::FakeIdentify"
-     ],
-     "fills": "kkt-server::Parts::new (db, clock, entropy, identify)"
-    },
-    {
-     "title": "Config",
-     "text": "Any bearer is let in, on /mcp, the web page and /mcp-admin alike, for FakeIdentify to judge.",
-     "items": [
-      "kkt-server::AppConfig",
-      "kkt-admission::Admission",
-      "kkt-admission::AdminAdmission",
-      "kkt-hosts::AllowedHosts"
-     ]
-    },
-    {
-     "title": "Build and run",
-     "text": "build, then listen on a loopback port and serve until the product is stopped.",
-     "items": [
-      "kkt-server::build",
-      "kkt-server::listen",
-      "kkt-server::Listening",
-      "kkt-shutdown::Shutdown",
-      "kkt-fake-product::Product"
-     ]
-    }
-   ],
+  "kkt-rules": {
    "wiring": [
     {
-     "impl": "kkt-db-sqlite::SqlitePlace",
-     "crate": "kkt-store",
+     "passes_on": "the entropy the program gave Startup",
+     "crate": "kkt-names",
      "to": [
       {
-       "at": "Db::new",
-       "param": "database"
-      }
-     ],
-     "note": "its program; its tests use an in-memory database"
-    },
-    {
-     "impl": "kkt-store::Db",
-     "crate": "kkt-fake-product",
-     "to": [
+       "at": "NamePack::agent_handle",
+       "param": "entropy"
+      },
       {
-       "at": "Product::start",
-       "param": "db"
-      }
-     ]
-    },
-    {
-     "impl": "kkt-clock::SystemClock",
-     "crate": "kkt-fake-product",
-     "to": [
-      {
-       "at": "Product::start",
-       "param": "clock"
-      }
-     ],
-     "note": "its program; its tests pass a fixed clock"
-    },
-    {
-     "impl": "kkt-names::OsEntropy",
-     "crate": "kkt-fake-product",
-     "to": [
-      {
-       "at": "Product::start",
+       "at": "channel_id",
        "param": "entropy"
       }
      ],
-     "note": "its program; its tests pass seeded entropy"
+     "from": [
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ],
+     "note": "on each call that draws a handle or a channel ID"
     },
     {
-     "own": "the database, clock and entropy Product::start was given",
-     "crate": "kkt-server",
+     "passes_on": "the clock and entropy the program gave Startup",
+     "crate": "kkt-rules",
      "to": [
       {
-       "at": "Parts::new",
-       "param": "db"
-      },
-      {
-       "at": "Parts::new",
+       "at": "Deps",
        "param": "clock"
       },
       {
-       "at": "Parts::new",
+       "at": "Deps",
        "param": "entropy"
       }
-     ]
-    },
+     ],
+     "from": [
+      {
+       "at": "Startup",
+       "param": "clock"
+      },
+      {
+       "at": "Startup",
+       "param": "entropy"
+      }
+     ],
+     "note": "start builds the rules' Deps from Startup"
+    }
+   ]
+  },
+  "kkt-api-sim": {
+   "wiring": [
     {
-     "impl": "kkt-fake-product::FakeIdentify",
-     "crate": "kkt-server",
+     "passes_on": "the entropy the program gave Preview::new",
+     "crate": "kkt-names",
      "to": [
       {
-       "at": "Parts::new",
-       "param": "identify"
-      }
-     ]
-    },
-    {
-     "impl": "kkt-server::Parts",
-     "crate": "kkt-server",
-     "to": [
+       "at": "agent_handle",
+       "param": "entropy"
+      },
       {
-       "at": "build",
-       "param": "parts"
+       "at": "channel_id",
+       "param": "entropy"
       }
-     ]
+     ],
+     "from": [
+      {
+       "at": "Preview::new",
+       "param": "entropy"
+      }
+     ],
+     "note": "on each call that draws a handle or a channel ID in the simulated world"
     }
    ]
   }
  },
- "injectors": {
-  "kkt-server": {
-   "wiring": [
-    {
-     "impl": "kkt-server::RulesSources",
-     "crate": "kkt-web",
-     "to": [
-      {
-       "at": "router",
-       "param": "sources"
-      }
-     ]
-    },
-    {
-     "impl": "kkt-server::AdmissionGate",
-     "crate": "kkt-web",
-     "to": [
-      {
-       "at": "router",
-       "param": "gate"
-      }
-     ]
-    },
-    {
-     "impl": "kkt-rules::Rules",
-     "crate": "kkt-mcp",
-     "to": [
-      {
-       "at": "endpoint",
-       "param": "rules"
-      },
-      {
-       "at": "mcp_admin::endpoint",
-       "param": "rules"
-      }
-     ]
-    },
-    {
-     "impl": "kkt-format::Formatter",
-     "crate": "kkt-mcp",
-     "to": [
-      {
-       "at": "endpoint",
-       "param": "fmt"
-      },
-      {
-       "at": "mcp_admin::endpoint",
-       "param": "fmt"
-      }
-     ]
-    },
-    {
-     "own": "the identity the program gave Parts",
-     "supplier": "the program's identity",
-     "crate": "kkt-mcp",
-     "to": [
-      {
-       "at": "endpoint",
-       "param": "identify"
-      },
-      {
-       "at": "mcp_admin::endpoint",
-       "param": "identify"
-      }
-     ]
-    },
-    {
-     "impl": "kkt-format::NoticeWording",
-     "crate": "kkt-rules",
-     "to": [
-      {
-       "at": "Deps",
-       "param": "wording"
-      }
-     ]
-    },
-    {
-     "own": "the clock, entropy and database the program gave Parts",
-     "supplier": "the program's clock, entropy and database",
-     "crate": "kkt-rules",
-     "to": [
-      {
-       "at": "Deps",
-       "param": "clock"
-      },
-      {
-       "at": "Deps",
-       "param": "entropy"
-      },
-      {
-       "at": "Deps",
-       "param": "db"
-      }
-     ]
-    },
-    {
-     "own": "the clock and entropy the program gave Parts",
-     "supplier": "the program's clock and entropy",
-     "crate": "kkt-admission",
-     "to": [
-      {
-       "at": "Sessions::new",
-       "param": "clock"
-      },
-      {
-       "at": "Sessions::new",
-       "param": "entropy"
-      }
-     ]
-    }
-   ]
+ "not_passed_on": [
+  {
+   "crate": "kkt-agent-commands",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::connected",
+   "param": "host",
+   "why": "it names Client, and calls configure and file, never connected"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::installed",
+   "param": "host",
+   "why": "it names Client, and calls configure and file, never installed"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "to": "kkt-deployment",
+   "at": "connection::serve_connection",
+   "param": "source",
+   "why": "it asks client_connection and admin_connection only"
+  },
+  {
+   "crate": "kkt-install-commands",
+   "to": "kkt-deployment",
+   "at": "connection::admin_connection",
+   "param": "source",
+   "why": "it asks client_connection and serve_connection only"
+  },
+  {
+   "crate": "kkt-server",
+   "to": "kkt-web",
+   "at": "router",
+   "param": "sessions",
+   "why": "it hands on kkt-web's own Sessions, which it builds: a value of the receiving crate's own type"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::connected",
+   "param": "env",
+   "why": "it calls Client::file and Client::source only"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::installed",
+   "param": "env",
+   "why": "it calls Client::file and Client::source only"
+  },
+  {
+   "crate": "kkt-server",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "log",
+   "why": "page builds no Parts: it hands its log to kkt-web's router"
+  },
+  {
+   "crate": "kkt-diagnostics",
+   "to": "kkt-diagnostics",
+   "at": "inspect_admin_key",
+   "param": "prober",
+   "why": "only the program's tests call inspect_admin_key"
   }
- }
+ ],
+ "not_filled": [
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::connected",
+   "param": "env",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::file",
+   "param": "env",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::installed",
+   "param": "env",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::source",
+   "param": "env",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::connected",
+   "param": "host",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::file",
+   "param": "host",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::installed",
+   "param": "host",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::installed",
+   "param": "on_path",
+   "why": "the program calls no Client method itself: kkt-agent-commands and kkt-install-commands do"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-names",
+   "at": "NamePack::agent_handle",
+   "param": "entropy",
+   "why": "it calls only NamePack::find, to check the name_pack setting; kkt-rules draws handles"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-names",
+   "at": "NamePack::agent_handle",
+   "param": "entropy",
+   "why": "it calls only NamePack::find, to check the name_pack setting; kkt-rules draws handles"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "rules",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "clock",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "entropy",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "identify",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "log",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-rules",
+   "at": "Startup",
+   "param": "wording",
+   "why": "it gives kkt-rules' own DefaultWording: a value of the receiving crate's own type, not an injection"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "rules",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "clock",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "entropy",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "identify",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "log",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-rules",
+   "at": "Startup",
+   "param": "wording",
+   "why": "it gives kkt-rules' own DefaultWording: a value of the receiving crate's own type, not an injection"
+  },
+  {
+   "crate": "kkt-fake-product",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "rules",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-fake-product",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "clock",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-fake-product",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "entropy",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-fake-product",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "identify",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-fake-product",
+   "to": "kkt-server",
+   "at": "Parts",
+   "param": "log",
+   "why": "it builds Parts with Parts::new, where this is wired"
+  },
+  {
+   "crate": "kkt-fake-product",
+   "to": "kkt-rules",
+   "at": "Startup",
+   "param": "wording",
+   "why": "it gives kkt-rules' own DefaultWording: a value of the receiving crate's own type, not an injection"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-config-file",
+   "at": "files::read",
+   "param": "disk",
+   "why": "it calls only read_named and read_instructions"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-config-file",
+   "at": "files::read_default",
+   "param": "disk",
+   "why": "it calls only read_named and read_instructions"
+  },
+  {
+   "crate": "kkt-keymode",
+   "to": "kkt-config-file",
+   "at": "files::write",
+   "param": "disk",
+   "why": "it calls only read_named and read_instructions"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-deployment",
+   "at": "connection::client_connection",
+   "param": "source",
+   "why": "the program gives its ConnectionReads to kkt-install-commands and kkt-agent-commands, which ask it"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-deployment",
+   "at": "connection::admin_connection",
+   "param": "source",
+   "why": "the program gives its ConnectionReads to kkt-agent-commands, which asks it"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-deployment",
+   "at": "connection::serve_connection",
+   "param": "source",
+   "why": "it calls serve_connection only in its own tests; kkt-install-commands asks it"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-deployment",
+   "at": "connection::recorded_connection",
+   "param": "absolute",
+   "why": "it never calls recorded_connection: kkt-deployment's other connection functions do"
+  },
+  {
+   "crate": "kkt-webapp-preview",
+   "to": "kkt-server",
+   "at": "page",
+   "param": "sessions",
+   "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
+  }
+ ]
 }

@@ -1,52 +1,11 @@
 //! Agents that have gone quiet, and hiding them together. The human (or an
 //! admin agent) picks how long an agent must have been quiet, sees the list,
-//! and chooses which to hide; nothing here happens on its own. Each is hidden by the same rule
+//! and chooses which to hide; only then are they hidden. Each is hidden by the same rule
 //! as hiding one agent. A channel owner is never hidden this way.
 
 use super::administration::{HIDDEN, Removal, hidden_body};
-use super::human::ChannelRef;
 use super::*;
 use std::time::Duration;
-
-/// An agent that has made no authenticated call for longer than the period
-/// asked about, and has no open wait.
-#[derive(Clone, Debug)]
-pub struct StaleAgent {
-    pub info: AgentInfo,
-    /// The channels it is in, in name order.
-    pub channels: Vec<ChannelRef>,
-    /// How many entries its memory holds.
-    pub memory_entries: usize,
-    /// The channels it owns, in name order. An owner is never hidden as
-    /// stale.
-    pub owns: Vec<ChannelRef>,
-}
-
-/// What hiding stale agents did.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StaleHidden {
-    /// The agents hidden, in the order asked for.
-    pub hidden: Vec<String>,
-    /// The agents asked for but kept, and why, in the order asked for.
-    pub kept: Vec<Kept>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Kept {
-    pub handle: String,
-    pub reason: KeptReason,
-}
-
-/// Why an agent the human chose was not hidden as stale.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KeptReason {
-    /// No such agent, or it is already hidden.
-    Gone,
-    /// It has made a call within the period, or has an open wait.
-    Active,
-    /// It owns a channel.
-    Owner,
-}
 
 impl Rules {
     /// Every agent that has made no authenticated call for longer than
@@ -85,7 +44,7 @@ impl Rules {
         idle: Duration,
         chosen: Vec<String>,
     ) -> Result<StaleHidden> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let who = self.operator_words(&actor)?;
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
@@ -168,7 +127,7 @@ impl Rules {
     }
 }
 
-fn stale_agent(store: &dyn Reads, swarm: &SwarmId, record: AgentRecord) -> Result<StaleAgent> {
+fn stale_agent(store: &Reader<'_>, swarm: &SwarmId, record: AgentRecord) -> Result<StaleAgent> {
     let handle = record.name.clone();
     Ok(StaleAgent {
         channels: channel_refs(store, swarm, store.all_channel_ids(swarm, Some(&handle))?)?,
@@ -178,7 +137,7 @@ fn stale_agent(store: &dyn Reads, swarm: &SwarmId, record: AgentRecord) -> Resul
     })
 }
 
-fn channel_refs(store: &dyn Reads, swarm: &SwarmId, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
+fn channel_refs(store: &Reader<'_>, swarm: &SwarmId, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
     let mut refs = Vec::new();
     for id in ids {
         if let Some(facts) = store.channel(swarm, &id)? {

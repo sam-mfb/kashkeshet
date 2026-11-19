@@ -1,12 +1,12 @@
 use super::*;
-use kkt_config::MAX_CHANNEL_ID_ATTEMPTS;
+use kkt_names::{CHANNEL_RANDOM_LEN, MAX_CHANNEL_ID_ATTEMPTS};
 
 impl Rules {
     /// Channels `me` can see, in name order. Open channels are visible to
     /// everyone; closed ones only to their members.
     pub async fn list_channels(&self, me: &Agent, q: ChannelQuery) -> Result<Page<ChannelInfo>> {
         let me = me.handle.clone();
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let after = q.cursor.as_deref().map(decode_channel_cursor).transpose()?;
         self.db()
             .read(move |store, swarm| {
@@ -35,7 +35,7 @@ impl Rules {
                     .map(|id| channel_info(store, swarm, id, Some(&me), q.after_id, preview))
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = match (more, items.last()) {
-                    (true, Some(last)) => Some(encode_channel_cursor(&last.name, &last.id)),
+                    (true, Some(last)) => Some(channel_cursor(last)),
                     _ => None,
                 };
                 Ok(Page { items, next_cursor })
@@ -73,9 +73,9 @@ impl Rules {
 
     /// Creates a channel. The creator and every listed member join at once.
     pub async fn create_channel(&self, me: &Agent, new: NewChannel) -> Result<ChannelInfo> {
-        let limits = self.limits().clone();
-        let name = clean_name(&new.name, limits.max_channel_name_chars)?;
-        let purpose = clean_purpose(new.purpose.as_deref(), limits.max_purpose_chars)?;
+        let settings = self.settings().clone();
+        let name = clean_name(&new.name, settings.max_channel_name_chars)?;
+        let purpose = clean_purpose(new.purpose.as_deref(), settings.max_purpose_chars)?;
         let me = me.handle.clone();
         let now = self.now_text();
         let entropy = self.inner.deps.entropy.clone();
@@ -110,7 +110,7 @@ impl Rules {
                 for m in &members {
                     store.add_member(swarm, &id, m, &now)?;
                 }
-                channel_info(store, swarm, &id, Some(&me), None, limits.member_preview)
+                channel_info(store, swarm, &id, Some(&me), None, settings.member_preview)
             })
             .await?;
         self.events().publish_channel(NewChannelEvent {
@@ -118,7 +118,6 @@ impl Rules {
             name: created.name.clone(),
             open: created.open,
             created_by: created.created_by.clone(),
-            created_at: created.created_at.clone(),
             member_count: created.member_count,
         });
         Ok(created)
@@ -132,11 +131,11 @@ impl Rules {
         actor: Actor,
         new: NewChannel,
     ) -> Result<ChannelInfo> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let who = self.operator_words(&actor)?;
-        let limits = self.limits().clone();
-        let name = clean_name(&new.name, limits.max_channel_name_chars)?;
-        let purpose = clean_purpose(new.purpose.as_deref(), limits.max_purpose_chars)?;
+        let settings = self.settings().clone();
+        let name = clean_name(&new.name, settings.max_channel_name_chars)?;
+        let purpose = clean_purpose(new.purpose.as_deref(), settings.max_purpose_chars)?;
         if !new.open && new.members.is_empty() {
             return Err(RuleError::invalid(
                 "a closed channel needs at least one initial member",
@@ -182,7 +181,7 @@ impl Rules {
                     format!("{who} created the channel."),
                 )?;
                 Ok((
-                    channel_info(store, swarm, &id, None, None, limits.member_preview)?,
+                    channel_info(store, swarm, &id, None, None, settings.member_preview)?,
                     notice,
                 ))
             })
@@ -192,7 +191,6 @@ impl Rules {
             name: created.name.clone(),
             open: created.open,
             created_by: created.created_by.clone(),
-            created_at: created.created_at.clone(),
             member_count: created.member_count,
         });
         self.publish_message(&notice);
@@ -203,7 +201,7 @@ impl Rules {
     pub async fn join_channel(&self, me: &Agent, channel_id: String) -> Result<ChannelInfo> {
         let me = me.handle.clone();
         let now = self.now_text();
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let who = me.clone();
         let (info, joined) = self
             .db()
@@ -261,7 +259,7 @@ impl Rules {
     ) -> Result<Members> {
         let me = me.handle.clone();
         let now = self.now_text();
-        let limit = self.limits().default_limit;
+        let limit = self.settings().default_limit;
         let (page, channel, added, member_count) = self
             .db()
             .write(move |store, swarm| {
@@ -308,7 +306,7 @@ impl Rules {
     ) -> Result<Members> {
         let me = me.handle.clone();
         let owner = me.clone();
-        let limit = self.limits().default_limit;
+        let limit = self.settings().default_limit;
         let rules = self.clone();
         let (page, channel, removed, notice) = self
             .db()
@@ -360,7 +358,7 @@ impl Rules {
         agent: String,
     ) -> Result<ChannelInfo> {
         let me = me.handle.clone();
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let rules = self.clone();
         let (info, notice) = self
             .db()
@@ -433,7 +431,7 @@ impl Rules {
     pub async fn set_note(&self, me: &Agent, channel_id: String, text: String) -> Result<()> {
         let me = me.handle.clone();
         let now = self.now_text();
-        let max = self.limits().max_note_chars;
+        let max = self.settings().max_note_chars;
         let run_id = self.inner.deps.run_id;
         self.db()
             .write(move |store, swarm| {
@@ -468,9 +466,9 @@ impl Rules {
         purpose: String,
     ) -> Result<ChannelInfo> {
         let actor = actor.into();
-        actor.may_change()?;
-        let limits = self.limits().clone();
-        let purpose = clean_purpose(Some(&purpose), limits.max_purpose_chars)?;
+        may_change(&actor)?;
+        let settings = self.settings().clone();
+        let purpose = clean_purpose(Some(&purpose), settings.max_purpose_chars)?;
         let rules = self.clone();
         let (info, notice) = self
             .db()
@@ -497,7 +495,7 @@ impl Rules {
                     &channel.id,
                     viewer,
                     None,
-                    limits.member_preview,
+                    settings.member_preview,
                 )?;
                 Ok::<_, RuleError>((info, notice))
             })
@@ -509,7 +507,7 @@ impl Rules {
     }
 }
 
-fn note(store: &dyn Reads, swarm: &SwarmId, channel_id: &str) -> Result<ChannelNote> {
+fn note(store: &Reader<'_>, swarm: &SwarmId, channel_id: &str) -> Result<ChannelNote> {
     let summary = store
         .channel_summary(swarm, channel_id, None, None)?
         .ok_or_else(|| RuleError::channel_not_found(channel_id))?;
@@ -521,18 +519,10 @@ fn note(store: &dyn Reads, swarm: &SwarmId, channel_id: &str) -> Result<ChannelN
     })
 }
 
-#[derive(Clone, Debug, Serialize)]
-pub struct ChannelNote {
-    pub channel_id: String,
-    pub text: String,
-    pub edited_by: Option<String>,
-    pub edited_at: Option<String>,
-}
-
 /// A page of a channel's members, each with when it last sent a message
 /// there, as `viewer` sees it.
 fn members_page(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     viewer: &str,
     channel_id: &str,
@@ -567,9 +557,9 @@ fn members_page(
     })
 }
 
-fn free_channel_id(store: &dyn Reads, entropy: &dyn Entropy) -> Result<String> {
+fn free_channel_id(store: &Reader<'_>, entropy: &dyn Entropy) -> Result<String> {
     for _ in 0..MAX_CHANNEL_ID_ATTEMPTS {
-        let id = names::channel_id(entropy, kkt_config::CHANNEL_RANDOM_LEN);
+        let id = names::channel_id(entropy, CHANNEL_RANDOM_LEN);
         if !store.channel_id_taken(&id)? {
             return Ok(id);
         }
@@ -611,19 +601,8 @@ fn clean_purpose(purpose: Option<&str>, max_chars: usize) -> Result<Option<Strin
     Ok(Some(purpose.to_string()))
 }
 
-/// The `list_channels` cursor that continues after `c`.
-pub fn channel_cursor(c: &ChannelInfo) -> String {
-    encode_channel_cursor(&c.name, &c.id)
-}
-
-/// A list cursor holds the last channel's name (as hex, since names can hold
-/// any character) and ID. It carries the position itself, so using it never
-/// reveals whether some other channel exists.
-pub(super) fn encode_channel_cursor(name: &str, id: &str) -> String {
-    let hex: String = name.bytes().map(|b| format!("{b:02x}")).collect();
-    format!("{hex}.{id}")
-}
-
+/// Reads back a cursor [`channel_cursor`] made: the last channel's name and
+/// ID.
 pub(super) fn decode_channel_cursor(cursor: &str) -> Result<(String, String)> {
     let bad = || RuleError::invalid("`cursor` is not one this server gave out");
     let (hex, id) = cursor.split_once('.').ok_or_else(bad)?;
@@ -645,7 +624,25 @@ mod tests {
 
     #[test]
     fn cursor_round_trips() {
-        let c = encode_channel_cursor("général.x", "ch_abc");
+        let c = channel_cursor(&ChannelInfo {
+            note: ChannelNote {
+                channel_id: "ch_abc".into(),
+                text: String::new(),
+                edited_by: None,
+                edited_at: None,
+            },
+            id: "ch_abc".into(),
+            name: "général.x".into(),
+            purpose: None,
+            open: true,
+            created_by: "a".into(),
+            created_at: "t".into(),
+            owner: None,
+            member_count: 0,
+            members_preview: Vec::new(),
+            is_member: false,
+            new_messages: None,
+        });
         assert_eq!(
             decode_channel_cursor(&c).unwrap(),
             ("général.x".to_string(), "ch_abc".to_string())
@@ -663,50 +660,4 @@ mod tests {
         assert_eq!(clean_purpose(Some("  "), 500).unwrap(), None);
         assert!(clean_purpose(Some(&"x".repeat(501)), 500).is_err());
     }
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct ChannelInfo {
-    pub note: ChannelNote,
-    pub id: String,
-    pub name: String,
-    pub purpose: Option<String>,
-    pub open: bool,
-    pub created_by: String,
-    pub created_at: String,
-    /// The agent that may remove members and pass the ownership on, if any.
-    pub owner: Option<String>,
-    pub member_count: i64,
-    /// The first few members, in the order they joined.
-    pub members_preview: Vec<String>,
-    pub is_member: bool,
-    /// Messages newer than the `after_id` the agent gave, if it gave one.
-    pub new_messages: Option<i64>,
-}
-
-#[derive(Clone, Debug, Default)]
-pub struct ChannelQuery {
-    pub query: Option<String>,
-    pub member_only: bool,
-    pub with_agent: Option<String>,
-    pub after_id: Option<i64>,
-    pub limit: usize,
-    pub cursor: Option<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct NewChannel {
-    pub name: String,
-    pub open: bool,
-    pub purpose: Option<String>,
-    pub members: Vec<String>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct Members {
-    pub channel_id: String,
-    pub total: i64,
-    /// The channel's owner, if it has one.
-    pub owner: Option<String>,
-    pub page: Page<AgentInfo>,
 }

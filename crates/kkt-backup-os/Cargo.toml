@@ -1,0 +1,15 @@
+[package]
+name = "kkt-backup-os"
+description = "Backups on disk: kkt-backup's Backups over the operating system's files"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-backup = { path = "../kkt-backup" }
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-scratch = { path = "../kkt-scratch" }

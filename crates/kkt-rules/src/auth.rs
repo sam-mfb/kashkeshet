@@ -2,16 +2,23 @@
 //! checking them on each call.
 
 use super::*;
-use kkt_names::{ALPHABET, random_chars};
-use sha2::{Digest, Sha256};
 
-use kkt_config::{AGENT_SECRET_CHARS, RECOVERY_PREFIX, TOKEN_PREFIX};
+/// Prefix of an agent authentication token.
+const TOKEN_PREFIX: &str = "act_";
+/// Prefix of an avatar's recovery code.
+const RECOVERY_PREFIX: &str = "arc_";
+/// Random characters per agent token or recovery code (about 134 bits).
+const AGENT_SECRET_CHARS: usize = 26;
+
+/// Characters a token's or recovery code's secret part is drawn from, and
+/// which [`contains_secret`] looks for.
+const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
 /// A random token, such as `act_` followed by 26 characters.
 pub fn token(entropy: &dyn Entropy) -> String {
     format!(
         "{TOKEN_PREFIX}{}",
-        random_chars(entropy, AGENT_SECRET_CHARS)
+        entropy.random_chars(ALPHABET, AGENT_SECRET_CHARS)
     )
 }
 
@@ -19,13 +26,13 @@ pub fn token(entropy: &dyn Entropy) -> String {
 pub fn recovery_code(entropy: &dyn Entropy) -> String {
     format!(
         "{RECOVERY_PREFIX}{}",
-        random_chars(entropy, AGENT_SECRET_CHARS)
+        entropy.random_chars(ALPHABET, AGENT_SECRET_CHARS)
     )
 }
 
 /// The hash stored in place of a token or recovery code.
 pub fn hash_token(token: &str) -> Vec<u8> {
-    Sha256::digest(token.as_bytes()).to_vec()
+    kkt_hash::sha256(token.as_bytes()).to_vec()
 }
 
 /// True if `text` contains something shaped like a token or recovery code.
@@ -100,7 +107,7 @@ impl Rules {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kkt_names::testing::SeqEntropy;
+    use kkt_entropy::testing::SeqEntropy;
 
     #[test]
     fn token_shape() {

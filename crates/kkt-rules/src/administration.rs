@@ -4,17 +4,6 @@
 
 use super::*;
 
-#[derive(Clone, Debug)]
-pub enum ChannelChange {
-    SetOpen(bool),
-    AddMember(String),
-    RemoveMember(String),
-    /// Makes the named member the owner, or with `None` leaves the channel
-    /// with no owner.
-    SetOwner(Option<String>),
-    Hide,
-}
-
 impl Rules {
     pub async fn change_channel(
         &self,
@@ -22,7 +11,7 @@ impl Rules {
         channel_id: String,
         change: ChannelChange,
     ) -> Result<()> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let rules = self.clone();
         let now = self.now_text();
         let changed = self
@@ -143,7 +132,7 @@ impl Rules {
     /// `author` may hide it, and runs this inside that decision's write.
     pub(super) fn hide(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
         swarm: &SwarmId,
         channel: &ChannelFacts,
         author: &str,
@@ -160,7 +149,7 @@ impl Rules {
     /// [`Refusal::OwnsChannels`], which each edge words with how to pass
     /// the ownership on or clear it first ([`ChannelChange::SetOwner`]).
     pub async fn hide_agent(&self, actor: Actor, handle: String) -> Result<()> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let who = self.operator_words(&actor)?;
         let rules = self.clone();
         let now = self.now_text();
@@ -257,7 +246,7 @@ impl Rules {
     /// `handle`, for the caller to publish once the write is done.
     pub(super) fn remove_avatar_in(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
         swarm: &SwarmId,
         removal: Removal,
     ) -> Result<Removed> {

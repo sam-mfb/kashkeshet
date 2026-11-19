@@ -1,0 +1,13 @@
+[package]
+name = "kkt-machine-os"
+description = "The machine's facts as this process sees them: its environment, its platform and its process ID"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-machine = { path = "../kkt-machine" }
+
+[features]

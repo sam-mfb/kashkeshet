@@ -1,0 +1,266 @@
+//! This machine's key files: where each is for each way kkt is deployed
+//! (`places`), the order of the reads that finding one makes (`finders`),
+//! writing a new key and an admin name (`writes`), what `kkt key create`
+//! refuses, and what a person is told about an admin key's name, from what
+//! kkt-keys reads of the name file beside it: `kkt status`, `kkt key show`
+//! and `kkt key create` print these lines.
+
+mod finders;
+mod places;
+mod writes;
+
+pub use finders::{
+    FindKeyError, KeyReadError, RecordedServerRead, ServeConfigReads, UnrecordedReads, find_here,
+    find_key, find_operator_key,
+};
+pub use places::{
+    AdminKeyCollision, CreateRefusal, Here, KeyKind, KeyPlace, KeyPlaceError, KeysOff, ServerKeys,
+    UnfinishedSetup, admin_key_collision, configured_key, create_asks_for_docker, create_checks,
+    create_destination_check, docker_key_copies, operator_key, recorded_key,
+};
+pub use writes::new_key_file;
+
+use kkt_keys::{
+    ADMIN_KEY_COPY_FILE_NAME, AdminNameError, AdminNameFile, KeyFiles, admin_name_path,
+    read_admin_name,
+};
+use std::ffi::OsStr;
+use std::io;
+use std::path::{Path, PathBuf};
+
+/// The admin key's name file could not be used: kkt-keys says what is
+/// wrong with it, after the setting it is.
+#[derive(Debug, thiserror::Error)]
+#[error("invalid setting: {0}")]
+pub struct AdminNameLineError(#[source] pub AdminNameError);
+
+/// The admin key was written, but its name file could not be.
+#[derive(Debug, thiserror::Error)]
+#[error("the key was written, but its name could not be: could not write {}: {cause}. {UNNAMED}", names.display())]
+pub struct NameNotWritten {
+    pub names: PathBuf,
+    #[source]
+    pub cause: io::Error,
+}
+
+/// What a person is told of an admin key with no name.
+const UNNAMED: &str = "It has no name, so it may only read. To let it make changes, make it again with --force --name <name>.";
+
+/// What to say, after `label`, about the name tied to the admin key `key`
+/// in the file at `path`, if anything, reading the name file beside it from
+/// `files`. A Docker setup's host copy has no name beside it, as the name
+/// is kept in the container.
+pub fn admin_name_line(
+    files: &dyn KeyFiles,
+    path: &Path,
+    key: &str,
+    label: &str,
+) -> Result<Option<String>, AdminNameLineError> {
+    let docker_host_copy = path.file_name() == Some(OsStr::new(ADMIN_KEY_COPY_FILE_NAME));
+    name_line(path, key, label, docker_host_copy, |names| {
+        files.read_optional(names)
+    })
+}
+
+/// [`admin_name_line`], over the name file `read` reads.
+fn name_line(
+    path: &Path,
+    key: &str,
+    label: &str,
+    docker_host_copy: bool,
+    read: impl FnOnce(&Path) -> io::Result<Option<String>>,
+) -> Result<Option<String>, AdminNameLineError> {
+    if docker_host_copy {
+        return Ok(None);
+    }
+    let make = "`kkt key create --admin --force --name <name>` makes a named one";
+    Ok(Some(
+        match read_admin_name(path, key, read).map_err(AdminNameLineError)? {
+            AdminNameFile::Named(name) => format!("{label}: {name}"),
+            AdminNameFile::None => format!("{label}: none, so the key may only read; {make}"),
+            AdminNameFile::OtherKey(names) => format!(
+                "{label}: none, so the key may only read: {} names a different key; {make}",
+                names.display()
+            ),
+        },
+    ))
+}
+
+/// The advice after the name file beside the admin key at `path` is
+/// written for the admin name `name`, or removed with no name: `written` is
+/// how that went.
+pub fn admin_name_written(
+    path: &Path,
+    name: Option<&str>,
+    written: io::Result<()>,
+) -> Result<String, NameNotWritten> {
+    let names = admin_name_path(path);
+    match (name, written) {
+        (Some(name), Ok(())) => Ok(format!(
+            "Its admin agent is named {name}: its changes are announced as \"operator (via {name})\"."
+        )),
+        (Some(_), Err(cause)) => Err(NameNotWritten { names, cause }),
+        (None, Ok(())) => Ok(UNNAMED.into()),
+        (None, Err(e)) => Ok(format!(
+            "{UNNAMED} The name file of an earlier key, {}, could not be removed ({e}); it does not name this key.",
+            names.display()
+        )),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    //! Every line a person is told about an admin key's name, pinned byte
+    //! for byte: `kkt status`, `kkt key show`, `kkt key create` and `kkt
+    //! setup` print these.
+
+    use super::*;
+    use kkt_keys::testing::Memory;
+    use kkt_names::AdminName;
+
+    const KEY: &str = "the-admin-key";
+
+    fn name(text: &str) -> AdminName {
+        AdminName::new(text, kkt_names::MAX_ADMIN_NAME_CHARS).expect("a name")
+    }
+
+    /// Writes the name file as `kkt key create` and `kkt setup` do.
+    fn write(
+        files: &Memory,
+        path: &Path,
+        key: &str,
+        name: Option<&AdminName>,
+    ) -> std::io::Result<()> {
+        let bound = name.map(|name| kkt_keys::bound_to(name, key));
+        files.write_admin_name(path, bound.as_deref())
+    }
+
+    /// What `kkt key create` and `kkt setup` say after writing the name.
+    fn written(
+        files: &Memory,
+        path: &Path,
+        key: &str,
+        name: Option<&AdminName>,
+    ) -> Result<String, String> {
+        let text = name.map(ToString::to_string);
+        admin_name_written(path, text.as_deref(), write(files, path, key, name))
+            .map_err(|e| e.to_string())
+    }
+
+    /// [`super::admin_name_line`], with its error as the text a person sees.
+    fn admin_name_line(
+        files: &Memory,
+        path: &Path,
+        key: &str,
+        label: &str,
+    ) -> Result<Option<String>, String> {
+        super::admin_name_line(files, path, key, label).map_err(|e| e.to_string())
+    }
+
+    #[test]
+    fn the_admin_name_lines_say_what_they_always_said() {
+        let path = Path::new("/k/admin-key");
+        let named = Memory::new().with_dir("/k");
+        write(&named, path, KEY, Some(&name("sentinel"))).expect("written");
+        let other = Memory::new().with_dir("/k");
+        write(&other, path, "another-key", Some(&name("sentinel"))).expect("written");
+        let lines: Vec<_> = [&named, &Memory::new(), &other]
+            .into_iter()
+            .map(|files| admin_name_line(files, path, KEY, "admin name").expect("read"))
+            .collect();
+        assert_eq!(
+            lines,
+            [
+                Some("admin name: admin-sentinel".to_string()),
+                Some(
+                    "admin name: none, so the key may only read; `kkt key create --admin \
+                     --force --name <name>` makes a named one"
+                        .to_string()
+                ),
+                Some(
+                    "admin name: none, so the key may only read: /k/admin-key.name names a \
+                     different key; `kkt key create --admin --force --name <name>` makes a \
+                     named one"
+                        .to_string()
+                ),
+            ]
+        );
+        // A Docker setup's host copy keeps no name beside it.
+        let copy = Path::new("/k").join(kkt_keys::ADMIN_KEY_COPY_FILE_NAME);
+        assert_eq!(admin_name_line(&named, &copy, KEY, "Admin name"), Ok(None));
+    }
+
+    /// A name file that cannot be read, or holds no key's hash, keeps the
+    /// "invalid setting: " the person always saw, pinned exactly.
+    #[test]
+    fn a_bad_or_unreadable_name_file_says_what_it_always_said() {
+        let path = Path::new("/k/admin-key");
+        let unreadable = Memory::new().with_dir("/k").failing("/k/admin-key.name");
+        assert_eq!(
+            admin_name_line(&unreadable, path, KEY, "admin name"),
+            Err(
+                "invalid setting: the admin name could not be read from /k/admin-key.name: refused"
+                    .to_string()
+            )
+        );
+        let unhashed = Memory::new()
+            .with_dir("/k")
+            .with_file("/k/admin-key.name", "admin-sentinel\n");
+        assert_eq!(
+            admin_name_line(&unhashed, path, KEY, "admin name"),
+            Err("invalid setting: admin name in /k/admin-key.name: its second line must be `key-sha256: ` and a hash of the admin key".to_string())
+        );
+    }
+
+    #[test]
+    fn writing_a_name_says_what_it_always_said() {
+        let path = Path::new("/k/admin-key");
+        let files = Memory::new().with_dir("/k");
+        assert_eq!(
+            written(&files, path, KEY, Some(&name("sentinel"))),
+            Ok(
+                "Its admin agent is named admin-sentinel: its changes are announced as \
+                \"operator (via admin-sentinel)\"."
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            written(&files, path, KEY, None),
+            Ok(
+                "It has no name, so it may only read. To let it make changes, make it again \
+                with --force --name <name>."
+                    .to_string()
+            )
+        );
+        let failing = Memory::new().with_dir("/k").failing("/k/admin-key.name");
+        assert_eq!(
+            written(&failing, path, KEY, Some(&name("sentinel"))),
+            Err(
+                "the key was written, but its name could not be: could not write \
+                 /k/admin-key.name: refused. It has no name, so it may only read. To let \
+                 it make changes, make it again with --force --name <name>."
+                    .to_string()
+            )
+        );
+        assert_eq!(
+            written(&failing, path, KEY, None),
+            Ok(
+                "It has no name, so it may only read. To let it make changes, make it again \
+                with --force --name <name>. The name file of an earlier key, \
+                /k/admin-key.name, could not be removed (refused); it does not name this key."
+                    .to_string()
+            )
+        );
+    }
+
+    #[test]
+    fn a_docker_host_copy_never_reads_an_adjacent_name_file() {
+        assert_eq!(
+            name_line(Path::new("copy"), "key", "Admin name", true, |_| panic!(
+                "no name beside the host copy"
+            ))
+            .map_err(|e| e.to_string()),
+            Ok(None)
+        );
+    }
+}

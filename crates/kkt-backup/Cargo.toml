@@ -1,6 +1,6 @@
 [package]
 name = "kkt-backup"
-description = "kkt's backup folders: writing them and pruning old ones"
+description = "kkt's backups, as a contract: layouts, names, privacy and retention choices, and writing and pruning backups"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,13 +8,13 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+thiserror.workspace = true
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
+kkt-keys = { path = "../kkt-keys" }
+
+[features]
+# `testing::Memory`, backups in memory, for other crates' tests.
+testing = []
 
 [dev-dependencies]
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
-kkt-scratch = { path = "../kkt-scratch" }
-
-[features]
-# `write` and `prune`: they write, copy and remove files.
-real = []

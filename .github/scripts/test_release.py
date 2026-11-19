@@ -278,7 +278,7 @@ class ReleaseChecks(unittest.TestCase):
             CHECK.check(self.root, self.target, self.commit)
 
     def test_other_packages_build_output_is_not_read(self):
-        # The root package's build script no longer records the commit.
+        # The root package's build script records no commit.
         other = self.root / "target" / self.target / "dist/build/kashkeshet-test/output"
         other.parent.mkdir(parents=True)
         other.write_text("cargo:rerun-if-changed=build.rs\n")

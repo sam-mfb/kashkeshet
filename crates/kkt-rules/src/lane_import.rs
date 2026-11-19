@@ -11,7 +11,7 @@
 
 use super::lanes::{LaneWrite, checked_save, write_lane};
 use super::*;
-use kkt_store::{LaneRetiredRecord, LaneSourceRecord};
+use crate::{LaneRetiredRecord, LaneSourceRecord};
 use std::collections::BTreeSet;
 
 /// Lanes to import, and where they came from.
@@ -54,7 +54,7 @@ pub struct ImportedLane {
     pub outcome: LaneOutcome,
 }
 
-/// Checks lanes as [`CommandLine::import_lanes`] does before it changes
+/// Checks lanes as [`DirectAccess::import_lanes`] does before it changes
 /// anything, without a database: each lane against the lane rules with
 /// `max_lane_chars`, and no lane named twice. `kkt setup` uses it to find a
 /// bad lane before it installs anything. An error names the lane.
@@ -68,7 +68,7 @@ pub fn check_lane_import(lanes: &[LaneSave], max_lane_chars: usize) -> Result<()
 /// wrong folder, such as a repository's root, so retiring every lane from it
 /// is refused, naming the folder. A folder with no `.md` files at all is not.
 /// Whoever reads the folder calls it before anything is changed;
-/// [`CommandLine::import_lanes`] calls it too.
+/// [`DirectAccess::import_lanes`] calls it too.
 pub fn check_retire_missing(folder: &str, lanes: usize, skipped_files: usize) -> Result<()> {
     if lanes == 0 && skipped_files > 0 {
         return Err(RuleError::invalid(format!(
@@ -92,17 +92,24 @@ fn checked_lanes(lanes: Vec<LaneSave>, max_lane_chars: usize) -> Result<Vec<Lane
             )));
         }
         checked.push(
-            checked_save(save, max_lane_chars)
-                .map_err(|e| RuleError::invalid(format!("lane {name}: {}", e.message)))?,
+            // The lane description's limit is no operator setting: every
+            // server has the default.
+            checked_save(
+                save,
+                Settings::DEFAULT.max_lane_description_chars,
+                max_lane_chars,
+            )
+            .map_err(|e| RuleError::invalid(format!("lane {name}: {}", e.message)))?,
         );
     }
     Ok(checked)
 }
 
-impl CommandLine {
+impl DirectAccess {
     /// Every lane that is not retired, in name order: what `kkt lanes export`
-    /// writes.
-    pub async fn current_lanes(&self) -> Result<Vec<Lane>> {
+    /// writes. Needs Read.
+    pub async fn current_lanes(&self, operator: &Operator) -> Result<Vec<Lane>> {
+        operator.may(Permission::Read)?;
         self.db
             .read(|s, _| {
                 Ok(s.lanes()?
@@ -128,7 +135,17 @@ impl CommandLine {
     /// [`check_retire_missing`], naming the source folder. A database no
     /// server has run on yet is refused when there is something to change,
     /// as there is no server run to stamp it with.
-    pub async fn import_lanes(&self, import: LaneImport) -> Result<Vec<ImportedLane>> {
+    ///
+    /// Needs Change, checked before anything else. Each version saved and
+    /// each lane retired records the operator's author
+    /// ([`Audit::author`](kkt_api_agent::Audit::author)).
+    pub async fn import_lanes(
+        &self,
+        operator: &Operator,
+        import: LaneImport,
+    ) -> Result<Vec<ImportedLane>> {
+        operator.may(Permission::Change)?;
+        let author = operator.audit.author();
         if import.retire_missing {
             check_retire_missing(
                 &import.source.folder,
@@ -149,7 +166,7 @@ impl CommandLine {
             .write(move |s, _| {
                 // Found only once something is to change.
                 let mut run_id = None;
-                let mut run = |s: &dyn Writes| -> Result<i64> {
+                let mut run = |s: &Writer<'_>| -> Result<i64> {
                     if let Some(id) = run_id {
                         return Ok(id);
                     }
@@ -166,8 +183,15 @@ impl CommandLine {
                 for save in lanes {
                     let name = save.name.clone();
                     let found = s.lane(&name)?;
-                    let wrote =
-                        write_lane(s, found, save, &at, &mut run, None, Some(source.clone()))?;
+                    let wrote = write_lane(
+                        s,
+                        found,
+                        save,
+                        &at,
+                        &mut run,
+                        author.clone(),
+                        Some(source.clone()),
+                    )?;
                     let outcome = match wrote {
                         LaneWrite::Retired => LaneOutcome::RetiredSkipped,
                         LaneWrite::Unchanged(lane) => LaneOutcome::Unchanged(lane.current.version),
@@ -194,7 +218,7 @@ impl CommandLine {
                             &LaneRetiredRecord {
                                 at: at.clone(),
                                 run_id,
-                                by_admin: None,
+                                by_admin: author.clone(),
                             },
                         )?;
                         done.push(ImportedLane {

@@ -1,31 +1,29 @@
 //! The admin endpoint's MCP server, at `/mcp-admin`: the tools an admin
-//! agent sees, separate from the agents' tools in `lib.rs`. Only callers
-//! with the admin key reach it (`kkt-server` puts the admin key check from
-//! `kkt-admission` in front of it), so the tools take no token.
-//! Each parses its parameters, calls `rules` and formats the result.
+//! agent sees, separate from the agents' tools in `lib.rs`. A caller is
+//! admitted before it reaches them, so the tools take no token. Each parses
+//! its parameters, calls `rules` and formats the result.
 //!
 //! Every tool acts as the [`Operator`] that [`Identify::operator`] makes of
-//! the call, in the swarm it names; in key mode, the operator the admin key
-//! makes ([`KeyMode::admin_operator`](kkt_identity::KeyMode::admin_operator)): one
-//! that may read, and change too when the key has a name, recorded and
-//! announced under that name. `rules` check those permissions; this
-//! endpoint words their refusals for an admin agent (`word`). Issuing
-//! recovery codes and rotating keys have no tool: they stay with the human.
-//! There is no waiting: `kkt watch --admin` waits from a shell by calling
-//! `new_messages`.
+//! the call, in the swarm it names, with that operator's permissions and
+//! audit record. `rules` check those permissions; this endpoint words their
+//! refusals for an admin agent (`word`). Issuing recovery codes and
+//! rotating keys have no tool: they stay with the human. Every tool answers
+//! at once; `new_messages` gives what is new after an ID.
 
+use crate::format_choice::{FormatChoice, chosen};
 use crate::mcp_tools::{self, with_limits, with_text};
 use crate::mcp_transport::Transport;
 use crate::principal;
+use crate::result_format::{Format, Formatter};
 use crate::tool_text;
 use axum::Router;
-use kkt_config::{Limits, MCP_ADMIN_PATH};
-use kkt_format::{Format, Formatter};
-use kkt_identity::Identify;
-use kkt_rules::{
-    self as rules, Actor, Audit, ChannelChange, LaneSave, NewChannel, Operator, Permission,
-    ReadQuery, Refusal, RuleError, Rules,
+use kkt_api_admin::AdminApi;
+use kkt_api_agent::{
+    Actor, Audit, NewChannel, Operator, Permission, ReadQuery, Refusal, RuleError,
 };
+use kkt_api_operator::{ChannelChange, LaneSave};
+use kkt_identity::Identify;
+use kkt_log::{Field, Level, Log};
 use rmcp::handler::server::{router::tool::ToolRouter, wrapper::Parameters};
 use rmcp::model::{CallToolResult, Implementation, ServerCapabilities, ServerConfig};
 use rmcp::service::RequestContext;
@@ -35,16 +33,20 @@ use serde::Deserialize;
 use std::sync::Arc;
 use std::time::Duration;
 
+/// The path of the admin agents' MCP endpoint.
+pub const MCP_ADMIN_PATH: &str = "/mcp-admin";
+
 /// What the admin endpoint tells every admin agent that connects.
 const ADMIN_INSTRUCTIONS: &str = include_str!("../admin-instructions.md");
 
 #[derive(Clone)]
 pub(crate) struct AdminServer {
-    /// The endpoint's rules. A call uses the rules in its swarm, from
-    /// [`AdminServer::call`]; these give only the limits.
-    rules: Rules,
+    /// The endpoint's operations. A call uses the operations in its swarm,
+    /// from [`AdminServer::call`]; these give only the limits.
+    rules: Arc<dyn AdminApi>,
     /// Who each call comes from: the operator, and in which swarm.
     identify: Arc<dyn Identify>,
+    log: Arc<dyn Log>,
     fmt: Formatter,
     /// The kkt version given in the MCP server info.
     server_version: &'static str,
@@ -53,7 +55,7 @@ pub(crate) struct AdminServer {
 
 /// The admin tools, described by `admin-tools.toml` with every limit filled
 /// in from `limits`.
-pub(crate) fn tools(limits: &Limits) -> ToolRouter<AdminServer> {
+pub(crate) fn tools(limits: &kkt_api_agent::Limits) -> ToolRouter<AdminServer> {
     with_limits(
         with_text(AdminServer::tool_router(), tool_text::ADMIN),
         limits,
@@ -63,28 +65,30 @@ pub(crate) fn tools(limits: &Limits) -> ToolRouter<AdminServer> {
 /// The admin endpoint: a router serving the admin tools at `/mcp-admin`
 /// through `transport`, set as `/mcp`'s is. Every call is identified by
 /// `identify` as an operator in a swarm, and acts there. The tools are
-/// described with the limits `rules` holds. `server_version` is the kkt
+/// described with the limits `rules` reports. `server_version` is the kkt
 /// version given in the MCP server info. Who may call it is for admission,
 /// in front of it, to decide; it leaves the `Principal` on the request.
 pub fn endpoint(
-    rules: Rules,
+    rules: Arc<dyn AdminApi>,
     identify: Arc<dyn Identify>,
+    log: Arc<dyn Log>,
     fmt: Formatter,
     server_version: &'static str,
     transport: &Transport,
 ) -> Router {
-    let tools = tools(rules.limits());
+    let tools = tools(&rules.limits());
     transport.serve(
         MCP_ADMIN_PATH,
-        AdminServer::new(rules, identify, fmt, tools, server_version),
+        AdminServer::new(rules, identify, log, fmt, tools, server_version),
     )
 }
 
 impl AdminServer {
     /// `tools` comes from [`tools`], built once with the server's limits.
     fn new(
-        rules: Rules,
+        rules: Arc<dyn AdminApi>,
         identify: Arc<dyn Identify>,
+        log: Arc<dyn Log>,
         fmt: Formatter,
         tools: ToolRouter<AdminServer>,
         server_version: &'static str,
@@ -92,6 +96,7 @@ impl AdminServer {
         AdminServer {
             rules,
             identify,
+            log,
             fmt,
             server_version,
             tool_router: tools,
@@ -99,12 +104,12 @@ impl AdminServer {
     }
 
     /// Who this call comes from, through `identify`: the operator, and the
-    /// rules in its swarm.
-    async fn call(&self, context: &RequestContext<RoleServer>) -> rules::Result<Call> {
-        let principal = principal(context)?;
+    /// operations in its swarm.
+    async fn call(&self, context: &RequestContext<RoleServer>) -> kkt_api_agent::Result<Call> {
+        let principal = principal(context, self.log.as_ref())?;
         let who = self.identify.operator(&principal).await?;
         Ok(Call {
-            rules: self.rules.in_swarm(who.swarm),
+            rules: self.rules.in_swarm_admin(who.swarm),
             operator: who.actor,
         })
     }
@@ -117,7 +122,7 @@ impl AdminServer {
         f: Format,
         channel_id: String,
         change: ChannelChange,
-    ) -> rules::Result<String> {
+    ) -> kkt_api_agent::Result<String> {
         call.rules
             .change_channel(call.actor(), channel_id.clone(), change)
             .await?;
@@ -133,7 +138,12 @@ impl AdminServer {
 
     /// The answer to `call`: `out`, or its refusal with the advice
     /// [`word`] gives the call's operator.
-    fn respond(&self, format: Format, call: &Call, out: rules::Result<String>) -> CallToolResult {
+    fn respond(
+        &self,
+        format: Format,
+        call: &Call,
+        out: kkt_api_agent::Result<String>,
+    ) -> CallToolResult {
         self.refuse_or(format, out.map_err(|e| word(&call.operator.audit, e)))
     }
 
@@ -142,9 +152,14 @@ impl AdminServer {
         self.refuse_or(format, Err(e))
     }
 
-    fn refuse_or(&self, format: Format, out: rules::Result<String>) -> CallToolResult {
+    fn refuse_or(&self, format: Format, out: kkt_api_agent::Result<String>) -> CallToolResult {
         mcp_tools::respond(&self.fmt, format, out, |e| {
-            tracing::error!(error = %e, "admin tool call failed");
+            self.log.record(
+                Level::Error,
+                module_path!(),
+                format_args!("admin tool call failed"),
+                &[Field::display("error", &e)],
+            );
         })
     }
 
@@ -153,10 +168,10 @@ impl AdminServer {
     }
 }
 
-/// One admin call, as identified: the rules in its swarm, and the operator
-/// it acts as.
+/// One admin call, as identified: the operations in its swarm, and the
+/// operator it acts as.
 struct Call {
-    rules: Rules,
+    rules: Arc<dyn AdminApi>,
     operator: Operator,
 }
 
@@ -198,7 +213,7 @@ fn word(audit: &Audit, e: RuleError) -> RuleError {
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct FormatOnly {
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -206,7 +221,7 @@ struct ListChannelsParams {
     query: Option<String>,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -215,20 +230,20 @@ struct ListAgentsParams {
     lane: Option<String>,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct AgentParams {
     handle: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ChannelParams {
     channel_id: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -236,7 +251,7 @@ struct ListMemoriesParams {
     handle: String,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -244,7 +259,7 @@ struct RecallParams {
     handle: String,
     name: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -252,14 +267,14 @@ struct ListMembersParams {
     channel_id: String,
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct GetNoteParams {
     channel_id: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -270,19 +285,19 @@ struct ReadParams {
     from_agent: Option<String>,
     limit: Option<u32>,
     max_body_chars: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct GetMessageParams {
     message_id: i64,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ActivityParams {
     after_id: i64,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -291,7 +306,7 @@ struct NewMessagesParams {
     channel_ids: Option<Vec<String>>,
     limit: Option<u32>,
     max_body_chars: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -300,67 +315,67 @@ struct CreateChannelParams {
     open: bool,
     purpose: Option<String>,
     members: Option<Vec<String>>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct SetPurposeParams {
     channel_id: String,
     purpose: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct SetOpenParams {
     channel_id: String,
     open: bool,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ChannelAgentParams {
     channel_id: String,
     handle: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct HandleParams {
     handle: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct StaleParams {
     idle_hours: u32,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct HideStaleParams {
     idle_hours: u32,
     handles: Vec<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct AnnouncementParams {
     text: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct ListLanesParams {
     limit: Option<u32>,
     cursor: Option<String>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct GetLaneParams {
     lane: String,
     offset: Option<u32>,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -368,13 +383,13 @@ struct SetLaneParams {
     lane: String,
     description: String,
     text: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
 struct LaneParams {
     lane: String,
-    format: Option<Format>,
+    format: Option<FormatChoice>,
 }
 
 #[tool_router]
@@ -387,7 +402,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListChannelsParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -411,7 +426,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -433,7 +448,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListMembersParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -455,7 +470,7 @@ impl AdminServer {
         Parameters(p): Parameters<GetNoteParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -481,7 +496,7 @@ impl AdminServer {
         Parameters(p): Parameters<ReadParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -509,7 +524,7 @@ impl AdminServer {
         Parameters(p): Parameters<GetMessageParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -531,7 +546,7 @@ impl AdminServer {
         Parameters(p): Parameters<ActivityParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -553,7 +568,7 @@ impl AdminServer {
         Parameters(p): Parameters<NewMessagesParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -584,7 +599,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListAgentsParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -612,7 +627,7 @@ impl AdminServer {
         Parameters(p): Parameters<AgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -636,7 +651,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListMemoriesParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -644,7 +659,7 @@ impl AdminServer {
         let out = async {
             let list = call
                 .rules
-                .admin_list_memories(p.handle, self.limit(p.limit), p.cursor)
+                .admin_list_memories(&call.operator, p.handle, self.limit(p.limit), p.cursor)
                 .await?;
             Ok(self.fmt.memory_list(f, &list))
         }
@@ -658,13 +673,16 @@ impl AdminServer {
         Parameters(p): Parameters<RecallParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
         };
         let out = async {
-            let entry = call.rules.admin_recall(p.handle, p.name).await?;
+            let entry = call
+                .rules
+                .admin_recall(&call.operator, p.handle, p.name)
+                .await?;
             let offset = mcp_tools::offset(
                 p.offset,
                 entry.text.chars().count(),
@@ -682,7 +700,7 @@ impl AdminServer {
         Parameters(p): Parameters<FormatOnly>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -703,7 +721,7 @@ impl AdminServer {
         Parameters(p): Parameters<ListLanesParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -725,7 +743,7 @@ impl AdminServer {
         Parameters(p): Parameters<GetLaneParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -751,7 +769,7 @@ impl AdminServer {
         Parameters(p): Parameters<CreateChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -780,7 +798,7 @@ impl AdminServer {
         Parameters(p): Parameters<SetPurposeParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -805,7 +823,7 @@ impl AdminServer {
         Parameters(p): Parameters<SetOpenParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -822,7 +840,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelAgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -839,7 +857,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelAgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -861,7 +879,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelAgentParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -883,7 +901,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -900,7 +918,7 @@ impl AdminServer {
         Parameters(p): Parameters<ChannelParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -917,7 +935,7 @@ impl AdminServer {
         Parameters(p): Parameters<HandleParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -936,7 +954,7 @@ impl AdminServer {
         Parameters(p): Parameters<StaleParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -958,7 +976,7 @@ impl AdminServer {
         Parameters(p): Parameters<HideStaleParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -980,7 +998,7 @@ impl AdminServer {
         Parameters(p): Parameters<AnnouncementParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -1002,7 +1020,7 @@ impl AdminServer {
         Parameters(p): Parameters<SetLaneParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -1026,7 +1044,7 @@ impl AdminServer {
         Parameters(p): Parameters<LaneParams>,
         context: RequestContext<RoleServer>,
     ) -> CallToolResult {
-        let f = p.format.unwrap_or_default();
+        let f = chosen(p.format);
         let call = match self.call(&context).await {
             Ok(call) => call,
             Err(e) => return self.refuse(f, e),
@@ -1055,7 +1073,7 @@ impl ServerHandler for AdminServer {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kkt_identity::KeyMode;
+    use kkt_identity_keymode::KeyMode;
     use kkt_names::AdminName;
 
     #[test]
@@ -1068,7 +1086,7 @@ mod tests {
     }
 
     fn sentinel() -> AdminName {
-        AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).expect("a name")
+        AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).expect("a name")
     }
 
     #[test]
@@ -1077,7 +1095,7 @@ mod tests {
             .may(Permission::Change)
             .expect_err("an unnamed key may not change");
         let worded = word(&key(None), unnamed);
-        assert_eq!(worded.code, rules::Code::Unauthenticated);
+        assert_eq!(worded.code, kkt_api_agent::Code::Unauthenticated);
         assert_eq!(
             worded.message,
             "this admin key has no name, so it may only read. The operator names it by \
@@ -1100,7 +1118,7 @@ mod tests {
 
         // A named key refused a change keeps the rules' plain words: the
         // unnamed-key advice would be wrong for it.
-        let named = RuleError::new(rules::Code::Unauthenticated, "plain")
+        let named = RuleError::new(kkt_api_agent::Code::Unauthenticated, "plain")
             .because(Refusal::LacksPermission(Permission::Change));
         assert_eq!(word(&key(Some(sentinel())), named.clone()), named);
         // So does an operator on the web page, which has no admin key.
@@ -1108,6 +1126,8 @@ mod tests {
     }
 
     fn key(key_name: Option<AdminName>) -> Audit {
-        Audit::AdminEndpoint { key_name }
+        Audit::AdminEndpoint {
+            key_name: key_name.map(|n| n.to_string()),
+        }
     }
 }

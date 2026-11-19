@@ -1,8 +1,8 @@
-//! What each live event's toast says. The wording is decided here, so it can
+//! What each live notice's toast says. The wording is decided here, so it can
 //! be tested; the page's script only draws the parts it is given (`toast`
 //! in `base.html`).
 
-use super::source::LiveEvent;
+use kkt_api_operator::Notice;
 use kkt_names as names;
 use serde::Serialize;
 
@@ -83,13 +83,13 @@ fn actor(by: &str, by_operator: bool) -> Part {
     if by_operator { name(by) } else { agent(by) }
 }
 
-/// The toast for `event`, or `None` for events that show none (messages,
+/// The toast for `notice`, or `None` for notices that show none (messages,
 /// and the feed falling behind).
-pub fn of(event: &LiveEvent) -> Option<Toast> {
-    let (hue_of, icon, parts) = match event {
-        LiveEvent::Message(_) | LiveEvent::Missed => return None,
-        LiveEvent::Agent(a) => (&a.handle, "👋", vec![agent(&a.handle), text(" registered")]),
-        LiveEvent::Channel(c) => {
+pub fn of(notice: &Notice) -> Option<Toast> {
+    let (hue_of, icon, parts) = match notice {
+        Notice::Message(_) | Notice::Missed => return None,
+        Notice::Agent(a) => (&a.handle, "👋", vec![agent(&a.handle), text(" registered")]),
+        Notice::Channel(c) => {
             let mut parts = vec![
                 channel(&c.id, &c.name),
                 text(" created by "),
@@ -104,7 +104,7 @@ pub fn of(event: &LiveEvent) -> Option<Toast> {
             }
             (&c.created_by, "✨", parts)
         }
-        LiveEvent::Joined(j) => (
+        Notice::Joined(j) => (
             &j.agent,
             "➜",
             vec![
@@ -114,7 +114,7 @@ pub fn of(event: &LiveEvent) -> Option<Toast> {
             ],
         ),
         // An agent left by itself, or the owner or the operator removed it.
-        LiveEvent::Left(l) => {
+        Notice::Left(l) => {
             let place = channel(&l.channel_id, &l.channel_name);
             let parts = if l.by == l.agent && !l.by_operator {
                 vec![agent(&l.agent), text(" left "), place]
@@ -129,7 +129,7 @@ pub fn of(event: &LiveEvent) -> Option<Toast> {
             };
             (&l.agent, "←", parts)
         }
-        LiveEvent::ChannelHidden(h) => (
+        Notice::ChannelHidden(h) => (
             &h.by,
             "🚫",
             vec![
@@ -140,7 +140,7 @@ pub fn of(event: &LiveEvent) -> Option<Toast> {
         ),
         // The agent unregistered itself, or the operator hid it. Its page is
         // gone, so its handle is not a link.
-        LiveEvent::AgentHidden(h) => {
+        Notice::AgentHidden(h) => {
             let parts = if h.by == h.agent && !h.by_operator {
                 vec![gone_agent(&h.agent), text(" unregistered")]
             } else {
@@ -163,12 +163,12 @@ pub fn of(event: &LiveEvent) -> Option<Toast> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::source::{
-        AgentHidden, ChannelHidden, ChannelMembers, Joined, Left, NewAgent, NewChannel,
+    use kkt_api_operator::{
+        AgentHidden, ChannelCreated, ChannelHidden, ChannelMembers, Joined, Left, NewAgent,
     };
 
-    fn left(agent: &str, by: &str, by_operator: bool) -> LiveEvent {
-        LiveEvent::Left(Left {
+    fn left(agent: &str, by: &str, by_operator: bool) -> Notice {
+        Notice::Left(Left {
             agent: agent.into(),
             channel_id: "ch_room0000".into(),
             channel_name: "room".into(),
@@ -178,8 +178,8 @@ mod tests {
         })
     }
 
-    fn channel_hidden(by: &str, by_operator: bool) -> LiveEvent {
-        LiveEvent::ChannelHidden(ChannelHidden {
+    fn channel_hidden(by: &str, by_operator: bool) -> Notice {
+        Notice::ChannelHidden(ChannelHidden {
             channel_id: "ch_room0000".into(),
             channel_name: "room".into(),
             by: by.into(),
@@ -187,8 +187,8 @@ mod tests {
         })
     }
 
-    fn agent_hidden(agent: &str, by: &str, by_operator: bool) -> LiveEvent {
-        LiveEvent::AgentHidden(AgentHidden {
+    fn agent_hidden(agent: &str, by: &str, by_operator: bool) -> Notice {
+        Notice::AgentHidden(AgentHidden {
             agent: agent.into(),
             by: by.into(),
             by_operator,
@@ -200,12 +200,12 @@ mod tests {
         })
     }
 
-    fn said(event: &LiveEvent) -> (String, &'static str, String) {
+    fn said(event: &Notice) -> (String, &'static str, String) {
         let t = of(event).expect("a toast");
         (t.hue_of.clone(), t.icon, t.text())
     }
 
-    fn said_is(event: LiveEvent, hue_of: &str, icon: &'static str, line: &str) {
+    fn said_is(event: Notice, hue_of: &str, icon: &'static str, line: &str) {
         assert_eq!(said(&event), (hue_of.into(), icon, line.into()));
     }
 
@@ -325,7 +325,7 @@ mod tests {
 
     #[test]
     fn a_channel_the_operator_made_names_the_operator_without_a_link() {
-        let made = LiveEvent::Channel(NewChannel {
+        let made = Notice::Channel(ChannelCreated {
             id: "ch_room0000".into(),
             name: "room".into(),
             open: true,
@@ -345,7 +345,7 @@ mod tests {
     #[test]
     fn new_agents_channels_and_joins_say_so() {
         said_is(
-            LiveEvent::Agent(NewAgent {
+            Notice::Agent(NewAgent {
                 handle: "bold-panther".into(),
                 created_at: "2026-10-25T12:00:00Z".into(),
             }),
@@ -354,7 +354,7 @@ mod tests {
             "bold-panther registered",
         );
         let created = |open| {
-            LiveEvent::Channel(NewChannel {
+            Notice::Channel(ChannelCreated {
                 id: "ch_room0000".into(),
                 name: "room".into(),
                 open,
@@ -375,7 +375,7 @@ mod tests {
             "#room created by amber-falcon [closed]",
         );
         said_is(
-            LiveEvent::Joined(Joined {
+            Notice::Joined(Joined {
                 agent: "bold-panther".into(),
                 channel_id: "ch_room0000".into(),
                 channel_name: "room".into(),
@@ -389,7 +389,7 @@ mod tests {
 
     #[test]
     fn messages_and_falling_behind_show_no_toast() {
-        assert_eq!(of(&LiveEvent::Missed), None);
+        assert_eq!(of(&Notice::Missed), None);
     }
 
     #[test]

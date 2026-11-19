@@ -1,17 +1,12 @@
-//! The server's keys: that its access, web and admin keys are well formed
-//! and differ from one another, and the admin name tied to its admin key.
-//! It reads no files: the program supplies their texts through
-//! [`KeyTexts`], and names the setting in each refusal.
+//! The server's admission from its keys: that its access, web and admin
+//! keys are well formed and differ from one another, and the admin name
+//! tied to its admin key, as kkt-keys' rules say, turned into who
+//! each key lets in. It reads no files: the program supplies their texts
+//! through [`KeyTexts`], and names the setting in each refusal.
 
 use crate::{Admission, ServerKey, SharedKey};
-use kkt_config::{InvalidSetting, MAX_ADMIN_NAME_CHARS};
-use kkt_names::AdminName;
-
-/// A key file's text, and where it came from, such as the file's path.
-pub struct KeyText {
-    pub text: String,
-    pub source: String,
-}
+use kkt_keys::{KeyText, NameFileError, SettingError, bound_in};
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 
 /// The texts of the server's key files. [`check`] asks for them in the
 /// order of these methods and stops at the first refusal, so a text is
@@ -47,18 +42,18 @@ pub struct ServerKeys {
 pub enum KeyRefusal<E> {
     /// A text could not be had.
     Text(E),
-    /// The access key is not one `kkt_config::check_access_key` accepts.
-    AccessKey(InvalidSetting),
+    /// The access key is not one `check_access_key` accepts.
+    AccessKey(SettingError),
     /// The web key is the access key.
     WebKeyReused,
-    /// The web key is not one `kkt_config::check_access_key` accepts.
-    WebKey(InvalidSetting),
+    /// The web key is not one `check_access_key` accepts.
+    WebKey(SettingError),
     /// The admin key is the access key or the web key.
     AdminKeyReused,
-    /// The admin key is not one `kkt_config::check_access_key` accepts.
-    AdminKey(InvalidSetting),
-    /// The admin name file is not one `AdminName::bound_in` reads; says why.
-    AdminName(String),
+    /// The admin key is not one `check_access_key` accepts.
+    AdminKey(SettingError),
+    /// The admin name file is not one `bound_in` reads.
+    AdminName(NameFileError),
 }
 
 /// Checks the server's keys, in this order: the access key's form; that
@@ -97,7 +92,7 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
                 .map_err(KeyRefusal::AdminKey)?;
             let name = match texts.admin_names().map_err(KeyRefusal::Text)? {
                 None => None,
-                Some(names) => AdminName::bound_in(&names, &key.text, MAX_ADMIN_NAME_CHARS)
+                Some(names) => bound_in(&names, &key.text, MAX_ADMIN_NAME_CHARS)
                     .map_err(KeyRefusal::AdminName)?,
             };
             (Some(shared), name)
@@ -109,6 +104,97 @@ pub fn check<T: KeyTexts>(texts: &mut T) -> Result<ServerKeys, KeyRefusal<T::Err
         admin_key,
         admin_name,
     })
+}
+
+/// What to say when a key file's key is refused: why [`check`] refused the
+/// server's keys, naming the setting as the config file and the flags name
+/// it. `access_key_set_in` is the config file that set the access key, when
+/// it was set there and not by a flag. `admin_names` is the path of the name
+/// file beside the admin key, to name in a refusal of the admin name.
+pub fn key_refusal<E>(
+    refusal: KeyRefusal<E>,
+    access_key_set_in: Option<&str>,
+    admin_names: Option<&str>,
+) -> KeyRefused<E> {
+    match refusal {
+        KeyRefusal::Text(e) => KeyRefused::Text(e),
+        KeyRefusal::AccessKey(problem) => KeyRefused::AccessKey {
+            problem,
+            set_in: access_key_set_in.map(str::to_string),
+        },
+        KeyRefusal::WebKeyReused => KeyRefused::WebKeyReused,
+        KeyRefusal::WebKey(e) => KeyRefused::WebKey(e),
+        KeyRefusal::AdminKeyReused => KeyRefused::AdminKeyReused,
+        KeyRefusal::AdminKey(e) => KeyRefused::AdminKey(e),
+        KeyRefusal::AdminName(problem) => KeyRefused::AdminName {
+            problem,
+            names: admin_names.map(str::to_string),
+        },
+    }
+}
+
+/// A refusal of the server's keys, worded with the settings that name them
+/// (see [`key_refusal`]). `E` is why a text could not be had.
+#[derive(Debug)]
+pub enum KeyRefused<E> {
+    /// A text could not be had: its own error, said as it is.
+    Text(E),
+    /// "invalid setting: {problem}", with " (set in {file})" when a config
+    /// file set the access key.
+    AccessKey {
+        problem: SettingError,
+        set_in: Option<String>,
+    },
+    WebKeyReused,
+    /// "invalid setting: web_key_file: {rule}".
+    WebKey(SettingError),
+    AdminKeyReused,
+    /// "invalid setting: admin_key_file: {rule}".
+    AdminKey(SettingError),
+    /// "invalid setting: admin name in {names}: {problem}", or without the
+    /// place when it is not known.
+    AdminName {
+        problem: NameFileError,
+        names: Option<String>,
+    },
+}
+
+impl<E: std::fmt::Display> std::fmt::Display for KeyRefused<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            KeyRefused::Text(e) => e.fmt(f),
+            KeyRefused::AccessKey { problem, set_in } => match set_in {
+                Some(file) => write!(f, "invalid setting: {problem} (set in {file})"),
+                None => write!(f, "invalid setting: {problem}"),
+            },
+            KeyRefused::WebKeyReused => f.write_str(
+                "invalid setting: web_key_file must contain a different key from access_key_file",
+            ),
+            KeyRefused::WebKey(e) => write!(f, "invalid setting: web_key_file: {}", e.rule),
+            KeyRefused::AdminKeyReused => f.write_str(
+                "invalid setting: admin_key_file must contain a different key from \
+                 access_key_file and web_key_file",
+            ),
+            KeyRefused::AdminKey(e) => write!(f, "invalid setting: admin_key_file: {}", e.rule),
+            KeyRefused::AdminName { problem, names } => match names {
+                Some(names) => write!(f, "invalid setting: admin name in {names}: {problem}"),
+                None => write!(f, "invalid setting: admin name: {problem}"),
+            },
+        }
+    }
+}
+
+/// A text's error is passed on as it is: its own source is this one's.
+impl<E: std::error::Error + 'static> std::error::Error for KeyRefused<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            KeyRefused::Text(e) => e.source(),
+            KeyRefused::AccessKey { problem, .. } => Some(problem),
+            KeyRefused::WebKey(e) | KeyRefused::AdminKey(e) => Some(e),
+            KeyRefused::AdminName { problem, .. } => Some(problem),
+            KeyRefused::WebKeyReused | KeyRefused::AdminKeyReused => None,
+        }
+    }
 }
 
 /// Whether the key in `text`, without surrounding whitespace, is the key
@@ -123,6 +209,7 @@ fn is_one_of(text: &str, others: &[&Admission]) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kkt_keys::check_access_key;
 
     const ACCESS: &str = "0123456789abcdef0123456789abcdef";
     const WEB: &str = "fedcba9876543210fedcba9876543210";
@@ -201,7 +288,7 @@ mod tests {
     }
 
     fn malformed(name: &'static str) -> KeyRefusal<String> {
-        let invalid = kkt_config::check_access_key("short").expect_err("a short key");
+        let invalid = check_access_key("short").expect_err("a short key");
         assert_eq!(invalid.name, "access_key_file");
         match name {
             "access" => KeyRefusal::AccessKey(invalid),
@@ -289,7 +376,7 @@ mod tests {
         let name = AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("a name");
         let mut texts = Scripted {
             admin: Some("abcdefabcdefabcdefabcdefabcdefab\n"),
-            names: Some(name.bound_to(ADMIN)),
+            names: Some(kkt_keys::bound_to(&name, ADMIN)),
             ..all_keys()
         };
         let keys = check(&mut texts).expect("accepted");
@@ -300,7 +387,7 @@ mod tests {
     fn a_name_file_for_another_admin_key_names_nothing() {
         let name = AdminName::new("sentinel", MAX_ADMIN_NAME_CHARS).expect("a name");
         let mut texts = Scripted {
-            names: Some(name.bound_to(WEB)),
+            names: Some(kkt_keys::bound_to(&name, WEB)),
             ..all_keys()
         };
         let keys = check(&mut texts).expect("accepted");
@@ -314,11 +401,12 @@ mod tests {
             names: Some("sentinel\n".into()),
             ..all_keys()
         };
+        let refused = refusal(&mut texts);
+        assert_eq!(refused, KeyRefusal::AdminName(NameFileError::NoKeyHash));
         assert_eq!(
-            refusal(&mut texts),
-            KeyRefusal::AdminName(
-                "its second line must be `key-sha256: ` and a hash of the admin key".into()
-            )
+            key_refusal(refused, None, None).to_string(),
+            "invalid setting: admin name: its second line must be `key-sha256: ` and a hash of \
+             the admin key"
         );
     }
 
@@ -403,6 +491,75 @@ mod tests {
                 KeyRefusal::Text(format!("{fails} unreadable"))
             );
             assert_eq!(texts.asked, asked);
+        }
+    }
+
+    /// Each refusal names the setting, and the config file or name file
+    /// when one is given.
+    #[test]
+    fn a_refusal_is_worded_naming_the_setting() {
+        let rule = |name| SettingError::new(name, "must not be empty");
+        // A name file with no key hash, refused as kkt-keys refuses it.
+        let no_hash = || kkt_keys::bound_in("admin-ops\n", "k", 40).expect_err("no key hash");
+        let cases = [
+            (
+                KeyRefusal::Text("could not read /k".to_string()),
+                None,
+                None,
+                "could not read /k",
+            ),
+            (
+                KeyRefusal::AccessKey(rule("access_key_file")),
+                None,
+                None,
+                "invalid setting: access_key_file must not be empty",
+            ),
+            (
+                KeyRefusal::AccessKey(rule("access_key_file")),
+                Some("/c/config.toml"),
+                None,
+                "invalid setting: access_key_file must not be empty (set in /c/config.toml)",
+            ),
+            (
+                KeyRefusal::WebKeyReused,
+                None,
+                None,
+                "invalid setting: web_key_file must contain a different key from access_key_file",
+            ),
+            (
+                KeyRefusal::WebKey(rule("access_key_file")),
+                None,
+                None,
+                "invalid setting: web_key_file: must not be empty",
+            ),
+            (
+                KeyRefusal::AdminKeyReused,
+                None,
+                None,
+                "invalid setting: admin_key_file must contain a different key from \
+                 access_key_file and web_key_file",
+            ),
+            (
+                KeyRefusal::AdminKey(rule("access_key_file")),
+                None,
+                None,
+                "invalid setting: admin_key_file: must not be empty",
+            ),
+            (
+                KeyRefusal::AdminName(no_hash()),
+                None,
+                Some("/k/admin-key.name"),
+                "invalid setting: admin name in /k/admin-key.name: its second line must be `key-sha256: ` and a hash of the admin key",
+            ),
+            (
+                KeyRefusal::AdminName(no_hash()),
+                None,
+                None,
+                "invalid setting: admin name: its second line must be `key-sha256: ` and a hash of the admin key",
+            ),
+        ];
+        for (refusal, set_in, names, said) in cases {
+            assert_eq!(key_refusal(refusal, set_in, names).to_string(), said);
         }
     }
 }

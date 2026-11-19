@@ -1,0 +1,342 @@
+//! Client configuration and its on-disk formats. Helpers refer to the key
+//! file; only Antigravity and Muse Code require a copy of the key in their
+//! configuration. Also each client's permission rules that let it always
+//! use kkt ([`allow_kkt`]). A client whose settings only its own command
+//! should change is changed through the [`ClientCommand`] the caller gives.
+
+mod command;
+mod error;
+mod files;
+mod formats;
+mod host;
+mod order;
+mod permissions;
+
+pub use command::{ClientCommand, CommandError, CommandFailure};
+pub use error::{
+    ClientConfigError, Encoded, FileAction, Folder, Shape, Text, TomlProblem, Unresolved,
+};
+pub use host::Host;
+pub use permissions::{KKT_AGENT_TOOLS, allow_kkt};
+
+use kkt_machine::Env;
+use std::path::{Path, PathBuf};
+
+// Where each client keeps its config, and the programs that tell it is
+// installed.
+
+/// `$CODEX_HOME` when it is not set, under the home directory.
+const CODEX_HOME_DEFAULT: &str = ".codex";
+/// Codex's config file, in `$CODEX_HOME`.
+const CODEX_CONFIG: &str = "config.toml";
+const CLAUDE_CONFIG: &str = ".claude.json";
+const AGY_CONFIG: &str = ".gemini/config/mcp_config.json";
+const AGY_LEGACY_CONFIG: &str = ".gemini/antigravity/mcp_config.json";
+/// OpenCode's config file, under `$XDG_CONFIG_HOME`.
+const OPENCODE_CONFIG: &str = "opencode/opencode.json";
+/// Muse Code's settings folder, under the config home (`$XDG_CONFIG_HOME`,
+/// or `~/.config`).
+const MUSE_CONFIG_DIR: &str = "muse";
+/// Muse Code's user settings file, in [`MUSE_CONFIG_DIR`], so
+/// `~/.config/muse/settings.json` by default.
+const MUSE_CONFIG: &str = "settings.json";
+/// The programs `kkt setup` looks for on PATH to tell which clients are
+/// installed.
+const CLAUDE_PROGRAM: &str = "claude";
+const CODEX_PROGRAM: &str = "codex";
+const OPENCODE_PROGRAM: &str = "opencode";
+const MUSE_PROGRAM: &str = "muse";
+
+#[cfg(test)]
+mod fake;
+
+/// The variable naming Claude Code's config folder.
+const CLAUDE_CONFIG_DIR: &str = "CLAUDE_CONFIG_DIR";
+/// The variable naming Codex's home folder.
+const CODEX_HOME: &str = "CODEX_HOME";
+/// The environment variables naming the clients' own folders, which the
+/// program asks the environment for (kkt-machine's `Env::named`).
+pub const ENV_FOLDERS: [&str; 2] = [CLAUDE_CONFIG_DIR, CODEX_HOME];
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Client {
+    ClaudeCode,
+    Codex,
+    Agy,
+    OpenCode,
+    MuseCode,
+}
+
+/// Inputs chosen by the caller, including the absolute executable/key paths.
+pub struct Setup<'a> {
+    pub env: &'a Env,
+    pub url: &'a str,
+    pub executable: &'a Path,
+    pub key_file: Option<&'a Path>,
+    pub client_config: &'a Path,
+    /// Where `client_config` came from, for errors: `--client-config`, or
+    /// what [`Client::source`] names.
+    pub source: &'a str,
+}
+
+impl Client {
+    pub const ALL: [Client; 5] = [
+        Client::ClaudeCode,
+        Client::Codex,
+        Client::OpenCode,
+        Client::Agy,
+        Client::MuseCode,
+    ];
+
+    /// The name `kkt connect` and `kkt setup --clients` take.
+    pub fn name(self) -> &'static str {
+        match self {
+            Client::ClaudeCode => "claude-code",
+            Client::Codex => "codex",
+            Client::Agy => "agy",
+            Client::OpenCode => "opencode",
+            Client::MuseCode => "muse-code",
+        }
+    }
+
+    pub fn from_name(name: &str) -> Option<Client> {
+        Client::ALL.into_iter().find(|c| c.name() == name)
+    }
+
+    /// The client's name for people.
+    pub fn display_name(self) -> &'static str {
+        match self {
+            Client::ClaudeCode => "Claude Code",
+            Client::Codex => "Codex",
+            Client::Agy => "Antigravity",
+            Client::OpenCode => "OpenCode",
+            Client::MuseCode => "Muse Code",
+        }
+    }
+
+    /// Whether this client has no way to read the key from its file, so
+    /// `configure` copies the key into the config and warns about it.
+    pub fn copies_key(self) -> bool {
+        matches!(self, Client::Agy | Client::MuseCode)
+    }
+
+    /// The setting that chose [`Client::file`]: the client's own variable
+    /// when it is set, otherwise HOME.
+    pub fn source(self, env: &Env) -> &'static str {
+        match self {
+            Self::ClaudeCode if env.named(CLAUDE_CONFIG_DIR).is_some() => CLAUDE_CONFIG_DIR,
+            Self::Codex if env.named(CODEX_HOME).is_some() => CODEX_HOME,
+            Self::OpenCode | Self::MuseCode if env.absolute_xdg_config_home().is_some() => {
+                "XDG_CONFIG_HOME"
+            }
+            _ => "HOME",
+        }
+    }
+
+    /// The file name the client requires, when it reads only that name.
+    fn required_name(self) -> Option<&'static str> {
+        match self {
+            Self::ClaudeCode => Some(CLAUDE_CONFIG),
+            Self::Codex => Some(CODEX_CONFIG),
+            Self::MuseCode => Some(MUSE_CONFIG),
+            Self::Agy | Self::OpenCode => None,
+        }
+    }
+
+    /// Refuse a config file the client would never read because of its name.
+    /// `source` is the setting that chose `path`.
+    pub fn check_name(self, path: &Path, source: &str) -> Result<(), ClientConfigError> {
+        match self.required_name() {
+            Some(name) if path.file_name() != Some(std::ffi::OsStr::new(name)) => {
+                Err(ClientConfigError::WrongFile {
+                    client: self,
+                    name,
+                    path: path.to_path_buf(),
+                    setting: source.to_string(),
+                })
+            }
+            _ => Ok(()),
+        }
+    }
+}
+
+/// A shell word, for client helper commands (not for running a process here).
+/// Fix text the operator reads uses `diagnostics::shell_word` instead.
+pub(crate) fn shell_word(text: &str) -> String {
+    format!("'{}'", text.replace('\'', "'\\''"))
+}
+
+/// The directory to pass as CLAUDE_CONFIG_DIR, or None to unset it.
+/// Preserve a matching inherited profile; otherwise use Claude's normal
+/// settings root for the default config and the parent for a custom config.
+pub(crate) fn claude_config_dir(
+    setup: &Setup<'_>,
+    host: &dyn Host,
+) -> Result<Option<PathBuf>, ClientConfigError> {
+    let directory = |path: &Path| {
+        let path = if path.as_os_str().is_empty() {
+            Path::new(".")
+        } else {
+            path
+        };
+        let absolute = host.absolute(path)?;
+        // HOME and the current directory can name the same directory through
+        // different symlinks. Missing profile directories still use absolute paths.
+        match host.canonicalize(&absolute) {
+            Ok(real) => Ok(real),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(absolute),
+            Err(e) => Err(e),
+        }
+    };
+    let unresolved = |problem: Unresolved| ClientConfigError::DirectoryUnresolved {
+        path: setup.client_config.to_path_buf(),
+        setting: setup.source.to_string(),
+        problem,
+    };
+    let parent = setup
+        .client_config
+        .parent()
+        .ok_or_else(|| unresolved(Unresolved::NoParent))?;
+    let selected = directory(parent).map_err(|e| unresolved(Unresolved::Io(e)))?;
+    // Only the selected directory must resolve: an inherited profile or HOME
+    // that cannot be resolved is not the selected one.
+    let selects = |path: &Path| directory(path).is_ok_and(|dir| dir == selected);
+    if setup.env.named(CLAUDE_CONFIG_DIR).is_some_and(selects) {
+        return Ok(Some(selected));
+    }
+    if setup.env.home.as_deref().is_some_and(selects) {
+        return Ok(None);
+    }
+    Ok(Some(selected))
+}
+
+pub(crate) fn helper(setup: &Setup<'_>) -> Result<Option<String>, ClientConfigError> {
+    let Some(key) = setup.key_file else {
+        return Ok(None);
+    };
+    let executable = setup
+        .executable
+        .to_str()
+        .ok_or(ClientConfigError::NotText(Text::KktPath))?;
+    let key = key
+        .to_str()
+        .ok_or(ClientConfigError::NotText(Text::KeyPath))?;
+    Ok(Some(format!(
+        "{} key header --json --key-file {}",
+        shell_word(executable),
+        shell_word(key)
+    )))
+}
+
+/// The requested plain header, or the JSON header map both helper clients use.
+pub fn header(key: &str, json: bool) -> Result<String, ClientConfigError> {
+    kkt_keys::check_access_key(key)?;
+    if json {
+        formats::header_json(key)
+    } else {
+        Ok(format!("Authorization: Bearer {key}"))
+    }
+}
+
+/// Whether Codex has kkt configured without an explicit MCP credential store.
+/// This only reads the config; choosing a store belongs to the person using it.
+pub fn codex_password_store_hint(env: &Env, host: &dyn Host) -> Result<bool, ClientConfigError> {
+    let path = Client::Codex.file(env, host)?;
+    let Some(text) = files::read(host, &path)? else {
+        return Ok(false);
+    };
+    let document = formats::parse_toml(&text).map_err(|problem| {
+        ClientConfigError::Malformed(Shape::TomlIn {
+            path: path.clone(),
+            problem,
+        })
+    })?;
+    Ok(
+        document.find(&["mcp_servers", "kkt"]) == Some(kkt_toml::Found::Table)
+            && document.find(&["mcp_oauth_credentials_store"]).is_none(),
+    )
+}
+
+/// Print a plan or apply one change. A plan never contains the key, even for
+/// clients that copy it; --write reads it directly from the key file instead.
+/// A client whose settings only its own command should change (Claude Code)
+/// is changed through `command`.
+pub fn configure(
+    client: Client,
+    setup: &Setup<'_>,
+    write: bool,
+    host: &dyn Host,
+    command: &dyn ClientCommand,
+) -> Result<String, ClientConfigError> {
+    client.check_name(setup.client_config, setup.source)?;
+    let claude_config_dir = match client {
+        Client::ClaudeCode => claude_config_dir(setup, host)?,
+        _ => None,
+    };
+    // File errors name the setting that chose the path.
+    let from = |error: ClientConfigError| error.with_setting(setup.source);
+    let original = files::read(host, setup.client_config).map_err(from)?;
+    if !write {
+        let entry = formats::preview(client, setup, claude_config_dir.as_deref())?;
+        let mut out = format!("Config: {}\n{entry}\n", setup.client_config.display());
+        if client.copies_key() && setup.key_file.is_some() {
+            out.push_str(&format!(
+                "{} stores the key in this file. --write reads the key file and sets permissions to 0600; the preview redacts it.\n",
+                client.display_name()
+            ));
+        }
+        out.push_str("Run again with --write to apply this configuration.\n");
+        return Ok(out);
+    }
+    let updated = formats::merge(client, setup, original.as_deref(), host).map_err(|error| {
+        ClientConfigError::InConfig {
+            path: setup.client_config.to_path_buf(),
+            setting: setup.source.to_string(),
+            error: Box::new(error),
+        }
+    })?;
+    if updated.is_none() {
+        if client.copies_key() {
+            files::restrict(host, setup.client_config).map_err(from)?;
+        }
+        return Ok(format!(
+            "Already configured: {}",
+            setup.client_config.display()
+        ));
+    }
+    let updated = updated.ok_or(ClientConfigError::NotMerged)?;
+    if client == Client::ClaudeCode {
+        let absolute = host.absolute(setup.client_config).map_err(|cause| {
+            ClientConfigError::ConfigUnresolved {
+                path: setup.client_config.to_path_buf(),
+                setting: setup.source.to_string(),
+                cause,
+            }
+        })?;
+        files::apply_claude(
+            host,
+            command,
+            &absolute,
+            original.as_deref(),
+            &updated,
+            claude_config_dir.as_deref(),
+            setup.source,
+        )?;
+    } else {
+        files::replace(host, setup.client_config, original.as_deref(), &updated).map_err(from)?;
+    }
+    let mut out = format!("Configured: {}", setup.client_config.display());
+    if client.copies_key() && setup.key_file.is_some() {
+        out.push_str(&format!(
+            "\n{} stores the key in this file; permissions are 0600.",
+            client.display_name()
+        ));
+    }
+    Ok(out)
+}
+
+#[cfg(test)]
+mod tests;
+
+#[cfg(any(test, feature = "testing"))]
+pub mod testing;

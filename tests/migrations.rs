@@ -2,11 +2,11 @@
 //! protections; one from 0.10.0 or `next` is adopted (`v0_10_0`); an older
 //! one is refused, unchanged.
 //!
-//! Databases from before 0.10.0 are no longer upgraded directly (Sam,
-//! 2026-11-09): their owners upgrade through 0.10 first. The protections
-//! the old migrations' tests checked, that the database itself refuses a
-//! message from no avatar, a channel made by no avatar, and changes to
-//! versions that are kept for good, are checked here on a new database.
+//! A database from before 0.10.0 is not upgraded directly: its owner
+//! upgrades through 0.10 first. The database's own protections, that it
+//! refuses a message from no avatar, a channel made by no avatar, and
+//! changes to versions that are kept for good, are checked here on a new
+//! database.
 
 use kkt_scratch as scratch;
 
@@ -162,14 +162,16 @@ fn a_database_from_before_0_10_0_is_refused_and_left_alone() {
     let before = std::fs::read(&path).expect("read the file");
     let err = match kashkeshet::machine::database::open(&path) {
         Ok(_) => panic!("a database from before 0.10.0 opened"),
-        Err(e) => e,
+        Err(e) => e.to_string(),
     };
     assert!(
         err.contains("older than 0.10.0") && err.contains("upgrade it with kkt 0.10 first"),
         "{err}"
     );
     assert_eq!(
-        kashkeshet::machine::database::pending_upgrade(&path).map(|_| ()),
+        kashkeshet::machine::database::pending_upgrade(&path)
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
         Err(format!(
             "could not read {}: database error: this database is from a kkt version older than 0.10.0; upgrade it with kkt 0.10 first, then with this version",
             path.display()

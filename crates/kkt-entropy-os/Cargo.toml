@@ -1,0 +1,14 @@
+[package]
+name = "kkt-entropy-os"
+description = "Randomness from the operating system's cryptographic generator"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-entropy = { path = "../kkt-entropy" }
+rand.workspace = true
+
+[features]

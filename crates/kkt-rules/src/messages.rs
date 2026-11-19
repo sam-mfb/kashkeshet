@@ -1,11 +1,11 @@
 use super::*;
-use kkt_events::{NewMessage, Notice};
+use crate::events::{NewMessage, Notice};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 impl Rules {
     /// Posts a message to a channel `me` is in. Returns the stored message.
     pub async fn send(&self, me: &Agent, channel_id: String, body: String) -> Result<Message> {
-        let max = self.limits().max_body_bytes;
+        let max = self.settings().max_body_bytes;
         if body.trim().is_empty() {
             return Err(RuleError::invalid("message body must not be empty"));
         }
@@ -40,7 +40,7 @@ impl Rules {
                         Code::RateLimited,
                         format!(
                             "you can send at most {} messages a minute; wait and try again",
-                            rules.limits().sends_per_minute
+                            rules.settings().sends_per_minute
                         ),
                     ));
                 }
@@ -100,7 +100,7 @@ impl Rules {
     /// the message once the write is done.
     pub(super) fn post_as_operator(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
         swarm: &SwarmId,
         channel: &ChannelFacts,
         body: String,
@@ -112,7 +112,7 @@ impl Rules {
     /// inside the change's own write, as [`Rules::post_as_operator`] does.
     pub(super) fn post_notice(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
         swarm: &SwarmId,
         channel: &ChannelFacts,
         author: &str,
@@ -174,7 +174,7 @@ impl Rules {
                     },
                     Need::Membership,
                 ) {
-                    Decision::Allowed => Ok(Message::from(message)),
+                    Decision::Allowed => Ok(message),
                     Decision::NotMember => Err(RuleError::not_member(&message.channel_id)),
                     Decision::NotOwner => Err(RuleError::not_owner(&message.channel_id)),
                     // A message in a hidden channel does not exist, as far as `me` can tell.
@@ -226,7 +226,7 @@ impl Rules {
                     until,
                     limit: q.limit,
                 })?;
-                Ok(hits.into_iter().map(SearchHit::from).collect())
+                Ok(hits.into_iter().collect())
             })
             .await
     }
@@ -239,16 +239,16 @@ impl Rules {
             .read(move |store, swarm| {
                 let scope = access::scope(swarm, Viewer::Agent(&me), Need::Membership);
                 let rows = store.activity(&scope, after_id)?;
-                Ok(rows.into_iter().map(ActivityRow::from).collect())
+                Ok(rows.into_iter().collect())
             })
             .await
     }
 
     /// Returns messages newer than `after_id` in `me`'s channels (or the listed
     /// ones). If there are none, waits until one arrives or the time runs out:
-    /// `q.timeout` cut to `limits.max_wait`, or `limits.default_wait` if none.
+    /// `q.timeout` cut to `settings.max_wait`, or `settings.default_wait` if none.
     pub async fn wait_for_messages(&self, me: &Agent, q: WaitQuery) -> Result<WaitResult> {
-        let timeout = wait_timeout(self.limits(), q.timeout);
+        let timeout = wait_timeout(self.settings(), q.timeout);
         let filter = match &q.channel_ids {
             None => None,
             Some(ids) if ids.is_empty() => {
@@ -271,7 +271,7 @@ impl Rules {
             }
         };
 
-        let grace = Span::from_std(self.limits().waiting_grace)
+        let grace = Span::from_std(self.settings().waiting_grace)
             .map_err(|e| RuleError::invalid(e.to_string()))?;
         let guard = self.inner.waiting.start(
             &self.swarm,
@@ -352,7 +352,7 @@ impl Rules {
                 let total = store.count_newer_messages(&filter)?;
                 Ok(WaitResult {
                     more_waiting: total - messages.len() as i64,
-                    messages: messages.into_iter().map(Message::from).collect(),
+                    messages: messages.into_iter().collect(),
                     newer_lane: None,
                 })
             })
@@ -362,7 +362,7 @@ impl Rules {
 
 /// Reads one page of a channel. The caller has already checked access.
 pub(super) fn read_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     q: &ReadQuery,
 ) -> Result<MessagePage> {
@@ -380,7 +380,6 @@ pub(super) fn read_channel(
             q.limit + 1,
         )?
         .into_iter()
-        .map(Message::from)
         .collect();
     let has_more = messages.len() > q.limit;
     messages.truncate(q.limit);
@@ -393,46 +392,6 @@ pub(super) fn read_channel(
         (true, false) => messages.first().map(|m| Position::Before(m.id)),
     };
     Ok(MessagePage { messages, more })
-}
-
-#[derive(Clone, Debug, Serialize, PartialEq, Eq)]
-pub struct Message {
-    pub id: i64,
-    pub channel_id: String,
-    pub channel_name: String,
-    pub agent: String,
-    pub body: String,
-    pub created_at: String,
-    /// The server run that stored the message, if it was recorded.
-    pub run_id: Option<i64>,
-}
-
-/// Where to read from in a channel.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Position {
-    /// The newest messages.
-    Latest,
-    /// Messages with IDs above this one, oldest first.
-    After(i64),
-    /// Messages with IDs below this one, the nearest first.
-    Before(i64),
-}
-
-#[derive(Clone, Debug)]
-pub struct ReadQuery {
-    pub channel_id: String,
-    pub position: Position,
-    pub from_agent: Option<String>,
-    pub limit: usize,
-}
-
-/// Messages in ID order, plus where to continue if more exist in the
-/// direction being read.
-#[derive(Clone, Debug, Serialize)]
-pub struct MessagePage {
-    pub messages: Vec<Message>,
-    #[serde(skip)]
-    pub more: Option<Position>,
 }
 
 /// Converts a search's `since` or `until` time, as given, to a stored time
@@ -457,104 +416,11 @@ fn search_time(parameter: &str, given: Option<&str>) -> Result<Option<String>> {
     Ok(Some(clock::to_text(rounded)))
 }
 
-#[derive(Clone, Debug)]
-pub struct SearchQuery {
-    /// Words that must all appear.
-    pub query: Option<String>,
-    /// Words that must appear together and in this order.
-    pub phrase: Option<String>,
-    pub channel_id: Option<String>,
-    pub from_agent: Option<String>,
-    pub after_id: Option<i64>,
-    pub before_id: Option<i64>,
-    /// An RFC 3339 time, as the agent gave it.
-    pub since: Option<String>,
-    /// An RFC 3339 time, as the agent gave it.
-    pub until: Option<String>,
-    pub limit: usize,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct SearchHit {
-    pub message_id: i64,
-    pub channel_id: String,
-    pub channel_name: String,
-    pub agent: String,
-    pub created_at: String,
-    pub excerpt: String,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct ActivityRow {
-    pub channel_id: String,
-    pub channel_name: String,
-    pub new_messages: i64,
-    pub latest_id: i64,
-}
-
-/// How long a wait lasts: `asked` cut to `limits.max_wait`, or
-/// `limits.default_wait` when nothing was asked.
-fn wait_timeout(limits: &Limits, asked: Option<std::time::Duration>) -> std::time::Duration {
+/// How long a wait lasts: `asked` cut to `settings.max_wait`, or
+/// `settings.default_wait` when nothing was asked.
+fn wait_timeout(settings: &Settings, asked: Option<std::time::Duration>) -> std::time::Duration {
     match asked {
-        Some(t) => t.min(limits.max_wait),
-        None => limits.default_wait,
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct WaitQuery {
-    pub after_id: i64,
-    pub channel_ids: Option<Vec<String>>,
-    /// How long to wait, cut to `limits.max_wait`. `None` waits
-    /// `limits.default_wait`.
-    pub timeout: Option<std::time::Duration>,
-    pub limit: usize,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct WaitResult {
-    pub messages: Vec<Message>,
-    /// Newer messages beyond the ones returned.
-    pub more_waiting: i64,
-    /// The lane the waiting agent holds, when it has a newer version than
-    /// the one the agent took. Always `None` for the admin endpoint.
-    pub newer_lane: Option<AgentLane>,
-}
-
-impl From<MessageRecord> for Message {
-    fn from(m: MessageRecord) -> Message {
-        Message {
-            id: m.id,
-            channel_id: m.channel_id,
-            channel_name: m.channel_name,
-            agent: m.agent,
-            body: m.body,
-            created_at: m.created_at,
-            run_id: m.run_id,
-        }
-    }
-}
-
-impl From<SearchHitRecord> for SearchHit {
-    fn from(h: SearchHitRecord) -> SearchHit {
-        SearchHit {
-            message_id: h.message_id,
-            channel_id: h.channel_id,
-            channel_name: h.channel_name,
-            agent: h.agent,
-            created_at: h.created_at,
-            excerpt: h.excerpt,
-        }
-    }
-}
-
-impl From<ActivityRecord> for ActivityRow {
-    fn from(r: ActivityRecord) -> ActivityRow {
-        ActivityRow {
-            channel_id: r.channel_id,
-            channel_name: r.channel_name,
-            new_messages: r.new_messages,
-            latest_id: r.latest_id,
-        }
+        Some(t) => t.min(settings.max_wait),
+        None => settings.default_wait,
     }
 }

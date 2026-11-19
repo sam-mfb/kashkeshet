@@ -1,0 +1,118 @@
+== the backup cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+  -> cannot run: broken pipe
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt backup /backups`: broken pipe
+
+== the pull cannot run: the settings are put back
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+  -> exit 0, out "Backed up to /backups/kkt-backup-20261117-120000\n"
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.5.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker pull
+  -> cannot run: broken pipe
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+error    Docker is not available: could not run `docker compose --project-directory /data/docker pull`: broken pipe
+
+== the start cannot run: the settings are put back
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+  -> exit 0, out "Backed up to /backups/kkt-backup-20261117-120000\n"
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.5.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker pull
+  -> exit 0
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> cannot run: broken pipe
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.4.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+error    Docker is not available: could not run `docker compose --project-directory /data/docker up -d`: broken pipe
+
+== the access key read cannot run: said, and the upgrade stands
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+  -> exit 0, out "Backed up to /backups/kkt-backup-20261117-120000\n"
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.5.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker pull
+  -> exit 0
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> cannot run: broken pipe
+say      kkt is running, but its keys could not be saved on this machine: Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show`: broken pipe. To save them, run `kkt setup` again with the same answers. To read the web key now, run `docker compose exec kkt kkt key show --web` in /data/docker.
+result   ()
+
+== the web key read cannot run: said, and the upgrade stands
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+  -> exit 0, out "Backed up to /backups/kkt-backup-20261117-120000\n"
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.5.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker pull
+  -> exit 0
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> cannot run: broken pipe
+say      kkt is running, but its keys could not be saved on this machine: Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show --web`: broken pipe. To save them, run `kkt setup` again with the same answers. To read the web key now, run `docker compose exec kkt kkt key show --web` in /data/docker.
+result   ()
+
+== the admin key read cannot run: said, and the upgrade stands
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt backup /backups
+  -> exit 0, out "Backed up to /backups/kkt-backup-20261117-120000\n"
+mkdir    /data/docker
+write    plain /data/docker/compose.yaml
+  = the repository's compose.yaml
+write    private /data/docker/.env
+  | # Written by `kkt setup`. Setup writes it again when you run it or upgrade.
+  | KKT_VERSION=0.5.0
+  | COMPOSE_PROJECT_NAME=kkt
+  | KKT_PORT=7420
+attached cwd=/data/docker  docker compose --project-directory /data/docker pull
+  -> exit 0
+attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> cannot run: broken pipe
+say      kkt is running, but its keys could not be saved on this machine: Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show --admin`: broken pipe. To save them, run `kkt setup` again with the same answers. To read the web key now, run `docker compose exec kkt kkt key show --web` in /data/docker.
+result   ()

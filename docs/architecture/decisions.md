@@ -50,6 +50,53 @@ Message numbers are given only where they help to find a discussion in
   Each OS implementation moved to its own `-os` crate.
 - **kkt-server-listen may use axum.** It serves the router kkt-server builds.
   CLAUDE.md will name it with the code refactor.
+- **kkt-listen serves a router, and only programs name a composition**
+  (phase 16's follow-up, approved by Sam on 2026-11-16, msg 3482).
+  kkt-server-listen named kkt-server's `App`, so an effect crate depended on
+  a composition, which principle 3.4 does not allow. It was the only crate
+  outside the programs that depended on a composition or an effect crate.
+  Now `listen` takes the axum router, which each program takes out of its
+  `App` with `into_router` and passes across without naming the type. The
+  crate is renamed kkt-listen, since it implements nothing of kkt-server's,
+  and sits in foundations. check-crates.sh's check 7 keeps any crate but a
+  program from depending on a composition crate in [dependencies].
+- **Effect crates are named for what they do** (approved by Sam on
+  2026-11-16, msg 3498). An effect crate that implements no contract is
+  named for what it does, not for one consumer. Three crates held only
+  general file access, each named for the crate that used it:
+  kkt-lane-files-os, kkt-client-config-os and kkt-config-file-os. They are
+  now one, kkt-files, in foundations, which the program adapts to each
+  consumer's contract. What was specific to the config file (what a missing
+  file means, and the errors' wording) moved into kkt-config-file, over a
+  `Disk` it declares, so kkt-files stays general. `process_id` is a fact
+  about this process, not file access, so it went to kkt-machine-os.
+  kkt-service-os held one eight-line function, `try_bind`, which went to
+  kkt-listen, beside the binding it tries.
+- **A crate named `x-something` implements `x`'s contract** (Sam,
+  2026-11-16, msg 3516). Nothing else is named that way. kkt-mcp-formatter
+  became kkt-result-format, kkt-web-preview became kkt-webapp-preview,
+  kkt-terminal-os became kkt-terminal and kkt-agent-files-os became
+  kkt-agent-files: none implements a contract of the crate its old name
+  began with.
+- **kkt-machine and kkt-shutdown declare contracts** (approved by Sam on
+  2026-11-16, msg 3507), by the same rule: kkt-machine-os and
+  kkt-shutdown-os implemented nothing. Now kkt-machine declares `Machine` (the environment,
+  the platform and this process's ID), which kkt-machine-os' `OsMachine`
+  implements. kkt-shutdown, now a contract crate, keeps `Shutdown` as it
+  was, for readability, and declares `Signals`, which kkt-shutdown-os'
+  `StopSignals` implements. Making one still listens first, so a failure to
+  listen is reported before the server starts. Only programs call either
+  trait.
+- **kkt-setup-os dissolved** (approved by Sam on 2026-11-16, msgs 3516
+  and 3527). Its file work was general file access, so it uses kkt-files.
+  kkt-files gained a read where a missing file is None, a write by rename,
+  and a removal where a missing file is fine. The program's adapter calls
+  kkt-setup's parse and render, and words each failure as before. The
+  program's path and `$PATH` are facts about this machine and joined
+  kkt-machine's `Machine`. `kkt_path` is only `program_path` with kkt's
+  wording, which belongs to the program, so it stayed there. The `on_path`
+  loop is one line over `is_file` in the program's adapter, the one place
+  that asks. kkt-setup did not change.
 - **Layers say where a crate sits**: programs, assembly, surfaces, access,
   core, data, operations, clients, foundations and dev-only. kkt-search sits
   in foundations, as pure text the data crates build on.
@@ -180,7 +227,7 @@ Message numbers are given only where they help to find a discussion in
 
 - **kkt-config is broken up by domain** (msg 1979). Format and fixed facts go
   to the crate that owns them; tuning values become settings the program
-  fills. The page's kkt-config table lists every item.
+  fills. `config-split.json` lists every item.
 - **kkt-config goes altogether** (msg 2111). Its last items go to their
   owners: the web session ID length to kkt-web, with the sessions; the access
   key's form and check, and the key files' mode, to kkt-admission; the error
@@ -287,6 +334,21 @@ Message numbers are given only where they help to find a discussion in
   kkt-logs (logic) holds those rules and the log's settings; kkt-logs-os
   (effect) writes, renames and deletes the files as the rules say, and starts
   tracing.
+- **kkt-logs goes: each half joins its effect** (Sam, 2026-11-16, msg
+  3501). kkt-logs held two unrelated things, each used by one effect crate
+  and the programs: the log level setting, and the log file's rules.
+  ARCHITECTURE.md 4.2.2 (new that day) lets an effect crate hold logic that
+  is properly its own concern. So `LogLevel`, its two defaults and
+  `check_dependency_log_level` are kkt-log-tracing's, which starts the log
+  at those levels; `LogPolicy` and the rollover and pruning plans are the
+  log file's, and kkt-logs-os, renamed kkt-rolling-file, holds them. The
+  rename says what it is: a file that rolls at a size and prunes old copies
+  by age, which the server writes its log to; it does not implement
+  kkt-log. Each crate has its own `SettingError`, worded as before. The
+  plans stay pure and keep their unit tests, which touch no disk.
+  kkt-server's run-record tests take the log settings as plain values (a
+  level's name, the policy's three numbers), so kkt-server's tests need
+  neither effect crate (msg 3505).
 
 ## Third-party libraries
 
@@ -307,6 +369,162 @@ Message numbers are given only where they help to find a discussion in
   - These stay as they are: tokio and serde_json, which shape the language;
     axum, the web framework, in the crates CLAUDE.md names; rmcp and
     schemars, MCP on both sides; and tokio-util.
+
+## During the refactor
+
+- **The proposed map is updated as we go** (Sam, 2026-11-11, msg 2357). A
+  step that differs from the proposal on purpose adds a row to the
+  differences table in `refactor-plan.md`; once it merges, the difference is
+  charted into the proposal, so the scorecard measures against it. The table says which
+  differences Sam has accepted. The first to be charted are 1.9's single
+  watch adapter, 2.2's own service output, 2.6's git contract and 3.1d's
+  program arrows to the formatter's and the page's settings.
+
+## After the refactor
+
+The proposal's files were removed on 2026-11-15, once the scorecard
+reached 62/62, 795/795, 248/248 and 102/102 (Sam). Where this file names
+`proposed.json`, `propose.py` or the scorecard, it is history.
+
+After step 8.1, Sam decided three more phases (2026-11-12): kkt-settings
+goes (phase 9), the program's tools become two assemblies, kkt-operate and
+kkt-agent-commands (phase 10), and kkt-db gets a fast test stand-in, so
+kkt-rules' tests use no effect crate (phase 11). All three are done, and
+charted into the proposal.
+
+The two differences left at step 8.1 are gone:
+
+- **The arrow kkt-server → kkt-api-admin is there** (step 9.2, msg 2837).
+  `Parts` takes the contract, an `Arc<dyn AdminApi>`, and kkt-server no
+  longer depends on kkt-rules in its code.
+- **kkt-rules' tests no longer depend on kkt-db-sqlite** (steps 11.1 and
+  11.2, msg 2805). They run on kkt-db's `testing::FastPlace`, and the
+  program's tests run the store and a chosen part of the rules' scenarios on
+  kkt-db-sqlite.
+
+Then Sam ruled that every third-party dependency is split: a contract crate
+named for the scope declares what kkt needs in its own terms, and a wrapper
+crate named for the tool implements it directly, holding the tool's
+knowledge and the code that runs it; the program only injects the wrapper
+(msgs 3041, 3047, 3050). Phase 12 did that for Tailscale, Docker, launchd
+and systemd, the MCP client, git, the doctor's HTTP probe, Claude Code's
+command and the system's browser opener. The adapters the program still
+holds reach only the machine's own files, terminal and paths, or its own
+serving code; the plan lists each one and why.
+
+The final scorecard, on the code at the end of phase 12 (1007e1a):
+
+- crates: 72 of 72 proposed crates exist; none missing; none to remove;
+- items: 794 of 794 proposed items are in their proposed crate;
+- arrows: 267 of 267 proposed arrows exist; none missing; none extra;
+- rules: no kind check fails; no break of the proposal's rules.
+
+At the end of phase 12 the plan's "Temporary breaks" table had one row,
+and it was CI's: macOS was out of CI for want of GitHub runners (#501).
+The macOS checks came back on 2026-11-13 (#541), and the table is empty.
+
+Tests SHOULD NOT turn on `real` (Sam, 2026-11-12). A test that must is a
+documented exception, listed with its reason in
+`.github/scripts/real-exceptions.json`, which check-crates.sh reads: today,
+only the fake product's tests, which drive it over HTTP with
+kkt-agent-client, so its arrow to kkt-agent-client is a test arrow.
+
+Every other difference was made on purpose during the refactor and charted
+into the proposal, so the proposed map shows it. The plan's "Differences
+from the proposed map" table lists each one, with its step, its reason and
+whether Sam has accepted it.
+
+Then Sam took phase 13 (2026-11-12, msg 3164), revising his phase 12
+ruling the same day. The contract audit (#516) found that six of phase 12's
+contract crates have one implementation and one or two consumers. In Rust
+a consumer-declared trait always costs a forwarding adapter, so each pair
+becomes one crate named for the scope: the contract and its stand-in in the
+open, and the tool behind `real`, which only programs turn on. The six are
+container, remote-access, browser, lane-commit, probe and agent-client;
+kkt-client-command merges too. kkt-machine's `Machine` trait and its unused
+stand-in go, and `Env` and `Platform` stay. kkt-service keeps its contract
+crate, with launchd and systemd as two implementations. The rule's wording
+for the project is in CLAUDE.md; Sam will settle the principles' own text
+separately. A merged crate is a new kind, "contract and effect", which
+kinds.py tells from "mixed": its effect is its own contract's one
+implementation, and only programs turn its `real` on.
+
+Phase 13 is done (steps 13.0 to 13.10). The plan's phase 13 section has a
+table of what each step did against the audit and the plan, with every
+difference and why. The final scorecard, on the code at 46911a8:
+
+- crates: 65 of 65 proposed crates exist; none missing; none to remove;
+- items: 793 of 793 proposed items are in their proposed crate;
+- arrows: 256 of 256 proposed arrows exist; none missing; none extra;
+- wiring: 102 of 102 proposed wirings exist; none missing; none extra
+  (counted since the proposal's wiring was charted after 13.10; until then
+  the proposal had 42 of the 95 in the code's record, and 21 that record
+  lacked, 7 of them the web preview's, which the record now has);
+- rules: no kind check fails; no break of the proposal's rules.
+
+Then Sam ordered phase 14 (2026-11-13, msg 3275). A logic crate and the
+effect crate that only carries out its plans need not be two crates: as in
+phase 13, kinds may share a crate where the effect sits behind `real`,
+which only programs turn on, so that the logic builds and tests without
+the effect. Crates follow domains, not the kind of code. He is revising
+`principles/` himself to say so. Such a crate is a new kind, "logic and
+effect", which kinds.py tells from "mixed": its effect is only in modules
+that `real` brings, and only programs turn that `real` on. Four pairs
+merge: backup, setup and shutdown, each into the logic crate, and the log
+files into kkt-logs, while starting tracing, the named implementation of
+kkt-log's contract, becomes kkt-log-tracing. kkt-admission splits in two:
+who is let in stays, and the server's keys, with their files behind
+`real`, become kkt-server-keys.
+
+Phase 14 is done (steps 14.0 to 14.6). The plan's phase 14 section has a
+table of what each step did against the plan. The final scorecard, on the
+code at f66b0ab:
+
+- crates: 62 of 62 proposed crates exist; none missing; none to remove;
+- items: 795 of 795 proposed items are in their proposed crate;
+- arrows: 248 of 248 proposed arrows exist; none missing; none extra;
+- wiring: 102 of 102 proposed wirings exist; none missing; none extra;
+- rules: no kind check fails; no break of the proposal's rules.
+
+- **kkt-keys is a contract crate** (Sam, 2026-11-16, msgs 3506 to 3516).
+  A crate named `x-something` implements `x`'s contract. kkt-server-keys
+  declares `KeyFiles`, reading and writing private key files (the
+  server's, and the client key copies setup writes), and kkt-server-keys-os
+  implements it; then both are renamed, kkt-keys and kkt-keys-os, since
+  they are not kkt-server's. Fixed values (the files' names, places and
+  mode) are not "configured values" under ARCHITECTURE.md 3.8.3 and stay
+  in the contract. Callers draw new keys themselves from the contract's
+  alphabet and length.
+- **kkt-backup is a contract crate** (Sam, 2026-11-16, msg 3516). It
+  declares `Backups` (write a backup, prune old ones) beside its layouts
+  and settings, with `testing::Memory`; kkt-backup-os implements it
+  (`OsBackups`), given the program's database copy. kkt-operate's
+  `BackupWriter` goes.
+
+- **The platform layer** (Sam, 2026-11-16, msg 3597). A crate is general
+  if it knows nothing of kkt. Such crates are the `platform` layer (the
+  old `foundations`, less kkt-names and kkt-provenance, plus the
+  terminal, browser, remote access, lane commit and client command
+  crates), and a platform crate depends in code only on platform crates:
+  check-crates.sh's check 8 and `kinds.rule_breaks` hold it. kkt-names is
+  core's; kkt-provenance is operations'.
+
+- **Platform crates say nothing of kkt** (Sam, 2026-11-16, msgs 3615 and
+  3617). kkt's names, settings, commands and messages are the caller's:
+  passed in as arguments, or worded by the caller from the values a
+  platform crate returns. `check-platform-words.py` holds it in CI.
+
+- **Three renames** (Sam, 2026-11-16, msgs 3623 and 3626).
+  kkt-lane-commit is kkt-revision; kkt-client-config and
+  kkt-client-command are kkt-llm-agent-config and kkt-llm-agent-command:
+  "client" alone was confused with kkt as a client of its own server.
+
+- **Layers say what kind of thing a crate is** (Sam, 2026-11-17, msg
+  3979), not how crates are assembled. kkt-provenance moves from
+  operations to core: it defines what a server run records about itself,
+  touches nothing on the machine at run time, and the rules store its
+  record. Operations is what handles kkt's interactions with the machine
+  it runs on.
 
 ## Other decisions
 
@@ -332,6 +550,38 @@ Message numbers are given only where they help to find a discussion in
   maps one failure type to the other.
 - Operator and admin names stay in kkt-names; tying an admin name to its key's
   hash moves to kkt-admission.
+
+## The program's library (phase 10)
+
+- **The library splits by who uses each part** (msgs 2789, 2794, 2803
+  and 2825): kkt-operate (the operator's commands) and kkt-agent-commands
+  (the agents' commands), composition crates beside kkt-server. Each takes
+  its effects in a `Parts` value. No assembly depends on another or on an
+  `-os` crate; kashkeshet chooses every implementation, keeps the adapters
+  and `cli.rs` (the flags are the program's), and keeps a long dependency
+  list on purpose, since it shows every choice in one place.
+- **No kkt-serve** (msg 2876). The serving wiring stays in kashkeshet:
+  choosing the database, reading the keys, resolving the settings,
+  starting the rules and listening. kkt-server is already the server's
+  assembly, and composing a server from the implementations it chooses is
+  what the program is for. As a crate, kkt-serve would have one user,
+  since kkt-keymode must not use it. So kashkeshet composes the server and
+  the two assemblies of tools. (Phase 10 first planned kkt-serve as a third
+  assembly; its step, 10.1, is dropped.)
+- **The local server's facts are questions, not values.** Each assembly
+  declares the small question its commands ask, and kashkeshet answers it
+  from its own serving code or with kkt-operate's functions. Today each
+  fact is read only by the command that needs it, and a missing record or
+  a bad config file is reported only then, with its own text; a value
+  worked out up front would change that. The one fact both assemblies ask,
+  how a client reaches the server, is kkt-setup's `ConnectionSource`,
+  which neither copies.
+- **`Parts` takes the contract** (msg 2837): kkt-server's `Parts` takes an
+  `Arc<dyn AdminApi>`, and `new_server_run` belongs to whoever calls
+  `start`, so kkt-server no longer depends on kkt-rules in its code.
+- **kkt-service's `Manager::for_this_os` takes plain paths** (msg 2829),
+  the home folder and the config home folder, so kkt-service no longer
+  depends on kkt-machine.
 
 ## Accepted assumptions
 

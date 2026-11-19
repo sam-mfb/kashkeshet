@@ -10,22 +10,28 @@
 //! a database can only be handed to a server here, and `start_in_process`
 //! is for settings no program's files can say.
 
-// Each test file builds this module on its own, and none uses every helper.
-#![allow(dead_code)]
+#![expect(
+    dead_code,
+    reason = "each test file builds this module on its own, and none uses every helper"
+)]
 
 pub mod serving;
+use kashkeshet::machine::server_run::{RecordedSettings, new_server_run};
 
+use kashkeshet::machine::settings::ServeOptions;
 use kkt_admission::{AdminAdmission, Admission, ServerKey, SharedKey};
-use kkt_clock::{Clock, SystemClock};
-use kkt_config::{Limits, LogLevel, LogPolicy, MAX_ADMIN_NAME_CHARS};
-use kkt_hosts::AllowedHosts;
-use kkt_identity::KeyMode;
-use kkt_names::{AdminName, OsEntropy};
+use kkt_clock::Clock;
+use kkt_clock_system::SystemClock;
+use kkt_entropy::Entropy;
+use kkt_entropy_os::OsEntropy;
+use kkt_identity_keymode::KeyMode;
+use kkt_log::Level;
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use kkt_provenance::{Build, RunSettings, ServerRun};
-use kkt_server::{self as app, AppConfig, Parts};
-use kkt_settings::ServeOptions;
+use kkt_rolling_file::LogPolicy;
+use kkt_rules::Db;
+use kkt_server::{self as app, AppConfig, Parts, ServerSettings};
 use kkt_shutdown::Shutdown;
-use kkt_store::Db;
 use rmcp::model::ProtocolVersion;
 use rmcp::service::{RoleClient, RunningService};
 use rmcp::transport::StreamableHttpClientTransport;
@@ -71,7 +77,12 @@ pub struct TestConfig {
     pub admin_key: Option<String>,
     /// The name tied to the admin key. `None`: the admin key may only read.
     pub admin_name: Option<String>,
-    pub limits: Limits,
+    /// The rules' settings.
+    pub rules: kkt_rules::Settings,
+    /// The formatter's settings: how long a response may be.
+    pub formatter: kkt_mcp::result_format::Settings,
+    /// How many backups an upgrade keeps.
+    pub backups: kkt_backup::Settings,
     pub allowed_origins: Vec<String>,
     /// Host names allowed besides the loopback ones.
     pub allowed_hosts: Vec<String>,
@@ -86,7 +97,9 @@ pub fn test_config() -> TestConfig {
         web_key: None,
         admin_key: None,
         admin_name: None,
-        limits: Limits::DEFAULT,
+        rules: kkt_rules::Settings::DEFAULT,
+        formatter: kkt_mcp::result_format::Settings::DEFAULT,
+        backups: kkt_backup::Settings::DEFAULT,
         allowed_origins: vec!["http://localhost:6274".into()],
         allowed_hosts: Vec::new(),
         instructions: Some("test instructions: call register".into()),
@@ -119,35 +132,42 @@ impl TestConfig {
                     SharedKey::new(ServerKey::Admin, text, KEY_SOURCE).expect("key"),
                 )
             }),
-            limits: self.limits.clone(),
-            allowed_origins: self.allowed_origins.clone(),
-            allowed_hosts: AllowedHosts::new(&self.allowed_hosts).expect("allowed hosts"),
             instructions: self.instructions.clone(),
         }
     }
 }
 
-/// What a test server records about its settings: those of `config`, with
-/// no config file or log file and the default log levels.
-fn run_settings(config: &AppConfig, admin_name: Option<&AdminName>) -> RunSettings {
+/// What a test server records about its settings: `rules`, `backups` and
+/// those of `config`, with no config file or log file and the default log
+/// levels.
+fn run_settings(
+    rules: &kkt_rules::Settings,
+    backups: kkt_backup::Settings,
+    config: &AppConfig,
+    admin_name: Option<&AdminName>,
+    server: &ServerSettings,
+) -> RunSettings {
     RunSettings {
-        allow_any_bind: false,
-        limits: config.limits.clone(),
-        log_level: LogLevel::Info,
-        dependency_log_level: LogLevel::Warn,
-        allowed_origins: config.allowed_origins.clone(),
-        allowed_hosts: config.allowed_hosts.extra().to_vec(),
-        config_file: None,
-        access_key_file: config.admission.key_source().map(str::to_string),
-        web_key_file: config.web_admission.key_source().map(str::to_string),
-        admin_key_file: config
-            .admin_admission
-            .as_ref()
-            .and_then(|admission| admission.key_source())
-            .map(str::to_string),
-        admin_name: admin_name.map(|name| name.to_string()),
-        log_file: None,
-        log_policy: LogPolicy::DEFAULT,
+        settings: RecordedSettings {
+            allow_any_bind: false,
+            server,
+            rules: rules.clone(),
+            backup: backups,
+            log_level: Level::Info,
+            dependency_log_level: Level::Warn,
+            config_file: None,
+            access_key_file: config.admission.key_source().map(str::to_string),
+            web_key_file: config.web_admission.key_source().map(str::to_string),
+            admin_key_file: config
+                .admin_admission
+                .as_ref()
+                .and_then(|admission| admission.key_source())
+                .map(str::to_string),
+            admin_name: admin_name.map(|name| name.to_string()),
+            log_file: None,
+            log_policy: LogPolicy::DEFAULT,
+        }
+        .lines(),
         instructions: config.agent_instructions().to_string(),
     }
 }
@@ -186,7 +206,7 @@ pub async fn start_with_clock(config: TestConfig, clock: Arc<dyn Clock>) -> Serv
         let place = kkt_db_sqlite::MemoryPlace::new().expect("an in-memory database");
         Db::new(
             place
-                .open(&[kkt_store::schema()])
+                .open(&[kkt_rules::schema()])
                 .expect("the core's tables"),
         )
     })
@@ -198,23 +218,56 @@ pub async fn start_with_clock(config: TestConfig, clock: Arc<dyn Clock>) -> Serv
 pub async fn start_on(config: TestConfig, clock: Arc<dyn Clock>, db: Db) -> Server {
     let shutdown = Shutdown::new();
     let admin_name = config.admin_name();
+    let (rules, backups) = (config.rules.clone(), config.backups);
+    let server_settings = ServerSettings {
+        formatter: config.formatter,
+        web: kkt_web::Settings::DEFAULT,
+        mcp: kkt_mcp::Settings::DEFAULT,
+        allowed_origins: config.allowed_origins.clone(),
+        allowed_hosts: config.allowed_hosts.clone(),
+    };
+    let server_settings = server_settings.check([]).expect("valid server settings");
     let config = config.app_config();
-    let run = ServerRun::new(Build::CURRENT, &run_settings(&config, admin_name.as_ref()));
-    let run_id = app::record_run(&db, &run, clock.now())
-        .await
-        .expect("record run");
+    let run = ServerRun::new(
+        Build::CURRENT,
+        &run_settings(
+            &rules,
+            backups,
+            &config,
+            admin_name.as_ref(),
+            server_settings.settings(),
+        ),
+    );
+    let entropy = Arc::new(OsEntropy);
+    let rules = kkt_rules::start(
+        new_server_run(&run),
+        kkt_rules::Startup {
+            db,
+            swarm: kkt_api_agent::SwarmId::main(),
+            shutdown: shutdown.clone(),
+            clock: clock.clone(),
+            entropy: entropy.clone(),
+            settings: rules,
+            wording: Arc::new(kkt_rules::DefaultWording),
+        },
+    )
+    .await
+    .expect("record run");
     let parts = Parts::new(
-        db,
+        Arc::new(rules),
         clock,
-        Arc::new(OsEntropy),
+        entropy,
         Arc::new(KeyMode::new(admin_name)),
-        &config.limits,
-        run_id,
+        Arc::new(kkt_log_tracing::TracingLog),
+        server_settings,
     );
     let server = app::build(parts, config, shutdown.child());
-    let listening = app::listen(server, "127.0.0.1:0".parse().expect("address"))
-        .await
-        .expect("bind");
+    let listening = kkt_listen::listen(
+        server.into_router(),
+        "127.0.0.1:0".parse().expect("address"),
+    )
+    .await
+    .expect("bind");
     let addr = listening.address().expect("addr");
     let ct = shutdown.clone();
     tokio::spawn(async move {
@@ -292,19 +345,17 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
             toml.push_str(&format!("access_key_file = {}\n", quoted(&access_path)));
             options.access_key_file = Some(access_path.clone());
             // `kkt serve` makes a web key when there is none.
-            let web = config
-                .web_key
-                .clone()
-                .unwrap_or_else(|| SharedKey::generate(&OsEntropy));
-            write(&kkt_settings::web_key_path(&access_path), &web);
+            let web = config.web_key.clone().unwrap_or_else(|| {
+                OsEntropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS)
+            });
+            write(&kkt_keys::web_key_path(&access_path), &web);
             if let Some(admin) = &config.admin_key {
-                let admin_path =
-                    kkt_settings::admin_key_path(&access_path).expect("an admin key path");
+                let admin_path = kkt_keys::admin_key_path(&access_path).expect("an admin key path");
                 write(&admin_path, admin);
                 if let Some(name) = config.admin_name() {
                     write(
-                        &kkt_settings::admin_name_path(&admin_path),
-                        &name.bound_to(admin),
+                        &kkt_keys::admin_name_path(&admin_path),
+                        &kkt_keys::bound_to(&name, admin),
                     );
                 }
             }
@@ -324,9 +375,9 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
         list(&config.allowed_origins)
     ));
     toml.push_str(&format!("allow_hosts = {}\n", list(&config.allowed_hosts)));
-    // The limits a config file can set, where the test's differ from the
-    // defaults; then a check that they come out as the test's limits.
-    let (given, defaults) = (&config.limits, Limits::DEFAULT);
+    // The settings a config file can set, where the test's differ from the
+    // defaults; then a check that they come out as the test's settings.
+    let (given, defaults) = (&config.rules, kkt_rules::Settings::DEFAULT);
     let mut count = |name: &str, value: usize, default: usize| {
         if value != default {
             toml.push_str(&format!("{name} = {value}\n"));
@@ -335,15 +386,15 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
     };
     options.max_response_bytes = count(
         "max_response_bytes",
-        given.max_response_bytes,
-        defaults.max_response_bytes,
+        config.formatter.max_response_bytes,
+        kkt_mcp::result_format::Settings::DEFAULT.max_response_bytes,
     );
     options.default_limit = count("default_limit", given.default_limit, defaults.default_limit);
     options.max_limit = count("max_limit", given.max_limit, defaults.max_limit);
     options.upgrade_backups_kept = count(
         "upgrade_backups_kept",
-        given.upgrade_backups_kept,
-        defaults.upgrade_backups_kept,
+        config.backups.upgrade_backups_kept,
+        kkt_backup::Settings::DEFAULT.upgrade_backups_kept,
     );
     options.max_lane_chars = count(
         "max_lane_chars",
@@ -375,13 +426,54 @@ fn write_settings(dir: &Path, config: &TestConfig) -> PathBuf {
     let resolved = options
         .resolve(dir.join("kkt.db"), None)
         .expect("the test's settings resolve");
-    assert_eq!(
-        &resolved.limits, given,
-        "a test's limits must be ones a config file can set to run in a program"
+    assert!(
+        (&resolved.rules, resolved.server.formatter, resolved.backups)
+            == (given, config.formatter, config.backups),
+        "a test's settings must be ones a config file can set to run in a program; \
+         the config file cannot say these: {}",
+        settings_that_differ(
+            &[
+                resolved.rules.record_lines(),
+                resolved.server.formatter.record_lines(),
+                resolved.backups.record_lines(),
+            ],
+            &[
+                given.record_lines(),
+                config.formatter.record_lines(),
+                config.backups.record_lines(),
+            ],
+        )
     );
     let path = dir.join("kkt.toml");
     write(&path, &toml);
     path
+}
+
+/// The settings whose record lines differ between what a config file gave
+/// (`resolved`) and what the test asked for (`given`), each as
+/// `name: test's value (file gives other value)`. A setting no record line
+/// shows cannot be named, and is then reported as such.
+fn settings_that_differ(
+    resolved: &[Vec<(String, String)>],
+    given: &[Vec<(String, String)>],
+) -> String {
+    let (resolved, given) = (resolved.concat(), given.concat());
+    let differ: Vec<String> = given
+        .iter()
+        .filter_map(|(name, value)| {
+            let from_file = resolved.iter().find(|(other, _)| other == name);
+            match from_file {
+                Some((_, other)) if other == value => None,
+                Some((_, other)) => Some(format!("{name}: {value} (file gives {other})")),
+                None => Some(format!("{name}: {value} (file gives none)")),
+            }
+        })
+        .collect();
+    if differ.is_empty() {
+        "a setting the run record does not show".to_string()
+    } else {
+        differ.join(", ")
+    }
 }
 
 /// `text` as a TOML string.

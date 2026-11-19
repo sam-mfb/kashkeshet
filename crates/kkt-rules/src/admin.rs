@@ -1,20 +1,11 @@
 //! What an admin agent reads at `/mcp-admin`, acting for the operator as
 //! [`Who::Operator`]. It sees every channel, closed and hidden ones included,
 //! and every agent the web page shows. Admission (the admin key) has already
-//! let the caller in; nothing here changes anything.
+//! let the caller in. Everything here only reads.
 
-use super::channels::{decode_channel_cursor, encode_channel_cursor};
+use super::channels::decode_channel_cursor;
 use super::*;
-use kkt_store::AnyChannelRecord;
-
-/// A channel as the admin agent sees it.
-#[derive(Clone, Debug, Serialize)]
-pub struct AdminChannel {
-    pub info: ChannelInfo,
-    /// Hidden by its owner or the operator: no agent can find it, but its
-    /// messages are kept.
-    pub hidden: bool,
-}
+use crate::AnyChannelRecord;
 
 impl Rules {
     /// Every channel, hidden ones included, in name order, whose name or
@@ -27,7 +18,7 @@ impl Rules {
         cursor: Option<String>,
     ) -> Result<Page<AdminChannel>> {
         operator.may(Permission::Read)?;
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         let after = cursor.as_deref().map(decode_channel_cursor).transpose()?;
         self.db()
             .read(move |store, swarm| {
@@ -43,9 +34,7 @@ impl Rules {
                     })
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = match (more, items.last()) {
-                    (true, Some(last)) => {
-                        Some(encode_channel_cursor(&last.info.name, &last.info.id))
-                    }
+                    (true, Some(last)) => Some(channel_cursor(&last.info)),
                     _ => None,
                 };
                 Ok(Page { items, next_cursor })
@@ -60,7 +49,7 @@ impl Rules {
         channel_id: String,
     ) -> Result<AdminChannel> {
         operator.may(Permission::Read)?;
-        let preview = self.limits().member_preview;
+        let preview = self.settings().member_preview;
         self.db()
             .read(move |store, swarm| {
                 let record = admin_channel(store, swarm, &channel_id, Need::See)?;
@@ -144,7 +133,7 @@ impl Rules {
                     .ok_or_else(|| RuleError::message_not_found(id))?;
                 admin_channel(store, swarm, &message.channel_id, Need::See)
                     .map_err(|_| RuleError::message_not_found(id))?;
-                Ok(Message::from(message))
+                Ok(message)
             })
             .await
     }
@@ -160,7 +149,7 @@ impl Rules {
         self.db()
             .read(move |store, swarm| {
                 let rows = store.any_activity(swarm, after_id)?;
-                Ok(rows.into_iter().map(ActivityRow::from).collect())
+                Ok(rows.into_iter().collect())
             })
             .await
     }
@@ -194,7 +183,7 @@ impl Rules {
                     store.count_any_newer_messages(swarm, after_id, channel_ids.as_deref())?;
                 Ok(WaitResult {
                     more_waiting: total - messages.len() as i64,
-                    messages: messages.into_iter().map(Message::from).collect(),
+                    messages: messages.into_iter().collect(),
                     newer_lane: None,
                 })
             })
@@ -250,7 +239,7 @@ impl Rules {
 /// The channel `id`, hidden or not, if `access::decide` lets the admin agent
 /// use it for `need`.
 fn admin_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     need: Need,
@@ -270,7 +259,7 @@ fn admin_channel(
 }
 
 fn admin_view(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     record: AnyChannelRecord,
     preview: usize,

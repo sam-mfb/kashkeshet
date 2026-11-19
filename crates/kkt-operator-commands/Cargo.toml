@@ -1,0 +1,31 @@
+[package]
+name = "kkt-operator-commands"
+description = "The operator's commands on this machine's kkt server: keys, lanes and agents"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+thiserror.workspace = true
+kkt-keys = { path = "../kkt-keys" }
+kkt-api-agent = { path = "../kkt-api-agent" }
+kkt-api-operator = { path = "../kkt-api-operator" }
+kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
+kkt-clock = { path = "../kkt-clock" }
+kkt-deployment = { path = "../kkt-deployment" }
+kkt-entropy = { path = "../kkt-entropy" }
+kkt-lane-files = { path = "../kkt-lane-files" }
+kkt-names = { path = "../kkt-names" }
+kkt-rules = { path = "../kkt-rules" }
+tokio.workspace = true
+
+[dev-dependencies]
+futures.workspace = true
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
+# Key files in memory, for the admin name file's pin.
+kkt-keys = { path = "../kkt-keys", features = ["testing"] }
+# Commits in memory, for the lane checks' pins.
+kkt-lane-files = { path = "../kkt-lane-files", features = ["testing"] }

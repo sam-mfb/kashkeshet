@@ -1,21 +1,29 @@
 //! For tests: [`MemoryPlace`], a database held in memory that keeps the
-//! contract; [`conformance`], the checks every backend must pass; and
-//! [`Database::fail_next_change_to`], which makes a change fail on
+//! contract, plainly and slowly; [`FastPlace`], a fast stand-in on SQLite in
+//! memory, for stores' tests; [`conformance`], the checks every backend must pass; and
+//! [`FaultyBackend`], which wraps a backend and makes a change fail on
 //! purpose.
 
 mod conformance;
+#[cfg(test)]
+mod differential;
+mod fast;
 mod memory;
 
 pub use conformance::{Place, conformance};
+pub use fast::FastPlace;
 pub use memory::MemoryPlace;
 
-use crate::search::{Hit, Search};
-use crate::{Connection, Count, Database, DbError, Delete, Group, Insert, Row, Select, Update};
+use crate::search::{Found, Reindex, Terms};
+use crate::{
+    Backend, BackendConnection, Count, DbError, Delete, Done, Group, Insert, Row, Select, Update,
+    Work,
+};
 use std::sync::{Arc, Mutex};
 
-/// The tables whose next change fails, shared by a database's clones.
+/// The tables whose next change fails, shared by a backend's clones.
 #[derive(Clone, Default)]
-pub(crate) struct Faults(Arc<Mutex<Vec<&'static str>>>);
+struct Faults(Arc<Mutex<Vec<&'static str>>>);
 
 impl Faults {
     /// Whether a change to `table` fails now; if so, only this once.
@@ -33,25 +41,58 @@ impl Faults {
     }
 }
 
-impl Database {
+/// A backend that wraps another and fails the next change to a table on
+/// cue. Cloning shares both the backend and the cues.
+#[derive(Clone)]
+pub struct FaultyBackend {
+    inner: Arc<dyn Backend>,
+    faults: Faults,
+}
+
+impl FaultyBackend {
+    pub fn new(inner: Arc<dyn Backend>) -> FaultyBackend {
+        FaultyBackend {
+            inner,
+            faults: Faults::default(),
+        }
+    }
+
     /// Makes the next insert, save, update or delete on `table`, in any
-    /// write through this database or its clones, fail with
+    /// write through this backend or its clones, fail with
     /// [`DbError::Backend`], as if the database had failed.
     pub fn fail_next_change_to(&self, table: &'static str) {
         if let Ok(mut tables) = self.faults.0.lock() {
             tables.push(table);
         }
     }
+
+    fn wrap(&self, work: Work) -> Work {
+        let faults = self.faults.clone();
+        Box::new(move |connection| {
+            let faulty = Faulty::new(connection.backend(), &faults);
+            work(&faulty.connection(connection.schema()))
+        })
+    }
+}
+
+impl Backend for FaultyBackend {
+    fn read(&self, work: Work) -> Done<'_> {
+        self.inner.read(self.wrap(work))
+    }
+
+    fn write(&self, work: Work) -> Done<'_> {
+        self.inner.write(self.wrap(work))
+    }
 }
 
 /// A connection whose changes fail where [`Faults`] says.
-pub(crate) struct Faulty<'a> {
-    inner: &'a dyn Connection,
+struct Faulty<'a> {
+    inner: &'a dyn BackendConnection,
     faults: &'a Faults,
 }
 
 impl<'a> Faulty<'a> {
-    pub(crate) fn new(inner: &'a dyn Connection, faults: &'a Faults) -> Faulty<'a> {
+    fn new(inner: &'a dyn BackendConnection, faults: &'a Faults) -> Faulty<'a> {
         Faulty { inner, faults }
     }
 
@@ -65,7 +106,7 @@ impl<'a> Faulty<'a> {
     }
 }
 
-impl Connection for Faulty<'_> {
+impl BackendConnection for Faulty<'_> {
     fn select(&self, select: &Select) -> Result<Vec<Row>, DbError> {
         self.inner.select(select)
     }
@@ -78,28 +119,28 @@ impl Connection for Faulty<'_> {
         self.inner.group(group)
     }
 
-    fn search(&self, search: &Search) -> Result<Vec<Hit>, DbError> {
-        self.inner.search(search)
+    fn search(&self, select: &Select, terms: &Terms) -> Result<Vec<Found>, DbError> {
+        self.inner.search(select, terms)
     }
 
-    fn insert(&self, insert: &Insert) -> Result<Option<i64>, DbError> {
+    fn insert(&self, insert: &Insert, index: &Reindex) -> Result<Option<i64>, DbError> {
         self.check(insert.table)?;
-        self.inner.insert(insert)
+        self.inner.insert(insert, index)
     }
 
-    fn insert_unless_present(&self, insert: &Insert) -> Result<bool, DbError> {
+    fn insert_unless_present(&self, insert: &Insert, index: &Reindex) -> Result<bool, DbError> {
         self.check(insert.table)?;
-        self.inner.insert_unless_present(insert)
+        self.inner.insert_unless_present(insert, index)
     }
 
-    fn save(&self, insert: &Insert) -> Result<(), DbError> {
+    fn save(&self, insert: &Insert, index: &Reindex) -> Result<(), DbError> {
         self.check(insert.table)?;
-        self.inner.save(insert)
+        self.inner.save(insert, index)
     }
 
-    fn update(&self, update: &Update) -> Result<u64, DbError> {
+    fn update(&self, update: &Update, index: &Reindex) -> Result<u64, DbError> {
         self.check(update.table)?;
-        self.inner.update(update)
+        self.inner.update(update, index)
     }
 
     fn delete(&self, delete: &Delete) -> Result<u64, DbError> {
@@ -115,5 +156,10 @@ mod tests {
     #[tokio::test]
     async fn the_memory_database_keeps_the_contract() {
         conformance(|| Box::new(MemoryPlace::new())).await;
+    }
+
+    #[tokio::test]
+    async fn the_fast_database_keeps_the_contract() {
+        conformance(|| Box::new(FastPlace::new().expect("a fast database"))).await;
     }
 }

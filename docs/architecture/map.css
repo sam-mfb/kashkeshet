@@ -14,6 +14,7 @@
   --build: #3d8b6e;
   --badge: #ececE6;
   --hit: #fff1bf;
+  --group: #55555e;
   --shadow: 0 1px 2px rgba(0, 0, 0, .06), 0 4px 14px rgba(0, 0, 0, .06);
   color-scheme: light;
 }
@@ -34,6 +35,7 @@
     --build: #7cc9aa;
     --badge: #2e2f35;
     --hit: #4a4220;
+    --group: #e4e4e7;
     --shadow: none;
     color-scheme: dark;
   }
@@ -42,7 +44,7 @@
   --bg: #16171a; --panel: #1f2024; --fg: #e8e8ea; --muted: #9a9aa3; --line: #34353b;
   --box: #23242a; --box-line: #43444c; --band: #1c1d21; --accent: #7ea2ff; --out: #7ea2ff;
   --in: #f0a064; --dev: #b3a5e0; --build: #7cc9aa; --badge: #2e2f35; --hit: #4a4220;
-  --shadow: none; color-scheme: dark;
+  --group: #e4e4e7; --shadow: none; color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
@@ -100,7 +102,6 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .node.dev-only > rect { stroke-dasharray: 4 3; }
 .node.hit > rect { fill: var(--hit); }
 .node.dim { opacity: .28; }
-.node .ptag { font-size: 9.5px; font-weight: 600; fill: var(--muted); text-anchor: end; letter-spacing: .03em; }
 
 /* Kinds: what sort of crate each is (msg 1981). A palette apart from the
    arrows' green, grey and amber. */
@@ -154,7 +155,6 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .badges { display: flex; flex-wrap: wrap; gap: 5px; margin: 6px 0; }
 .badge { background: var(--badge); border-radius: 10px; padding: 1px 8px; font-size: 11.5px; }
 .badge.feature { border: 1px solid var(--box-line); background: none; }
-.must { border-left: 3px solid var(--in); padding-left: 8px; }
 .items { list-style: none; padding: 0; margin: 0; }
 .items li { padding: 4px 0; border-bottom: 1px solid var(--line); }
 .items li:last-child { border-bottom: 0; }
@@ -187,14 +187,21 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 }
 
 /* Edge roles */
-:root { --implements: #1f8a70; --uses: #8a8a93; --wires: #c27c0e; }
+:root { --implements: #1f8a70; --uses: #8a8a93; --wires: #c27c0e; --adapts: #8f8a00; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; }
+  :root:not([data-theme="light"]) { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; --adapts: #e3e15a; }
 }
-:root[data-theme="dark"] { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; }
+:root[data-theme="dark"] { --implements: #4fd1a8; --uses: #9a9aa3; --wires: #f0b54a; --adapts: #e3e15a; }
 .edge.role-uses { stroke: var(--uses); }
 .edge.role-implements { stroke: var(--implements); stroke-width: 1.6; }
 .edge.role-wires { stroke: var(--wires); }
+/* An adapter a program or composition injects: short dashes, not the
+   injection lines' dots, in a yellow of its own (Sam, msg 3577), apart from
+   their amber and the "built by" arrows', with an open round head. */
+.edge.role-adapts { stroke: var(--adapts); stroke-dasharray: 5 3; }
+.head-adapts { fill: var(--bg); stroke: var(--adapts); stroke-width: 1.2; }
+.role-key.role-adapts { border-top: 3px dashed var(--adapts); }
+.role-badge.role-adapts { background: none; border: 1px dotted var(--adapts); color: var(--adapts-text, var(--adapts)); }
 .edge.focus { opacity: .95; stroke-width: 2; }
 .edge.role-implements.focus { stroke-width: 2.4; }
 .head-uses { fill: var(--uses); }
@@ -208,9 +215,6 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .role-badge.role-wires { background: none; border: 1px solid var(--wires); color: var(--wires); }
 .role-badge.role-uses { background: none; border: 1px solid var(--uses); }
 .tip-role { margin-top: 3px; }
-.source { font-size: 10.5px; text-transform: none; letter-spacing: 0; font-weight: 500; border-radius: 8px; padding: 0 6px; margin-left: 4px; }
-.source.generated { border: 1px solid var(--implements); color: var(--implements); }
-.source.hand { border: 1px solid var(--wires); color: var(--wires); }
 .chip-link { border: 0; color: var(--accent); cursor: pointer; font: inherit; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 12px; }
 .action {
   border: 1px solid var(--line); background: var(--bg); color: var(--fg); border-radius: 7px; padding: 5px 10px;
@@ -243,41 +247,7 @@ code, .mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; 
 .inferred > summary { cursor: pointer; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 600; }
 .chips.inline { display: inline-flex; }
 
-/* The proposed map */
-:root { --proposed: #b03aa8; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --proposed: #e48ad9; } }
-:root[data-theme="dark"] { --proposed: #e48ad9; }
-.mode { border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; margin: 0; display: inline-flex; gap: 10px; font-size: 13px; }
-.mode label { display: inline-flex; gap: 4px; align-items: center; cursor: pointer; }
-body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
-.node.proposed-new .ptag, .node.proposed-changed .ptag { fill: var(--proposed); }
-.edge.proposed-new, .edge.proposed-changed { stroke-width: 2.2; opacity: .6; }
-.edge.proposed-new.faint, .edge.proposed-changed.faint { opacity: .16; }
-.proposed-badge { background: none; border: 1px solid var(--proposed); color: var(--proposed); }
-.proposed-notes { border-left: 3px solid var(--proposed); padding-left: 8px; margin: 8px 0; }
-.proposed-notes ul { margin: 4px 0; padding-left: 18px; }
-.decision { margin: 4px 0; font-size: 12.5px; }
-.conflict-link { color: var(--in); }
-.actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
-.table-wrap { overflow-x: auto; }
-.rule-table { border-collapse: collapse; font-size: 12.5px; width: 100%; }
-.rule-table th, .rule-table td { border-bottom: 1px solid var(--line); padding: 6px; text-align: left; vertical-align: top; }
-.rule-table th { color: var(--muted); font-weight: 600; }
-.conflicts > li { margin-bottom: 10px; }
-.assembly.wide { width: min(1400px, calc(100vw - 32px)); }
-.rule-table td:nth-child(1) { min-width: 180px; }
-.rule-table td:nth-child(2) { min-width: 200px; }
-.rule-table td:nth-child(4) { min-width: 180px; }
-.rule-table td:nth-child(6) { min-width: 300px; }
-.status { background: none; }
-.status-decided { border: 1px solid var(--implements); color: var(--implements); }
-.status-recommended { border: 1px solid var(--wires); color: var(--wires); }
-.status-follows { border: 1px dashed var(--implements); color: var(--implements); }
-.status-open { border: 1px solid var(--k-mixed); color: var(--k-mixed); }
 .item-contract { margin: 2px 0 0 40px; font-size: 12.5px; }
-.decided > li { margin: 3px 0; }
-.badge.large { border: 1px solid var(--in); color: var(--in); background: none; }
-.census td:nth-child(n+4):nth-child(-n+7), .census th:nth-child(n+4):nth-child(-n+7) { width: 1%; white-space: nowrap; text-align: right; }
 /* A box takes focus when clicked (it is focusable for the keyboard). The
    browser's focus ring would change its outline colour, so it is hidden:
    keyboard focus gets the selection's thicker stroke in the kind colour
@@ -306,27 +276,39 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .role-text-implements { color: var(--implements-text, var(--implements)); }
 .role-text-uses { color: var(--uses-text, var(--fg)); }
 .role-text-wires { color: var(--wires-text, var(--wires)); }
+.role-text-adapts { color: var(--adapts-text, var(--adapts)); }
 .chip.role-text { border-left: 3px solid currentColor; }
 .chip.role-second-implements { text-decoration: underline 2px var(--implements); text-underline-offset: 3px; }
 .chip.role-second-uses { text-decoration: underline 2px var(--uses); text-underline-offset: 3px; }
 .chip.role-second-wires { text-decoration: underline 2px var(--wires); text-underline-offset: 3px; }
+.chip.role-second-adapts { text-decoration: underline dotted 2px var(--adapts); text-underline-offset: 3px; }
 /* Darker text shades of the role colours, for contrast on light chips. */
-:root { --implements-text: #17705b; --wires-text: #8f5a00; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; } }
-:root[data-theme="dark"] { --implements-text: #4fd1a8; --wires-text: #f0b54a; }
+:root { --implements-text: #17705b; --wires-text: #8f5a00; --adapts-text: #626000; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --implements-text: #4fd1a8; --wires-text: #f0b54a; --adapts-text: #e3e15a; } }
+:root[data-theme="dark"] { --implements-text: #4fd1a8; --wires-text: #f0b54a; --adapts-text: #e3e15a; }
 /* A role's row in the arrow tooltip: key, role and items on one line. */
 .tip .tip-role strong { display: inline; margin: 0; }
 .tip .tip-role .role-key { display: inline-block; vertical-align: middle; }
 /* Where a wired thing goes: thin dotted amber lines, no head, shown on
    hover or selection only; not dependencies. */
-.delivery { fill: none; stroke: var(--wires); stroke-width: 1.3; stroke-dasharray: 1.2 3; stroke-linecap: round; pointer-events: stroke; }
+.delivery { fill: none; stroke: var(--wires); stroke-width: 1.8; stroke-dasharray: 1.5 3; stroke-linecap: round; pointer-events: stroke; }
 .delivery-label { font-size: 10.5px; fill: var(--wires-text, var(--wires)); paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; cursor: help; }
 .delivery-words { font-size: 12px; margin-top: 3px; }
+/* The injector's own work, not another crate's implementation: a longer
+   dash and an italic label. */
+.delivery.own-work { stroke-dasharray: 6 3; }
+.delivery-label.own-work { font-style: italic; }
+/* A route's first hop, from the crate that supplies what is injected to
+   the injector, is an ordinary dependency: one stroke of the arrow itself,
+   solid, lit amber like the rest of the route (Sam, msgs 3696 and 3734). */
+.edge.route-hop { stroke: var(--wires); opacity: .95; stroke-width: 2; }
+.delivery-label-back { fill: var(--bg); stroke: var(--wires); stroke-width: .8; opacity: .95; pointer-events: none; }
 .deliveries-words { margin-top: 2px; }
 /* Each chip's left mark is its role's arrow colour, whatever its text colour. */
 .chip.role-text-implements { border-left-color: var(--implements); }
 .chip.role-text-uses { border-left-color: var(--uses); }
 .chip.role-text-wires { border-left-color: var(--wires); }
+.chip.role-text-adapts { border-left: 3px dotted var(--adapts); }
 /* The Crates and Arrows menus: a button in the header opens a list of
    checkboxes under it. On a phone the list opens in the header's flow. */
 .menu { position: relative; }
@@ -360,6 +342,14 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .band-toggle.off .band-title { text-decoration: line-through; }
 .band-toggle .band-title { pointer-events: none; }
 .node.layer-off { opacity: .28; }
+/* A group's outline: round dots, apart from the arrows' strokes, the amber
+   delivery lines and the panel crate's thick outline. */
+.group { fill: none; stroke: var(--group); stroke-width: 1.6; stroke-dasharray: 0 5; stroke-linecap: round; pointer-events: stroke; }
+.group.layer-off { opacity: .28; }
+.group-key {
+  display: inline-block; width: 22px; height: 14px; margin-right: 5px; vertical-align: -2px;
+  border: 2px dotted var(--group); border-radius: 5px;
+}
 
 /* All and None at the top of each menu. */
 .menu-all { display: flex; gap: 6px; padding-bottom: 6px; margin-bottom: 2px; border-bottom: 1px solid var(--line); }
@@ -392,3 +382,8 @@ body.mode-proposed .bar { border-bottom: 2px solid var(--proposed); }
 .node.program-off { opacity: .28; }
 .selection-list { margin: 6px 0 10px; font-size: 13px; }
 .clear-selection { font: inherit; font-size: 12px; padding: 2px 10px; margin-left: 4px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--fg); cursor: pointer; }
+
+/* A panel section: its heading is the toggle, with an arrow and a count. */
+.section > summary { cursor: pointer; list-style: revert; margin: 14px 0 4px; }
+.section > summary h3 { display: inline; margin: 0; }
+.section .count { font-weight: 500; color: var(--muted); }

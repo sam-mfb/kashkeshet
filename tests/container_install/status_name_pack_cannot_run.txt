@@ -1,0 +1,23 @@
+== inspect cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+  -> exit 0, out "kkt\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+  -> exit 0, out "0123abcd\n"
+run      docker inspect --format "{{json .Config}}" 0123abcd
+  -> cannot run: broken pipe
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container query failed"), sharing: false, login: None }
+
+== reading the config file cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --status running --services
+  -> exit 0, out "kkt\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker ps --quiet kkt
+  -> exit 0, out "0123abcd\n"
+run      docker inspect --format "{{json .Config}}" 0123abcd
+  -> exit 0, out "{\"Cmd\":[\"serve\",\"--bind\",\"0.0.0.0:7420\"],\"Entrypoint\":[\"/usr/local/bin/kkt\"],\"Env\":[\"HOME=/home/kkt\",\"PATH=/usr/bin\"],\"WorkingDir\":\"/data\"}"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt test -e /home/kkt/.config/kkt/config.toml
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt cat -- /home/kkt/.config/kkt/config.toml
+  -> cannot run: broken pipe
+result   State { files_present: true, running: true, version: Some("0.4.0"), name_pack: Err("container query failed"), sharing: false, login: None }

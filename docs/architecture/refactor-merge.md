@@ -1,0 +1,291 @@
+# Merge `refactor` into `next`
+
+This is the description for the pull request that merges the `refactor`
+branch into `next`. Sam opens it.
+
+## What the refactor did
+
+It reorganized the workspace's crates so that every dependency is
+injected and each crate is one kind: a contract (traits and plain values),
+logic with every effect injected, an effect on the machine, or the
+assembly. Phases 13 and 14 added two kinds that shared a crate, with the
+effect behind a `real` feature; phase 16 took them apart again, so every
+crate is one kind and no crate has a `real` feature. It changed how the
+code is divided, not what kkt does. The plan is
+`docs/architecture/refactor-plan.md`, the decisions behind it are in
+`decisions.md`. The page in `docs/architecture/` shows the code only.
+
+It ran in phases, each step one pull request into `refactor` with the full
+checks passing. Phase 1 laid foundations: hashing, the clock, randomness,
+the stop signal, listening and search each got a crate of their own, and
+kkt-format became kkt-mcp-formatter. Phase 2 moved each operating-system
+implementation into an `-os` crate, which the program adapts to its
+crate's contract. Phase 3 removed kkt-config, giving each item to the crate
+that uses it, and split the config file, the machine's facts and the
+settings into their own crates. Phase 4 split logging into its rules, its
+files and a shared log contract. Phase 5 made kkt-db a contract only,
+merged kkt-store into kkt-rules and made the store private, and put the
+application's operations behind three contract crates: kkt-api-agent,
+kkt-api-operator and kkt-api-admin. Phase 6 moved the web sessions into
+kkt-web, made the page use the kkt-api traits directly, and made the page
+preview a program of its own. Phase 7 moved the last machine work out of
+the programs. Phase 8 made CI check two of the new rules and made the
+map's "Current" view the code again. Phase 9 removed kkt-settings: each
+owner checks and words its own settings, and kkt-server takes them checked.
+Phase 10 moved the program's tools out of its library into two assemblies,
+kkt-operate for the operator's commands and kkt-agent-commands for the
+agents', while the program keeps composing the server. Phase 11 gave kkt-db
+a fast test stand-in, so kkt-rules' tests use no effect crate, and the
+program's tests run the store and the rules on the real backend. Phase 12
+split every third-party dependency into a contract crate in kkt's terms and
+a wrapper named for the tool that implements it directly, which the program
+injects with no adapter: Tailscale, Docker, launchd and systemd, the MCP
+client, git, the doctor's HTTP probe, Claude Code's command and the
+browser opener. Phase 13 merged each of those pairs that has one
+implementation back into one crate named for the scope, of a new kind,
+"contract and effect": the contract in the open, and the implementation
+behind `real`, which only programs turn on. That is container,
+remote-access, browser, lane-commit, probe, agent-client and
+client-command; kkt-service keeps its contract crate, with launchd and
+systemd as two implementations. kkt-machine's unused `Machine` trait went.
+The map draws a merged crate as a split box, and its grey and amber arrows
+now run from the crate that is used or built to the crate that uses or
+builds it.
+
+Phase 14 (Sam, 2026-11-13) did the same for logic: a logic crate and the
+effect crate that only carries out its plans became one crate named for
+the domain, of a new kind, "logic and effect", with the effect behind
+`real`. kkt-backup, kkt-setup and kkt-shutdown took back their `-os`
+crates. kkt-logs took back the log file's writing, and starting tracing,
+the named implementation of kkt-log's contract, became kkt-log-tracing.
+kkt-admission split by domain: who is let in stayed, and the server's keys,
+with their files behind `real`, became kkt-server-keys. Only the programs
+turn on these crates' `real`, so a crate that used only the logic gained
+no access to the effect.
+
+Phase 15 (Sam, 2026-11-15) wrapped three more libraries: `schemars` only in
+kkt-mcp, and kkt-toml, the one crate that reads and edits TOML.
+
+Phase 16 (Sam, 2026-11-15) reversed phases 13 and 14 on purpose. Keeping a
+contract or logic apart from its effect inside one crate by a feature is a
+non-standard middle ground; crates do that job, and the compiler enforces
+them. Four crates moved to the adapter model: the consumer declares the
+contract it needs and holds its stand-in, the crate is a plain effect
+crate, and the program adapts it (kkt-client-command for kkt-client-config,
+kkt-lane-commit for kkt-lane-files, kkt-probe for kkt-diagnostics,
+kkt-browser for kkt-container-docker). Three split into a contract crate
+and a named implementation, as kkt-service always was: kkt-container and
+kkt-container-docker, kkt-remote-access and kkt-remote-access-tailscale,
+kkt-agent-client and kkt-agent-client-mcp. Five took back an `-os` crate:
+kkt-backup, kkt-logs, kkt-setup, kkt-shutdown and kkt-server-keys. Then the
+`real` feature went from every crate. check-crates.sh now fails when a
+crate other than a program depends on an effect crate, or has a `real`
+feature; kinds.py checks that a contract or logic crate touches nothing and
+an effect crate touches the machine; and the map lost its split boxes.
+
+The workspace went from 33 packages to 62 by the end of phase 14, when
+the code matched the proposed map, as amended during the refactor, with no
+difference left (`decisions.md`, "After the refactor"). Phases 15 and 16
+added kkt-toml and the eight crates phase 16 split out, for 71. After
+phase 16, kkt-logs went: its log levels joined kkt-log-tracing, and its
+file rules joined kkt-logs-os, renamed kkt-rolling-file, for 70. Phase
+16's second follow-up made one general file crate, kkt-files, of three,
+and moved kkt-service-os' one function into kkt-listen, for 67. Then
+kkt-server-keys became a contract crate, which kkt-server-keys-os
+implements, and the two were renamed kkt-keys and kkt-keys-os. The fourth
+follow-up dissolved kkt-setup-os, for 66.
+
+## Final scorecard
+
+From `progress.py`, on the code at the end of the refactor (f66b0ab,
+phase 14's last code step merged):
+
+- crates: 62 of 62 proposed crates exist; none missing; none to remove;
+- items: 795 of 795 proposed items are in their proposed crate;
+- arrows: 248 of 248 proposed arrows exist; none missing; none extra;
+- wiring: 102 of 102 proposed wirings exist; none missing; none extra
+  (counted since the proposal's wiring was charted after 13.10; until then
+  the proposal had 42 of the 95 in the code's record, and 21 that record
+  lacked, 7 of them the web preview's, which the record now has);
+- rules: no kind check fails; no break of the proposal's rules.
+
+With every count at its end, the proposal's files and the scorecard
+(`proposed.json`, `proposed-data.js`, `proposal-base-data.js`,
+`config-split.json`, `propose.py`, `progress.py`) were removed (Sam,
+2026-11-15). The checks on the code stay: the kind and rule checks on the
+map, `check-programs.py`, and the map's currency check.
+
+## Effect on existing installs
+
+None. The database, the setup record, the Docker folder and its Compose
+files, service files, keys and key files, the config file and its settings,
+client configs, CLI commands and flags, log files and the MCP tools are as
+they were. Every step's pull request said so and how it checked. The 0.10.0
+migration test (`tests/migrations/v0_10_0.rs`) still answers every pinned
+read and ends up the same as a new database, and the contract tests
+(`tests/contract/`) still pin the tools agents see: no step changed them.
+
+The shared crates' public surface does change, for crates that build on them
+by git such as kkt-pro. CHANGELOG.md's Unreleased section says what a
+dependant must change.
+
+## What this pull request must change in CI
+
+- Remove `refactor` from `.github/workflows/ci.yml`'s branch lists, under
+  both `pull_request` and `push`.
+
+The macOS checks are in the Rust checks' matrix again (#541, Sam,
+2026-11-13), after #501 had taken them out for want of GitHub runners. The
+merge's pull request need not touch them.
+
+The jobs the refactor added stay: the crate outside the workspace that
+builds against the shared crates by git (`outside-crate`), and the check
+that the programs do no machine work (`programs-do-no-machine-work`).
+
+## What to watch on macOS
+
+The macOS checks were off for most of the refactor. #486 turned them back
+on for a while, #501 turned them off again, and #541 turned them on for
+good, after phases 10 to 14 had landed without them. If a macOS run fails,
+look first at the code the refactor touched that decides by platform:
+
+- `crates/kkt-machine-os/src/lib.rs`: `OsMachine::platform` (a free
+  `platform()` from 13.8 until phase 16's third follow-up) says whether
+  this build is macOS or follows XDG. It replaces `Platform::CURRENT` in
+  kkt-settings' `paths.rs`, which is gone. Every path built from `Platform`
+  (the config folder, the data folder, the default database) rests on it.
+- `crates/kkt-browser/src/system.rs`: the program that opens the Tailscale
+  login link (`open` on macOS, `xdg-open` elsewhere), moved from the
+  program's `src/terminal/browser_login.rs` to kkt-terminal-os, then to its
+  own wrapper (12.5d), then into kkt-browser behind `real` (13.3), with its
+  tests.
+- `src/machine/service.rs`: `for_this_os` chooses launchd on macOS and
+  systemd on Linux, and injects kkt-service-launchd's `Launchd` or
+  kkt-service-systemd's `Systemd` (12.3). The choice is unchanged, but the
+  values it reads changed: the home folder and the config base now come
+  from kkt-machine's `Env`, and launchd's wait and retry times from
+  kkt-service-launchd's `Settings`.
+
+Code under `cfg(unix)` also moved, and runs on both systems: file modes
+(kkt-server-keys-os, kkt-backup-os, kkt-files, kkt-container-docker),
+the stop signals (kkt-shutdown-os), the agent credential
+files' owner and mode checks (kkt-agent-files-os), and the closed output
+pipe (kkt-terminal-os).
+
+## How to merge
+
+One pull request, merged with a merge commit, with no force-push, after a
+final review of the whole diff and a full CI run on both systems ("What
+needs Sam", item 6).
+
+## Sam's decisions
+
+`refactor-plan.md` begins with "Sam's decisions": the differences from the
+proposal and the open questions from phases 0 to 11, each with Sam's
+ruling. He ruled on the seven new differences from phases 9 to 11 on
+2026-11-13. The same day he accepted the last row of the plan's
+differences table still open, kkt-agent-files-os (12.4), and said he has
+no further differences to rule on. Each difference was made on purpose,
+with its reason, and none affects an install.
+
+## For the principles template
+
+Sam wants the principles to say, for future projects, that settings are not
+a domain: each component owns its own settings, their defaults and their
+checks, and gathering them for a program is composition, not a component of
+its own. kkt learned this twice, with kkt-config and kkt-settings (phase 9).
+Sam is also considering a note for RUST.md on two points about tests. How
+to handle integration tests: a suite written for its purpose, such as the
+rules against the real database, not coverage hidden in an exception a later
+developer may undo. And that a test stand-in is free to use any tool, the
+real engine's included, since its job is to serve the tests, not to mimic
+the real implementation.
+
+Sam edits the template himself; this pull request does not change
+`principles/`.
+
+### Notes on third-party dependencies, for Sam's edit (nobody edits `principles/`)
+
+From Sam's ruling of 2026-11-12: a third-party dependency is always split
+into a contract crate named for the scope and a wrapper crate named for the
+tool, which implements the contract directly. The program only injects it.
+Phase 13 revised it the same day (note 6): a tool with one implementation
+is one crate named for the scope, the implementation behind `real`. Notes
+1 to 5 stand for a tool with several implementations, as kkt-service has.
+
+1. **3.1.2.1** should say that the wrapping module implements the project's
+   contract directly, and that a parent only injects it: no adapter between
+   them.
+2. **3.3.1** (loose coupling for third-party dependencies) conflicts with
+   3.2.3.1's example, where `vpn-tailscale` implements the `vpn` contract
+   that `network` depends on.
+3. **Where contracts are defined** (section 2 or 3.2), it should say that a
+   contract is in the project's terms, never the tool's: "run `tailscale`
+   with these arguments" is not a contract.
+4. **1.2.1 against 2.3.2** for a single implementation: 1.2.1 names the
+   module for its scope, while 2.3.2 names an implementer of an external
+   contract for the tool. Sam's ruling: always split, and name the wrapper
+   for the tool.
+5. **A wrapper crate is an effect crate that also holds the logic for
+   driving its tool** (Sam's answer to the survey's question 3, msg 3050):
+   kkt-container-docker held both Docker's knowledge and the code that
+   runs `docker` (since 13.1, kkt-container's implementation behind
+   `real`, which holds both still). That sits against principle 4 (a module is one kind) and
+   4.5.2 (complex adapter logic as its own logic module). Sam thinks this
+   may be worth addressing in the principles. His reason for the shape: the
+   scope's contract is the abstraction other developers use, and only
+   whoever works on the wrapper thinks about the tool.
+6. **A consumer-declared dependency costs an adapter in Rust** (from the
+   contract audit, #516). 3.1.1 has the consumer declare each dependency
+   in its own terms, which assumes a language where a type meets an
+   interface by its shape, as in Go. Rust has no such typing: a type meets
+   a trait only through an `impl`, which must sit beside the trait or the
+   type. So a consumer-declared trait always costs a forwarding adapter, a
+   new type with one forwarding method per trait method, in a third crate.
+   For a dependency with one implementation, the shape that fits Rust is
+   one crate that holds the contract (the trait, its records and its
+   stand-in) in the open and the implementation behind a feature, which
+   only programs turn on. A separate contract crate fits a dependency with
+   many consumers or several implementations. 3.2.4 (where stand-ins
+   live), 3.3 (when to use a contract module) and 4 (one kind per module),
+   and RUST.md, should say which shape applies when. This would revise
+   Sam's ruling of 2026-11-12, which always splits a third-party
+   dependency into a contract crate and a named wrapper.
+
+### A note on logic and its effect, for Sam's edit (phase 14)
+
+Principle 4 makes each module one kind. Phase 13 let a contract share a
+crate with its one implementation. Sam extends that to logic (2026-11-13):
+a logic crate and the effect crate that only carries out its plans may be
+one crate, with the effect behind a feature only programs turn on, so the
+logic builds and tests without the effect. Modules follow domains (1.2.3),
+not the kind of code. Split by kind alone, kkt had pairs such as kkt-backup
+and kkt-backup-os, which always change together (1.1.1's tight coupling).
+Principle 4, 1.2.3 and RUST.md should say when kinds may share a module.
+Sam is making this edit himself.
+
+### Phase 16 reverses note 6 and the note on logic and its effect
+
+Sam decided on 2026-11-15 (msg 3367) that a feature keeping a contract or
+logic apart from its effect inside one crate is a non-standard middle
+ground, and that crates do that job. Phase 16 took the merged crates apart
+and removed `real`. So note 6's one-crate shape, and the note on logic and
+its effect above, no longer describe the code: a dependency with one
+implementation is either a contract crate and a named implementation, or a
+consumer-declared contract with an adapter in the program, the cost note 6
+describes. Sam revised `principles/` to match on 2026-11-16: ARCHITECTURE.md
+no longer allows mixed kinds, and RUST.md's rule 12 is gone.
+
+### Candidates to revisit (not decided)
+
+Sam wants these kept to one side, to come back to. None is a rule yet, and
+nobody acts on them.
+
+1. A component takes the value it needs, not a record it reads one field
+   of. (From kkt-config-file and kkt-service taking plain paths in place of
+   kkt-machine's `Env`.)
+2. Duplication that is accidental is not a reason to abstract. (From kkt-db's
+   test stand-in having its own SQL translation, apart from kkt-db-sqlite's.)
+3. In Sam's words, not yet a precise rule: a module with one consumer that
+   simply pulls out related functions is a smell. (From kkt-serve, which was
+   dropped.)

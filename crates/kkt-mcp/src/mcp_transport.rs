@@ -8,7 +8,6 @@
 //! axum routers.
 
 use axum::Router;
-use kkt_config::{MCP_MAX_REQUEST_BYTES, MCP_SSE_KEEP_ALIVE, MCP_SSE_RETRY};
 use kkt_hosts::AllowedHosts;
 use kkt_shutdown::Shutdown;
 use rmcp::ServerHandler;
@@ -16,20 +15,43 @@ use rmcp::transport::streamable_http_server::{
     StreamableHttpServerConfig, StreamableHttpService, session::never::NeverSessionManager,
 };
 use std::sync::Arc;
+use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
+/// Largest MCP request, in bytes. Requests over it get `413 Payload Too Large`.
+const MCP_MAX_REQUEST_BYTES: usize = 4 * 1024 * 1024;
+
+/// How the MCP endpoints' event streams keep in touch with their clients.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// How often an MCP event stream sends a keep-alive ping.
+    pub sse_keep_alive: Duration,
+    /// The reconnect delay an MCP event stream suggests to its client.
+    pub sse_retry: Duration,
+}
+
+impl Settings {
+    /// A ping every 15 seconds, and a suggested reconnect after 3.
+    pub const DEFAULT: Settings = Settings {
+        sse_keep_alive: Duration::from_secs(15),
+        sse_retry: Duration::from_secs(3),
+    };
+}
+
 /// The transport both MCP endpoints share: which browser origins and hosts
-/// they accept, and one cancellation token for rmcp that is cancelled when
-/// the server's [`Shutdown`] stops.
+/// they accept, its [`Settings`], and one cancellation token for rmcp that
+/// is cancelled when the server's [`Shutdown`] stops.
 pub struct Transport {
     allowed_origins: Vec<String>,
     allowed_hosts: Vec<String>,
+    settings: Settings,
     stopped: CancellationToken,
 }
 
 impl Transport {
-    /// A transport that accepts `allowed_origins` and `allowed_hosts`, and
-    /// whose sessions end when `shutdown` stops.
+    /// A transport that accepts `allowed_origins` and `allowed_hosts`, keeps
+    /// its event streams alive as `settings` say, and whose sessions end when
+    /// `shutdown` stops.
     ///
     /// Must be called inside the tokio runtime: it spawns one task that
     /// waits for `shutdown` and then cancels rmcp's token, so sessions learn
@@ -37,6 +59,7 @@ impl Transport {
     pub fn new(
         allowed_origins: Vec<String>,
         allowed_hosts: &AllowedHosts,
+        settings: Settings,
         shutdown: &Shutdown,
     ) -> Transport {
         let stopped = CancellationToken::new();
@@ -49,6 +72,7 @@ impl Transport {
         Transport {
             allowed_origins,
             allowed_hosts: allowed_hosts.entries(),
+            settings,
             stopped,
         }
     }
@@ -78,8 +102,8 @@ impl Transport {
             .with_legacy_session_mode(false)
             // Answer with event streams, never with plain JSON bodies.
             .with_json_response(false)
-            .with_sse_keep_alive(Some(MCP_SSE_KEEP_ALIVE))
-            .with_sse_retry(Some(MCP_SSE_RETRY))
+            .with_sse_keep_alive(Some(self.settings.sse_keep_alive))
+            .with_sse_retry(Some(self.settings.sse_retry))
             .with_allowed_hosts(self.allowed_hosts.clone())
             // Refuse any browser origin not listed, even when the list is empty.
             .with_allowed_origins(self.allowed_origins.clone())
@@ -100,7 +124,12 @@ mod tests {
     #[tokio::test]
     async fn stopping_the_server_cancels_the_token_given_to_rmcp() {
         let shutdown = Shutdown::new();
-        let transport = Transport::new(Vec::new(), &AllowedHosts::any(), &shutdown);
+        let transport = Transport::new(
+            Vec::new(),
+            &AllowedHosts::any(),
+            Settings::DEFAULT,
+            &shutdown,
+        );
         let token = transport.config().cancellation_token;
         assert!(!token.is_cancelled());
         shutdown.stop();

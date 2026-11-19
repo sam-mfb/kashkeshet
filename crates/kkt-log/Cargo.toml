@@ -1,0 +1,12 @@
+[package]
+name = "kkt-log"
+description = "The shared contract for structured log events"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# An in-memory event recorder for tests.
+testing = []

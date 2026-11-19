@@ -30,15 +30,26 @@ Where each part of the map comes from:
   name is kept apart, as the arrow's test-only items. This reads names, not
   types: an item used only through a method call, a trait's methods or a
   derive does not show.
-- Contracts, slots and the role of each arrow (implements, uses, wires):
+- Contracts, slots and the role of each arrow (implements, adapts, uses,
+  wires; adapts where the implementer is a composition crate):
   rustdoc's JSON again. Trait impls come from a second build with private
   items, so an impl by a private type counts; the page names such a type
   only as "a type of its own". Slots are public parameters and fields
-  typed as a workspace trait, or as a type that holds one. See the README.
-- Each crate's concern, its layer, its kind and what it must not do:
+  typed as a workspace trait, or as a type that holds one; and, kept
+  apart as `foreign`, public parameters and fields typed as a trait from
+  outside the workspace, which wiring may fill. See the README.
+- Each crate's concern, its layer and its kind:
   written by hand in `concerns.json`, from CLAUDE.md and the crates' own
   docs. `kinds.py` checks each kind against what the map shows of the
   crate, and the mismatches are reported on the page, not corrected.
+- Where the code breaks the rules that rest on the kinds (only programs and
+  compositions depend on an effect; a crate implements another crate's
+  trait only if that crate is a contract; no crate is mixed):
+  `kinds.rule_breaks`, on the code and the kinds in `concerns.json`.
+  Reported on the page beside the kind checks.
+- Which crates are drawn together, a head crate with its partners stacked
+  under it: `groups.groups`, from the trait impls and the layers in
+  `concerns.json`. No group is written by hand.
 - How each program assembles the server: written by hand in
   `assembly.json`, whose every item is checked against the public items.
 """
@@ -55,6 +66,7 @@ ROOT = HERE.parent.parent
 # kinds.py sits beside this script; `python3 -I` leaves this folder off the
 # path, so it is put there by name.
 sys.path.insert(0, str(HERE))
+import groups  # noqa: E402
 import kinds  # noqa: E402
 TARGET = ROOT / "target" / "architecture-map"
 ITEM_KINDS = {
@@ -240,6 +252,26 @@ def resolve(doc, item_id):
     return crate_of(doc, entry["crate_id"]), entry["path"][-1], entry["kind"]
 
 
+def full_path(doc, item_id):
+    """The full path rustdoc gives the item `item_id` names (`std::io::Write`):
+    how a trait from outside the workspace is named, carried with the trait
+    itself so two traits of one name never share it."""
+    entry = doc["paths"].get(str(item_id))
+    return "::".join(entry["path"]) if entry else None
+
+
+# Traits from outside the workspace that never make a slot an injection
+# point: markers, derives, conversions and futures. A value of such a trait
+# is a plain value, not another crate's work handed in. A function trait
+# (`Fn`) is kept: a slot that takes one becomes an injection point only
+# where a program's wiring hands it another crate's function.
+FOREIGN_PLAIN = {"Send", "Sync", "Sized", "Unpin", "Copy", "Clone", "Debug", "Display", "Default",
+                 "PartialEq", "Eq", "PartialOrd", "Ord", "Hash", "Future",
+                 "Into", "From", "AsRef", "AsMut", "Borrow", "ToString", "ToOwned", "Iterator",
+                 "IntoIterator", "Error", "Serialize", "Deserialize", "DeserializeOwned", "Any"}
+FUNCTION_TRAITS = {"core::ops::function::Fn", "core::ops::function::FnMut", "core::ops::function::FnOnce"}
+
+
 def generic_bounds(generics):
     """Each generic parameter's trait bounds, as trait IDs."""
     bounds = {}
@@ -298,17 +330,23 @@ def signatures(doc, items, ids):
     index = doc["index"]
     takes, gives = [], []
 
-    def function(owner, item):
+    def function(owner, item, trait_method=False):
         f = item["inner"]["function"]
         bounds = generic_bounds(f["generics"])
         for name, ty in f["sig"]["inputs"]:
-            if name == "self":
+            # A trait's operations give values, not slots: what they take is
+            # the implementer's business.
+            if name == "self" or trait_method:
                 continue
             traits, types = type_refs(ty, bounds)
             takes.append({"at": owner, "name": name, "kind": "param", "traits": traits, "types": types})
         if f["sig"].get("output") is not None:
-            _, types = type_refs(f["sig"]["output"], bounds)
-            entry = {"at": owner, "types": types}
+            # The traits it gives back count too: a factory may return
+            # another crate's contract as a trait object (`-> Arc<dyn Backend>`).
+            out_traits, types = type_refs(f["sig"]["output"], bounds)
+            entry = {"at": owner, "types": types + out_traits}
+            if trait_method:
+                entry["trait_method"] = True
             # `-> Self` (or `Result<Self, _>`) gives back the owner type.
             if '"generic": "Self"' in json.dumps(f["sig"]["output"]):
                 entry["self"] = True
@@ -321,6 +359,12 @@ def signatures(doc, items, ids):
         kind = next(iter(item["inner"]))
         if kind == "function":
             function(path, item)
+        elif kind == "trait":
+            # A contract's operations, for the values they give back.
+            for method_id in item["inner"]["trait"]["items"]:
+                method = index.get(str(method_id))
+                if method and "function" in method["inner"]:
+                    function(f"{path}::{method['name']}", method, trait_method=True)
         elif kind in ("struct", "enum"):
             inner = item["inner"][kind]
             shape = inner.get("kind")
@@ -341,6 +385,9 @@ def signatures(doc, items, ids):
                         function(f"{path}::{method['name']}", method)
     resolve_ids = lambda xs: [r for r in (resolve(doc, x) for x in xs) if r]
     for entry in takes:
+        # Each trait's full path beside it, for traits from outside the
+        # workspace, which have no public item here to name them by.
+        entry["trait_paths"] = [(r, full_path(doc, x)) for x in entry["traits"] for r in [resolve(doc, x)] if r]
         entry["traits"] = resolve_ids(entry["traits"])
         entry["types"] = resolve_ids(entry["types"])
     for entry in gives:
@@ -352,7 +399,8 @@ def signatures(doc, items, ids):
 
 def trait_impls(doc):
     """Every impl in the crate of a trait: (trait's library, trait name, the
-    implementing type's name or None when it is not a named type)."""
+    implementing type's name or None when it is not a named type, the
+    trait's full path)."""
     found = []
     for item in doc["index"].values():
         if item.get("crate_id") != 0 or "impl" not in item["inner"]:
@@ -369,7 +417,7 @@ def trait_impls(doc):
             resolved = resolve(doc, target["resolved_path"]["id"])
             if resolved and resolved[0] == crate_of(doc, 0):
                 name = resolved[1]
-        found.append((trait[0], trait[1], name))
+        found.append((trait[0], trait[1], name, full_path(doc, impl["trait"]["id"])))
     return found
 
 
@@ -401,6 +449,72 @@ def test_module_files(package_dir, files):
     return found
 
 
+def behind_testing(cfg):
+    """Whether a `#[cfg(...)]` condition can hold only for tests or the
+    crate's own `testing` feature, which only tests turn on: `test` or
+    `feature = "testing"`; an `all(...)` with such a part (`all(test,
+    unix)`); an `any(...)` whose every part is such."""
+    cfg = re.sub(r"\s+", "", cfg)
+    if cfg in ("test", 'feature="testing"'):
+        return True
+    for op in ("all", "any"):
+        if cfg.startswith(op + "(") and cfg.endswith(")"):
+            parts, depth, last = [], 0, len(op) + 1
+            for i, ch in enumerate(cfg[last:-1], start=last):
+                depth += {"(": 1, ")": -1}.get(ch, 0)
+                if ch == "," and depth == 0:
+                    parts.append(cfg[last:i])
+                    last = i + 1
+            parts.append(cfg[last:-1])
+            parts = [x for x in parts if x]
+            if not parts:
+                return False
+            return any(map(behind_testing, parts)) if op == "all" else all(map(behind_testing, parts))
+    return False
+
+
+def testing_module_files(package_dir, files):
+    """Files declared as modules only tests or `testing` bring (a stand-in),
+    every file in such a module's folder, and every module within, included.
+    Their machine work is test support's, not the crate's (kinds.py)."""
+    found = set()
+    for path in files:
+        text = path.read_text()
+        for match in re.finditer(r"#\[cfg\(((?:[^()]|\([^()]*\))*)\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", text):
+            if not behind_testing(match.group(1)):
+                continue
+            name = match.group(2)
+            base = path.parent if path.name in ("lib.rs", "main.rs", "mod.rs") else path.parent / path.stem
+            for sub in (base / f"{name}.rs", base / name / "mod.rs"):
+                if sub.exists():
+                    found.add(sub)
+            if (base / name).is_dir():
+                found.update((base / name).rglob("*.rs"))
+    while True:
+        more = set()
+        for path in found:
+            for match in re.finditer(r"(?:pub(?:\([^)]*\))?\s+)?mod\s+(\w+)\s*;", path.read_text()):
+                name = match.group(1)
+                base = path.parent if path.name in ("lib.rs", "main.rs", "mod.rs") else path.parent / path.stem
+                if (base / f"{name}.rs").exists():
+                    more.add(base / f"{name}.rs")
+                if (base / name).is_dir():
+                    more.update((base / name).rglob("*.rs"))
+        if more <= found:
+            return found
+        found |= more
+
+
+def machine_work_in(text):
+    """The machine work a file's own code does, its tests already split off
+    (kinds.py): std's and tokio's, the print macros, and `Path` probes."""
+    work = sorted(p for p in uses_in(text, "std") if kinds.is_std_io(p))
+    work += sorted(f"tokio::{p}" for p in uses_in(text, "tokio") if kinds.is_tokio_io(p))
+    work += sorted(f"{m}!" for m in set(re.findall(r"\b(\w+)!", text)) if m in kinds.PRINT_MACROS)
+    work += kinds.path_probes(text)
+    return work
+
+
 def file_kind(package_dir, path, test_files):
     if path in test_files:
         return "dev"
@@ -415,24 +529,63 @@ def file_kind(package_dir, path, test_files):
 
 
 def split_test_modules(text):
-    """`text` without its `#[cfg(test)]` modules, and those modules' text."""
+    """`text` without its test code, and that code's text. Test code is
+    every item under `#[cfg(test)]`, or under a condition that holds only
+    for tests or the crate's own `testing` feature (`behind_testing`),
+    which only tests turn on: a module, a function, a `use`, a
+    field. What a crate names only there belongs to its test arrow, never
+    to a role of its code arrow."""
     normal, tests = [], []
     pos = 0
-    for match in re.finditer(r"#\[cfg\(test\)\]\s*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*\{", text):
+    for match in re.finditer(r"#\[cfg\(", text):
         if match.start() < pos:
             continue
-        depth, i = 1, match.end()
+        cond_start = match.end()
+        depth, i = 1, cond_start
         while i < len(text) and depth:
-            if text[i] == "{":
-                depth += 1
-            elif text[i] == "}":
-                depth -= 1
+            depth += {"(": 1, ")": -1}.get(text[i], 0)
             i += 1
+        cond = text[cond_start:i - 1]
+        if not behind_testing(cond):
+            continue
+        end = item_end(text, text.index("]", i - 1) + 1)
         normal.append(text[pos:match.start()])
-        tests.append(text[match.start():i])
-        pos = i
+        tests.append(text[match.start():end])
+        pos = end
     normal.append(text[pos:])
     return "".join(normal), "".join(tests)
+
+
+def item_end(text, i):
+    """Where the item that starts at `i` (after its `#[cfg]`) ends: past
+    any further attributes, at its `;` or its field's `,`, or past its
+    closing brace; or before the brace that closes what holds it."""
+    depth = 0
+    while i < len(text):
+        ch = text[i]
+        if ch == "#" and depth == 0 and text.startswith("#[", i):
+            i = text.index("]", i) + 1
+            continue
+        if ch in "([":
+            depth += 1
+        elif ch in ")]":
+            depth -= 1
+        elif ch == "<" and depth >= 0:
+            depth += 1
+        elif ch == ">" and text[i - 1] not in "-=" and depth > 0:
+            depth -= 1
+        elif ch == "{" and depth == 0:
+            braces, i = 1, i + 1
+            while i < len(text) and braces:
+                braces += {"{": 1, "}": -1}.get(text[i], 0)
+                i += 1
+            return i
+        elif ch == "}" and depth == 0:
+            return i
+        elif ch in ";," and depth == 0:
+            return i + 1
+        i += 1
+    return i
 
 
 def strip_comments(text):
@@ -558,7 +711,10 @@ def main():
                 feature_doc = rustdoc(name, lib, feature)
                 _, with_feature, feature_ids = public_items(feature_doc)
                 more_takes, more_gives = signatures(feature_doc, with_feature, feature_ids)
-                takes += [t for t in more_takes if t not in takes]
+                # A slot only a feature brings (a stand-in behind
+                # `testing`) records that feature (kinds.py).
+                takes += [dict(t, feature=feature) for t in more_takes
+                          if not any({k: v for k, v in x.items() if k != "feature"} == t for x in takes)]
                 gives += [g for g in more_gives if g not in gives]
                 for path, entry in with_feature.items():
                     if path not in items:
@@ -586,8 +742,16 @@ def main():
         contracts_raw[name] = {"takes": takes, "gives": gives, "impls": impls}
         meta_kkt = (p.get("metadata") or {}).get("kkt") or {}
         meta_dist = (p.get("metadata") or {}).get("dist") or {}
-        third_party = sorted({d["name"] for d in p["dependencies"]
-                              if d["name"] not in packages and d["kind"] is None})
+        # A third-party dependency that only the package's `testing` turns
+        # on (kkt-db's rusqlite, for its SQLite-backed stand-in) is test
+        # code's, never a release's: it is recorded apart, so it does not
+        # make the package an I/O crate (kinds.py).
+        def testing_only(d):
+            return testing_only_dependency(p["features"], d)
+        normal_third_party = [d for d in p["dependencies"]
+                              if d["name"] not in packages and d["kind"] is None]
+        third_party = sorted({d["name"] for d in normal_third_party if not testing_only(d)})
+        testing_third_party = sorted({d["name"] for d in normal_third_party if testing_only(d)})
         crates.append({
             "name": name,
             "lib": lib,
@@ -598,6 +762,7 @@ def main():
             "features": {f: v for f, v in p["features"].items() if f != "default"},
             "crate_doc": doc_summary,
             "third_party": third_party,
+            "testing_third_party": testing_third_party,
             "items": sorted(items.values(), key=lambda e: e["path"]),
         })
 
@@ -612,24 +777,39 @@ def main():
         files = list(rust_files(package_dir, nested))
         test_files = test_module_files(package_dir, files)
         machine_work = {}
+        stand_ins = testing_module_files(package_dir, files)
         for path in files:
             text = strip_comments(path.read_text())
             kind = file_kind(package_dir, path, test_files)
+            # A module only tests or the crate's own `testing` feature
+            # bring is test code, all of it.
+            if kind == "normal" and path in stand_ins:
+                kind = "dev"
             if kind == "normal":
                 text, tests = split_test_modules(text)
                 texts["dev"] += tests
-                # The machine work the file's own code does (kinds.py).
-                work = sorted(p for p in uses_in(text, "std") if kinds.is_std_io(p))
-                work += sorted(f"{m}!" for m in set(re.findall(r"\b(\w+)!", text)) if m in kinds.PRINT_MACROS)
-                if work:
+                work = machine_work_in(text)
+                if work and path not in stand_ins:
                     machine_work[str(path.relative_to(package_dir))] = work
             texts[kind] += text
         crate_of_name[name]["machine_work"] = machine_work
-        normal_deps = {d["name"] for d in p["dependencies"] if d["kind"] is None}
+        # A workspace dependency only the package's own `testing` feature
+        # turns on is a test dependency: it is drawn as a test arrow only,
+        # with no code arrow.
+        def kind_of_dep(d):
+            if d["kind"] is None and testing_only_dependency(p["features"], d):
+                return "dev"
+            return d["kind"] or "normal"
+        normal_deps = {d["name"] for d in p["dependencies"] if kind_of_dep(d) == "normal"}
+        seen = set()
         for dep in p["dependencies"]:
             if dep["name"] not in packages:
                 continue
-            kind = dep["kind"] or "normal"
+            kind = kind_of_dep(dep)
+            # The same crate as a dev-dependency too gives one test arrow.
+            if (dep["name"], kind) in seen:
+                continue
+            seen.add((dep["name"], kind))
             # A dev-dependency can only be used in test code, wherever that
             # sits (a `#[cfg(test)]` item outside a test module, too); its
             # arrow takes every use, unless the same crate is also a normal
@@ -679,17 +859,35 @@ def main():
         sys.exit(f"concerns.json gives no kind, or one kinds.py does not know, to: {', '.join(no_kind)}")
 
     package_of_lib = {lib: name for name, lib in lib_names.items()}
-    add_contracts(crates, edges, items_of, contracts_raw, package_of_lib)
+    add_contracts(crates, edges, items_of, contracts_raw, package_of_lib, kind_of)
     assembly = json.loads((HERE / "assembly.json").read_text())
-    check_assembly(assembly, items_of, packages, {c["name"]: c["slots"] for c in crates})
+    check_assembly(assembly, items_of, packages, {c["name"]: c["slots"] for c in crates},
+                   {c["name"]: c.get("foreign_implements", []) for c in crates},
+                   {"not_passed_on": pass_through_candidates(crates, edges)
+                    + [v for v in value_candidates(crates, edges, kind_of)
+                       if v not in pass_through_candidates(crates, edges)]
+                    + own_slot_candidates(crates, assembly),
+                    "not_filled": program_fill_candidates(crates, edges)},
+                   {c["name"]: {p["value"]: p["operations"] for p in c.get("produces", [])} for c in crates},
+                   {c["name"]: c["implements"] for c in crates})
 
     mismatches, _ = kinds.check(crates, edges, kind_of, mixed_allowed=True)
     for m in mismatches:
         print(f"kind: {m}", file=sys.stderr)
+    breaks = kinds.rule_breaks(crates, edges, kind_of, {n: c["layer"] for n, c in concerns["crates"].items()})
+    for b in breaks:
+        print(f"rule: {b}", file=sys.stderr)
+    drawn_together = groups.groups(crates, {n: c["layer"] for n, c in concerns["crates"].items()}, kind_of)
 
     commit = run(["git", "rev-parse", "--short", "HEAD"]).strip()
     out = HERE / "map-data.js"
-    text = render(commit, crates, edges, concerns, assembly, mismatches)
+    # --out PATH writes the map elsewhere, leaving map-data.js as it is
+    # (check-programs.py builds its own map this way).
+    args = sys.argv[1:]
+    if "--out" in args:
+        out = Path(args[args.index("--out") + 1]).resolve()
+        out.parent.mkdir(parents=True, exist_ok=True)
+    text = render(commit, crates, edges, concerns, assembly, mismatches, breaks, drawn_together)
     if "--check" in sys.argv[1:]:
         current = out.read_text() if out.exists() else ""
         if without_commit(current) != without_commit(text):
@@ -698,12 +896,14 @@ def main():
         print("docs/architecture/map-data.js is current", file=sys.stderr)
         return
     out.write_text(text)
-    print(f"wrote {out.relative_to(ROOT)}: {len(crates)} crates, {len(edges)} arrows, "
+    shown = out.relative_to(ROOT) if out.is_relative_to(ROOT) else out
+    print(f"wrote {shown}: {len(crates)} crates, {len(edges)} arrows, "
           f"{sum(len(c['items']) for c in crates)} public items, at {commit}", file=sys.stderr)
 
 
-def render(commit, crates, edges, concerns, assembly, kind_mismatches):
-    graph = {"commit": commit, "crates": crates, "edges": edges, "kind_mismatches": kind_mismatches}
+def render(commit, crates, edges, concerns, assembly, kind_mismatches, rule_breaks, drawn_together):
+    graph = {"commit": commit, "crates": crates, "edges": edges, "kind_mismatches": kind_mismatches,
+             "rule_breaks": rule_breaks, "groups": drawn_together}
     return (
         "// Generated by docs/architecture/generate.py from cargo metadata, rustdoc's\n"
         "// JSON and the crates' sources; the concerns come from concerns.json and the\n"
@@ -715,13 +915,53 @@ def render(commit, crates, edges, concerns, assembly, kind_mismatches):
     )
 
 
-ROLE_ORDER = ["implements", "uses", "wires"]
+ROLE_ORDER = ["implements", "adapts", "uses", "wires"]
 
 
-def add_contracts(crates, edges, items_of, raw, package_of_lib):
+def testing_only_dependency(features, dep):
+    """Whether a normal dependency is one only the package's own `testing`
+    feature turns on: optional, and enabled by `testing` and no other
+    feature. Only tests turn `testing` on, so it is a test
+    dependency: kkt-db's kkt-search, kept for its stand-ins."""
+    if not dep.get("optional"):
+        return False
+    key = dep.get("rename") or dep["name"]
+    on_by = [f for f, wants in features.items()
+             if any(w == f"dep:{key}" or w == key or w.startswith(f"{key}/")
+                    or w.startswith(f"{key}?/") for w in wants)]
+    return bool(on_by) and all(f == "testing" for f in on_by)
+
+
+def factory_gives(own, types, package_of_lib, public, holders, implementing):
+    """What a public function of a type in crate `own` gives back that makes
+    the type a factory: another crate's holder or implementation (a struct
+    or enum), or another crate's contract itself, as a trait object
+    (`SqlitePlace::open` gives an `Arc<dyn kkt_db::Backend>`). `types` are
+    the (library, name, kind) the function's return type names."""
+    out = []
+    for lib, name, kind in types:
+        pkg = package_of_lib.get(lib)
+        if not pkg or pkg == own:
+            continue
+        if kind == "trait":
+            path = public(pkg, name, {"trait"})
+            if path:
+                out.append({"crate": pkg, "type": path})
+            continue
+        path = public(pkg, name, {"struct", "enum"})
+        if path and ((pkg, path) in holders or (pkg, path) in implementing):
+            out.append({"crate": pkg, "type": path})
+    return out
+
+
+def add_contracts(crates, edges, items_of, raw, package_of_lib, kind_of):
     """Adds to each crate the contracts it defines and implements and the
     slots it takes, and to each arrow its roles. Everything here comes from
-    rustdoc's JSON (`raw`), matched to the public items by name."""
+    rustdoc's JSON (`raw`), matched to the public items by name. A
+    composition crate's own type that meets another crate's trait is an
+    adapter it injects, not an implementation of a contract: its arrow's
+    role is "adapts", by the implementer's kind in
+    `kind_of`."""
     by_name = {c["name"]: c for c in crates}
 
     def public(package, name, kinds):
@@ -734,7 +974,7 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
     # Which traits each crate implements, and for which public type.
     implementations = []
     for package, data in raw.items():
-        for trait_lib, trait_name, type_name in data["impls"]:
+        for trait_lib, trait_name, type_name, _ in data["impls"]:
             owner = package_of_lib.get(trait_lib)
             if owner is None:
                 continue
@@ -763,6 +1003,35 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
                 if path:
                     out.append({"crate": owner, "trait": path})
         return out
+
+    def foreign_traits(entry):
+        """The traits from outside the workspace a slot takes, apart from
+        FOREIGN_PLAIN, by their full path (`std::io::Write`)."""
+        return sorted({full for (lib, name, kind), full in entry.get("trait_paths", [])
+                       if kind == "trait" and lib and full and package_of_lib.get(lib) is None and name not in FOREIGN_PLAIN})
+
+    # What each contract's operations give back that another crate may be
+    # handed: a public struct or enum of the contract's own crate returned
+    # by one of its traits' methods (`Machine::env` gives an `Env`), where
+    # an effect crate implements that trait, so the value is one the
+    # machine or the world gave. Error and failure types are left out:
+    # they are a call's answer, not a value handed on. So are values whose
+    # trait only logic or a program's own adapter implements (the kkt-api
+    # records, which kkt-rules gives): they are work done inside the
+    # system, not a value it was given.
+    produced = {}
+    for package, data in raw.items():
+        lib = next((l for l, pkg in package_of_lib.items() if pkg == package), None)
+        for entry in data["gives"]:
+            if not entry.get("trait_method"):
+                continue
+            for l, name, kind in entry["types"]:
+                path = public(package, name, {"struct", "enum"}) if l == lib and kind in ("struct", "enum") else None
+                trait = entry["at"].rsplit("::", 1)[0]
+                by_effect = any(i["trait_crate"] == package and i["trait"] == trait and kind_of.get(i["crate"]) == "effect"
+                                for i in implementations)
+                if path and by_effect and not name.endswith(("Error", "Failure")):
+                    produced.setdefault((package, path), set()).add(entry["at"])
 
     holders = {}
     for _ in range(3):
@@ -799,14 +1068,31 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
                 path = public(pkg, name, {"struct", "enum"}) if pkg else None
                 if path and (pkg, path) in holders and (pkg, path) != (c["name"], entry["at"].rsplit("::", 1)[0]):
                     holds.append({"crate": pkg, "type": path, "traits": holders[(pkg, path)]})
-            if traits or holds:
+            # A slot typed as a trait from outside the workspace (a
+            # `Box<dyn std::io::Write>`): kept apart, as `foreign`, since
+            # only a program's wiring makes it an injection point.
+            foreign = foreign_traits(entry)
+            # A value a contract's operation produced, taken by another
+            # crate: kept apart as `values`, shown where wiring fills it.
+            values = sorted({f"{pkg}::{path}" for lib, name, kind in entry["types"]
+                             for pkg in [package_of_lib.get(lib)] if pkg and pkg != c["name"]
+                             for path in [public(pkg, name, {"struct", "enum"})] if path and (pkg, path) in produced})
+            if traits or holds or foreign or values:
                 slot = {"at": entry["at"], "name": entry["name"], "kind": entry["kind"], "traits": traits}
+                if foreign:
+                    slot["foreign"] = foreign
+                if values:
+                    slot["values"] = values
+                if entry.get("feature"):
+                    slot["feature"] = entry["feature"]
                 if holds:
                     slot["holds"] = holds
                 if slot not in slots:
                     slots.append(slot)
         c["slots"] = sorted(slots, key=lambda s: (s["at"], s["name"]))
         c["implements"] = [i for i in implementations if i["crate"] == c["name"]]
+        c["produces"] = sorted(({"value": path, "operations": sorted(ops)} for (pkg, path), ops in produced.items()
+                                if pkg == c["name"]), key=lambda v: v["value"])
         c["contracts"] = []
         for item in c["items"]:
             if item["kind"] != "trait":
@@ -820,21 +1106,53 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
         c["_gives"] = data["gives"]
 
     implementing = {(i["crate"], i["type"]) for i in implementations if i["type"]}
+    # The workspace's public types that implement a trait from outside the
+    # workspace that some public slot takes (kkt-rolling-file's
+    # `RotatingFile` is a `std::io::Write`, which kkt-log-tracing's
+    # `init_logging` takes): such a type is an implementation too.
+    taken = {t for c in crates for slot in c["slots"] for t in slot.get("foreign", [])}
+    for c in crates:
+        found = []
+        for trait_lib, trait_name, type_name, full in raw.get(c["name"], {}).get("impls", []):
+            type_path = public(c["name"], type_name, {"struct", "enum"}) if type_name else None
+            if package_of_lib.get(trait_lib) is None and full in taken and type_path:
+                if {"type": type_path, "trait": full} not in found:
+                    found.append({"type": type_path, "trait": full})
+        c["foreign_implements"] = sorted(found, key=lambda i: (i["trait"], i["type"]))
+        implementing |= {(c["name"], i["type"]) for i in found}
     # A type's constructors: its public functions that give back the type
     # itself (`KeyMode::new`, `Remote::from_client`).
     constructors = {}
     for c in crates:
         lib = next((l for l, pkg in package_of_lib.items() if pkg == c["name"]), None)
         for entry in c["_gives"]:
+            if entry.get("trait_method"):
+                continue
             if "::" not in entry["at"]:
                 continue
             owner_type, method = entry["at"].rsplit("::", 1)
             if is_type(c["name"], owner_type) and any(
                     l == lib and n == owner_type.split("::")[-1] for l, n, _ in entry["types"]):
                 constructors.setdefault((c["name"], owner_type), set()).add(method)
+    # A crate's free functions that give back an implementation of its own:
+    # calling one builds it (`open_log_file` gives a `RotatingFile`).
+    building_fns = set()
+    for c in crates:
+        lib = next((l for l, pkg in package_of_lib.items() if pkg == c["name"]), None)
+        for entry in c["_gives"]:
+            if entry.get("trait_method"):
+                continue
+            owner = entry["at"].rsplit("::", 1)[0] if "::" in entry["at"] else None
+            if owner and is_type(c["name"], owner):
+                continue
+            if any(l == lib and (c["name"], public(c["name"], n, {"struct", "enum"})) in implementing
+                   for l, n, _ in entry["types"]):
+                building_fns.add((c["name"], entry["at"]))
     factories = {}
     for c in crates:
         for entry in c["_gives"]:
+            if entry.get("trait_method"):
+                continue
             owner_type = entry["at"].rsplit("::", 1)[0] if "::" in entry["at"] else None
             if owner_type is None or not is_type(c["name"], owner_type):
                 continue
@@ -842,17 +1160,14 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
             # not build it (`Db` and its `Database`).
             if (c["name"], owner_type) in holders:
                 continue
-            for lib, name, kind in entry["types"]:
-                pkg = package_of_lib.get(lib)
-                path = public(pkg, name, {"struct", "enum"}) if pkg else None
-                if pkg and pkg != c["name"] and (path and ((pkg, path) in holders or (pkg, path) in implementing)):
-                    made = factories.setdefault((c["name"], owner_type), [])
-                    if {"crate": pkg, "type": path} not in made:
-                        made.append({"crate": pkg, "type": path})
+            for gives in factory_gives(c["name"], entry["types"], package_of_lib, public, holders, implementing):
+                made = factories.setdefault((c["name"], owner_type), [])
+                if gives not in made:
+                    made.append(gives)
     for c in crates:
         del c["_gives"]
         # Its public types that build another crate's implementation or
-        # holder (`SqlitePlace` gives a `kkt_db::Database`).
+        # holder or contract (`SqlitePlace` gives a `dyn kkt_db::Backend`).
         c["builds"] = [{"type": t, "gives": made} for (pkg, t), made in sorted(factories.items())
                        if pkg == c["name"]]
         c["holders"] = [{"type": t, "holds": held} for (pkg, t), held in sorted(holders.items())
@@ -866,7 +1181,8 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
         roles = []
         implemented = [i for i in implementations if i["crate"] == e["from"] and i["trait_crate"] == e["to"]]
         if implemented and e["kind"] == "normal":
-            roles.append({"role": "implements", "detail": [
+            role = "adapts" if kind_of.get(e["from"]) == "composition" else "implements"
+            roles.append({"role": role, "detail": [
                 f"{i['type'] or 'a type of its own'} implements {i['trait']}" for i in implemented]})
         traits_implemented = {i["trait"] for i in implemented}
         wiring, other = [], []
@@ -882,6 +1198,9 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
             # is using it.
             made = constructors.get(key)
             built = any(f"{path}::{m}" in e["_paths"] for m in made) if made else True
+            if key in building_fns:
+                wiring.append(path)
+                continue
             if (key in implementing or key in factories or key in holders) and built:
                 if key in holders and not made:
                     other.append(path)
@@ -905,27 +1224,241 @@ def add_contracts(crates, edges, items_of, raw, package_of_lib):
         del e["_paths"]
 
 
-def check_assembly(assembly, items_of, packages, slots_of):
-    """Fails if assembly.json names a program, an item or a slot that is not
-    there."""
+def value_candidates(crates, edges, kind_of):
+    """Where a composition crate that is not a program may hand a value a
+    contract's operation produced to another crate: it depends on the
+    contract's crate and names the receiver's slot that takes the value. A
+    program's are among `program_fill_candidates`."""
+    by_name = {c["name"]: c for c in crates}
+    depends = {(e["from"], e["to"]) for e in edges if e["kind"] == "normal"}
+    found = []
+    for e in edges:
+        a, b = by_name.get(e["from"]), by_name.get(e["to"])
+        if e["kind"] != "normal" or not a or not b or a["bins"] or kind_of.get(a["name"]) != "composition":
+            continue
+        for slot in b["slots"]:
+            if slot["at"].startswith("testing"):
+                continue
+            owner = slot["at"].rsplit("::", 1)[0] if "::" in slot["at"] else None
+            if not (slot["at"] in e["items"] or owner in e["items"]):
+                continue
+            for value in slot.get("values", []):
+                if (a["name"], value.split("::", 1)[0]) in depends:
+                    found.append({"crate": a["name"], "to": b["name"], "at": slot["at"], "param": slot["name"]})
+    return [dict(t) for t in {tuple(sorted(c.items())) for c in found}]
+
+
+def program_fill_candidates(crates, edges):
+    """Where a program may fill a slot: it depends in code on the slot's
+    crate and names the slot, or the item the slot belongs to, and the slot
+    takes a workspace contract, a value a contract's operation produced, or
+    a trait from outside the workspace that the wiring check can verify.
+    Testing slots are left out. A candidate is confirmed by reading the
+    call, and assembly.json records each, as wiring or in not_filled."""
+    by_name = {c["name"]: c for c in crates}
+    found = []
+    for e in edges:
+        a, b = by_name.get(e["from"]), by_name.get(e["to"])
+        if e["kind"] != "normal" or not a or not b or not a["bins"]:
+            continue
+        for slot in b["slots"]:
+            if slot["at"].startswith("testing"):
+                continue
+            if not (slot["traits"] or slot.get("values") or slot.get("foreign")):
+                continue
+            owner = slot["at"].rsplit("::", 1)[0] if "::" in slot["at"] else None
+            if slot["at"] in e["items"] or owner in e["items"]:
+                found.append({"crate": a["name"], "to": b["name"], "at": slot["at"], "param": slot["name"]})
+    return found
+
+
+def own_slot_candidates(crates, assembly):
+    """Where a crate other than a program may put a contract it was given
+    into a slot of its own: wiring fills one of its slots, and another of
+    its slots, on another item and filled by nothing, takes the same
+    contract. A type's constructor and its fields count as one item.
+    Testing slots, and values passed between a crate's own functions, are
+    left out. Each is wired (a passes_on into the crate itself) or listed
+    in not_passed_on with why."""
+    flows = list(assembly["programs"].items()) + list(assembly.get("injectors", {}).items())
+    filled = {(w["crate"], t["at"], t["param"]) for _, flow in flows for w in flow.get("wiring", []) for t in w["to"]}
+    # What another crate gives it; what it puts into its own slots is not.
+    from_outside = {(w["crate"], t["at"], t["param"]) for injector, flow in flows for w in flow.get("wiring", [])
+                    if w["crate"] != injector for t in w["to"]}
+    def owner(at):
+        """The item a slot is on: a type's constructor and fields are the
+        type (`lanes::LocalLanes::new` is on `lanes::LocalLanes`); a function
+        is itself (`lanes::run`)."""
+        parts = at.split("::")
+        return "::".join(parts[:-1]) if len(parts) > 1 and parts[-2][:1].isupper() else at
+
+    def takes(slot):
+        return {f"{t['crate']}::{t['trait']}" for t in slot["traits"]}
+
+    found = []
+    for c in crates:
+        if c["bins"]:
+            continue
+        slots = [s for s in c["slots"] if not s["at"].startswith("testing")]
+        given = [s for s in slots if (c["name"], s["at"], s["name"]) in from_outside]
+        for slot in slots:
+            if (c["name"], slot["at"], slot["name"]) in filled:
+                continue
+            if any(takes(slot) & takes(g) and owner(g["at"]) != owner(slot["at"]) for g in given):
+                found.append({"crate": c["name"], "to": c["name"], "at": slot["at"], "param": slot["name"]})
+    return found
+
+
+def pass_through_candidates(crates, edges):
+    """Where a crate may hand on a contract value it was given: crate A, not
+    a program, has a slot of trait T and depends in code on crate B, whose
+    code A names, and B has a slot that takes T directly. Read from the
+    slots and the names on each arrow: a candidate is confirmed by reading
+    the call, and assembly.json records each, as wiring or as left out."""
+    by_name = {c["name"]: c for c in crates}
+
+    def direct(slot):
+        return {f"{t['crate']}::{t['trait']}" for t in slot["traits"]} | set(slot.get("values", []))
+
+    def held(slot):
+        return direct(slot) | {f"{t['crate']}::{t['trait']}" for h in slot.get("holds", []) for t in h["traits"]}
+
+    found = []
+    for e in edges:
+        a, b = by_name.get(e["from"]), by_name.get(e["to"])
+        if e["kind"] != "normal" or not a or not b or a["bins"]:
+            continue
+        taken = set().union(*[held(s) for s in a["slots"] if not s["at"].startswith("testing")])
+        for slot in b["slots"]:
+            if slot["at"].startswith("testing") or not direct(slot) & taken:
+                continue
+            owner = slot["at"].rsplit("::", 1)[0] if "::" in slot["at"] else None
+            if slot["at"] in e["items"] or owner in e["items"]:
+                found.append({"crate": a["name"], "to": b["name"], "at": slot["at"], "param": slot["name"]})
+    return found
+
+
+def check_assembly(assembly, items_of, packages, slots_of, foreign_impls, candidates, produced, implements):
+    """Fails if assembly.json names a program, an item, a supplier or a slot
+    that is not there, records as an injection a value of the receiving
+    crate's own type or of a holder type it names directly, injects into a
+    slot typed as a trait from outside the workspace (`foreign`) something
+    rustdoc does not show meeting it, or passes something on without
+    saying, in "from",
+    which of the injector's slots a program filled with it. `candidates`
+    maps each list of places left out (not_passed_on, for what a crate may
+    hand on, and not_filled, for a slot a program may fill) to the places
+    the code shows: each is wired or in its list with why."""
     problems = []
+
+    flows = list(assembly["programs"].values()) + list(assembly.get("injectors", {}).values())
+
+    def filled(injector, slot):
+        """Whether some program's wiring, or another injector's, fills this
+        slot of the injector."""
+        return any(w["crate"] == injector and any(t["at"] == slot["at"] and t["param"] == slot["param"] for t in w["to"])
+                   for flow in flows for w in flow.get("wiring", []))
     # The programs' wiring, and that of a shared crate that assembles
-    # (kkt-server, under "injectors").
+    # (kkt-server and the two assemblies, under "injectors").
     for program, flow in list(assembly["programs"].items()) + list(assembly.get("injectors", {}).items()):
         if program not in packages:
             problems.append(f"no package {program}")
         for wire in flow.get("wiring", []):
+            forms = [f for f in ("impl", "own", "passes_on", "produces") if wire.get(f)]
+            if len(forms) != 1:
+                problems.append(f"{program}: a wiring entry into {wire.get('crate')} needs one of impl, own, passes_on or produces")
+            # A value a contract's operation produced: the contract's crate
+            # gives it back from one of its traits' operations; `by` names an
+            # implementer of that trait the injector built, or `from` the
+            # injector's slots it was given one through; each slot it goes
+            # to takes the value.
+            value = wire.get("produces")
+            if value:
+                crate, _, path = value.partition("::")
+                ops = produced.get(crate, {}).get(path, [])
+                if not ops:
+                    problems.append(f"{program}: no operation of {crate} gives back {path}")
+                traits = {op.rsplit("::", 1)[0] for op in ops}
+                if wire.get("by"):
+                    by_crate, _, by_type = wire["by"].partition("::")
+                    if not any(i["type"] == by_type and i["trait_crate"] == crate and i["trait"] in traits
+                               for i in implements.get(by_crate, [])):
+                        problems.append(f"{program}: {wire['by']} implements no trait of {crate} that gives back {path}")
+                elif not wire.get("from"):
+                    problems.append(f"{program}: {value} into {wire['crate']} says neither by nor from")
+                for slot in wire["to"]:
+                    taken = next((s for s in slots_of.get(wire["crate"], [])
+                                  if s["at"] == slot["at"] and s["name"] == slot["param"]), None)
+                    if taken and value not in taken.get("values", []):
+                        problems.append(f"{program}: {wire['crate']}'s {slot['at']} ({slot['param']}) does not take {value}")
             impl = wire.get("impl")
             if impl:
                 crate, _, path = impl.partition("::")
                 if crate not in items_of or path not in items_of[crate]:
                     problems.append(f"{program}: wiring names no public item {path} in {crate}")
-            elif not wire.get("own"):
-                problems.append(f"{program}: a wiring entry has neither impl nor own")
+                if crate == wire["crate"]:
+                    problems.append(f"{program}: {impl} is {crate}'s own type, not an injection into it")
+                # A slot that takes a concrete type holding a contract (the
+                # receiver names the type itself) is handed a value, not an
+                # injection: what goes into that value is recorded instead
+                # (as with the receiver's own type).
+                # A factory that builds a holder the slot's contract needs,
+                # such as SqlitePlace for Db::new, meets the slot's trait.
+                for slot in wire["to"]:
+                    taken = next((s for s in slots_of.get(wire["crate"], [])
+                                  if s["at"] == slot["at"] and s["name"] == slot["param"]), None)
+                    # A slot typed only as a trait from outside the
+                    # workspace: the named type implements that trait
+                    # (rustdoc's impls), or the named item is a public
+                    # function and the slot takes a function trait.
+                    if taken and taken.get("foreign") and not taken.get("traits") and not taken.get("holds"):
+                        meets = {i["trait"] for i in foreign_impls.get(crate, []) if i["type"] == path}
+                        is_fn = items_of.get(crate, {}).get(path, {}).get("kind") == "fn"
+                        if not (meets & set(taken["foreign"]) or (is_fn and FUNCTION_TRAITS & set(taken["foreign"]))):
+                            problems.append(f"{program}: cannot verify that {impl} meets {wire['crate']}'s "
+                                            f"{slot['at']} ({slot['param']}), which takes {', '.join(taken['foreign'])}")
+                    if taken and not taken.get("traits") and any(
+                            h["crate"] == crate and h["type"] == path for h in taken.get("holds", [])):
+                        problems.append(f"{program}: {impl} is a value of a type {wire['crate']} names directly "
+                                        f"({slot['at']} ({slot['param']})), not an injection: record what goes into it")
+            if wire.get("supplier") or wire.get("supplier_item"):
+                problems.append(f"{program}: {wire.get('own')} into {wire['crate']} names \"supplier\": "
+                                f"list each in \"suppliers\", as {{\"crate\": ..., \"item\": ...}}")
+            if wire.get("own"):
+                # An adapter names each crate whose work it wraps, with
+                # that crate's item where there is one; the injector's own
+                # work names only the injector.
+                suppliers = wire.get("suppliers") or []
+                if not suppliers:
+                    problems.append(f"{program}: {wire['own']} into {wire['crate']} names no suppliers")
+                crates_named = [x.get("crate") for x in suppliers]
+                if program in crates_named and len(suppliers) > 1:
+                    problems.append(f"{program}: {wire['own']} names {program} among other suppliers: "
+                                    f"its own work names only itself")
+                if len(set(crates_named)) != len(crates_named):
+                    problems.append(f"{program}: {wire['own']} names a supplier twice")
+                for x in suppliers:
+                    if x.get("crate") not in packages:
+                        problems.append(f"{program}: {wire['own']} names no supplier package ({x.get('crate')})")
+                    elif x.get("item") and x["item"] not in items_of.get(x["crate"], {}):
+                        problems.append(f"{program}: no public item {x['item']} in the supplier {x['crate']}")
             for slot in wire["to"]:
                 if not any(s["at"] == slot["at"] and s["name"] == slot["param"]
                            for s in slots_of.get(wire["crate"], [])):
                     problems.append(f"{program}: no slot {slot['at']} ({slot['param']}) in {wire['crate']}")
+            # What an injector passes on names the slots of its own that
+            # fed it, so a path is joined on slots, never on the wording.
+            # An adapter that wraps what the injector was given names those
+            # slots in "from" too, so its route joins theirs.
+            if wire.get("passes_on") or (wire.get("produces") and wire.get("from")) or (wire.get("own") and wire.get("from")):
+                if not wire.get("from"):
+                    problems.append(f"{program}: passing on {wire.get('passes_on')} into {wire['crate']} says no \"from\"")
+                for slot in wire.get("from", []):
+                    if not any(s["at"] == slot["at"] and s["name"] == slot["param"] for s in slots_of.get(program, [])):
+                        problems.append(f"{program}: \"from\" names no slot {slot['at']} ({slot['param']}) of {program}")
+                    elif not filled(program, slot):
+                        problems.append(f"{program}: no program fills {slot['at']} ({slot['param']}), "
+                                        f"which \"from\" names for {wire.get('passes_on') or wire.get('produces') or wire.get('own')}")
     for program, flow in assembly["programs"].items():
         if program not in packages:
             problems.append(f"no package {program}")
@@ -934,6 +1467,32 @@ def check_assembly(assembly, items_of, packages, slots_of):
                 crate, _, path = ref.partition("::")
                 if crate not in items_of or path not in items_of[crate]:
                     problems.append(f"{program}: no public item {path} in {crate}")
+    # Every place a crate may hand on what it was given, and every slot a
+    # program may fill, is either wired (by that crate, into that slot) or
+    # left out with a reason, never both, and every entry left out is
+    # still such a place.
+    def wired(c):
+        return any(w["crate"] == c["to"] and any(t["at"] == c["at"] and t["param"] == c["param"] for t in w["to"])
+                   for w in (assembly["programs"].get(c["crate"]) or assembly.get("injectors", {}).get(c["crate"]) or {})
+                   .get("wiring", []))
+    key = lambda c: (c["crate"], c["to"], c["at"], c["param"])
+    unwired = {"not_passed_on": lambda c: f"{c['crate']} may hand on what it was given to {c['to']}'s {c['at']} "
+                                          f"({c['param']}): wire it under injectors, or list it in not_passed_on with why",
+               "not_filled": lambda c: f"{c['crate']} may fill {c['to']}'s {c['at']} ({c['param']}): "
+                                       f"wire it under programs, or list it in not_filled with why"}
+    for listed, places in candidates.items():
+        left = {key(c): c for c in assembly.get(listed, [])}
+        for c in places:
+            if not wired(c) and key(c) not in left:
+                problems.append(unwired[listed](c))
+        for k, c in left.items():
+            if not c.get("why"):
+                problems.append(f"{listed}: {k[0]} to {k[1]}'s {k[2]} ({k[3]}) says no why")
+            if k not in {key(x) for x in places}:
+                problems.append(f"{listed}: {k[0]} to {k[1]}'s {k[2]} ({k[3]}) is no longer a place "
+                                + ("to hand anything on" if listed == "not_passed_on" else "a program may fill"))
+            elif wired(c):
+                problems.append(f"{listed}: {k[0]} to {k[1]}'s {k[2]} ({k[3]}) is wired; remove it from {listed}")
     if problems:
         sys.exit("assembly.json is out of date:\n  " + "\n  ".join(problems))
 

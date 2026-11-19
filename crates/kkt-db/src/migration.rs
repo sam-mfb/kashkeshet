@@ -6,8 +6,11 @@
 //! database records, for each set, how many of its migrations it has
 //! applied, and applying one is one transaction with its record.
 //!
-//! A backend implements [`Evolve`]; [`migrate`] brings a database up to
-//! date through it, and [`pending`] says what that would do.
+//! A backend implements [`Evolve`]; its provided [`Evolve::migrate`]
+//! brings a database up to date, and [`Evolve::pending`] says what that
+//! would do. A database
+//! made before migrations were tracked is described by [`Legacy`], for a
+//! backend to adopt.
 
 use crate::{Column, ColumnType, Connection, Constraint, DbError, Index, Schema, Table};
 
@@ -31,7 +34,9 @@ pub enum Step {
         constraint: Constraint,
     },
     /// Makes a text column searchable ([`crate::search`]): its words are
-    /// indexed, those of rows already there included. One per table.
+    /// indexed, those of rows already there included, which the backend
+    /// gets from a [`crate::search::Indexer`]. One per table. The column
+    /// has no default.
     AddSearch {
         table: &'static str,
         column: &'static str,
@@ -41,7 +46,7 @@ pub enum Step {
     /// rows, which a column's default cannot give.
     Fill {
         name: &'static str,
-        run: fn(&dyn Connection) -> Result<(), DbError>,
+        run: fn(&Connection) -> Result<(), DbError>,
     },
 }
 
@@ -127,7 +132,27 @@ pub struct Upgrade {
     pub to: u32,
 }
 
-/// What a backend does to run migrations.
+/// A database from before migrations were tracked: which tables it has, how
+/// it is adopted, what goes, and which ones are too old to adopt. No
+/// backend's terms; each backend reads its own marker of such a database
+/// (SQLite's `user_version` in kkt-db-sqlite).
+#[derive(Clone, Debug)]
+pub struct Legacy {
+    /// The set its tables become.
+    pub set: &'static str,
+    /// Each old schema number that is adopted, and the version of the set
+    /// its tables are.
+    pub adopted: Vec<(i64, u32)>,
+    /// Columns those databases have that the set leaves out on purpose:
+    /// `(table, column)`. Their values are not kept.
+    pub dropped: Vec<(&'static str, &'static str)>,
+    /// What a database older than any adopted is told when it is refused.
+    pub too_old: String,
+}
+
+/// What a backend does to run migrations. [`Evolve::migrate`] and
+/// [`Evolve::pending`] are written once, over the backend's own
+/// [`Evolve::version`] and [`Evolve::apply`].
 pub trait Evolve {
     /// How many of `set`'s migrations the database has applied: 0 if it has
     /// never had the set.
@@ -144,77 +169,80 @@ pub trait Evolve {
         after: &Schema,
         steps: &[Step],
     ) -> Result<(), DbError>;
-}
 
-/// The schema `sets` declare, each at the version given beside it, in the
-/// order given. Later sets may reference earlier sets' tables.
-pub fn schema_at(sets: &[(&Set, u32)]) -> Result<Schema, DbError> {
-    let mut schema = Schema::default();
-    for (set, version) in sets {
-        for steps in set.migrations.iter().take(*version as usize) {
-            for step in steps {
-                step.apply_to(&mut schema)?;
+    /// The upgrades [`Evolve::migrate`] would make, without making them.
+    /// Fails if the database has a set at a version newer than `sets`
+    /// declare, and if two sets share a name.
+    fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
+        for (i, set) in sets.iter().enumerate() {
+            if sets[..i].iter().any(|s| s.name == set.name) {
+                return Err(DbError::Schema(format!("two sets are named {}", set.name)));
             }
-            schema.check_references()?;
         }
+        let mut upgrades = Vec::new();
+        for set in sets {
+            let from = self.version(set.name)?;
+            if from > set.latest() {
+                return Err(DbError::Newer {
+                    set: set.name,
+                    found: from,
+                    known: set.latest(),
+                });
+            }
+            if from < set.latest() {
+                upgrades.push(Upgrade {
+                    set: set.name,
+                    from,
+                    to: set.latest(),
+                });
+            }
+        }
+        Ok(upgrades)
     }
-    Ok(schema)
+
+    /// Brings the database up to date: applies each set's missing
+    /// migrations, one transaction each, sets in the order given. Returns
+    /// what it did.
+    fn migrate(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
+        let upgrades = self.pending(sets)?;
+        let mut versions: Vec<(&Set, u32)> = Vec::new();
+        for set in sets {
+            versions.push((set, self.version(set.name)?));
+        }
+        for i in 0..versions.len() {
+            let (set, from) = versions[i];
+            for version in from + 1..=set.latest() {
+                let before = Schema::at(&versions)?;
+                versions[i].1 = version;
+                let after = Schema::at(&versions)?;
+                let steps = &set.migrations[version as usize - 1];
+                self.apply(set.name, version, &before, &after, steps)?;
+            }
+        }
+        Ok(upgrades)
+    }
 }
 
-/// The schema `sets` declare at their latest versions.
-pub fn schema(sets: &[Set]) -> Result<Schema, DbError> {
-    schema_at(&sets.iter().map(|s| (s, s.latest())).collect::<Vec<_>>())
-}
+impl Schema {
+    /// The schema `sets` declare, each at the version given beside it, in
+    /// the order given. Later sets may reference earlier sets' tables.
+    pub fn at(sets: &[(&Set, u32)]) -> Result<Schema, DbError> {
+        let mut schema = Schema::default();
+        for (set, version) in sets {
+            for steps in set.migrations.iter().take(*version as usize) {
+                for step in steps {
+                    step.apply_to(&mut schema)?;
+                }
+                schema.check_references()?;
+            }
+        }
+        Ok(schema)
+    }
 
-/// The upgrades [`migrate`] would make, without making them. Fails if the
-/// database has a set at a version newer than `sets` declare, and if two
-/// sets share a name.
-pub fn pending(target: &dyn Evolve, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
-    for (i, set) in sets.iter().enumerate() {
-        if sets[..i].iter().any(|s| s.name == set.name) {
-            return Err(DbError::Schema(format!("two sets are named {}", set.name)));
-        }
+    /// The schema `sets` declare at their latest versions.
+    pub fn latest(sets: &[Set]) -> Result<Schema, DbError> {
+        Schema::at(&sets.iter().map(|s| (s, s.latest())).collect::<Vec<_>>())
     }
-    let mut upgrades = Vec::new();
-    for set in sets {
-        let from = target.version(set.name)?;
-        if from > set.latest() {
-            return Err(DbError::Newer {
-                set: set.name,
-                found: from,
-                known: set.latest(),
-            });
-        }
-        if from < set.latest() {
-            upgrades.push(Upgrade {
-                set: set.name,
-                from,
-                to: set.latest(),
-            });
-        }
-    }
-    Ok(upgrades)
-}
-
-/// Brings the database up to date: applies each set's missing migrations,
-/// one transaction each, sets in the order given. Returns what it did.
-pub fn migrate(target: &dyn Evolve, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
-    let upgrades = pending(target, sets)?;
-    let mut versions: Vec<(&Set, u32)> = Vec::new();
-    for set in sets {
-        versions.push((set, target.version(set.name)?));
-    }
-    for i in 0..versions.len() {
-        let (set, from) = versions[i];
-        for version in from + 1..=set.latest() {
-            let before = schema_at(&versions)?;
-            versions[i].1 = version;
-            let after = schema_at(&versions)?;
-            let steps = &set.migrations[version as usize - 1];
-            target.apply(set.name, version, &before, &after, steps)?;
-        }
-    }
-    Ok(upgrades)
 }
 
 #[cfg(test)]
@@ -241,10 +269,50 @@ mod tests {
                 }],
             ],
         };
-        let one = schema_at(&[(&set, 1)]).unwrap();
+        let one = Schema::at(&[(&set, 1)]).unwrap();
         assert!(one.require("people").unwrap().column("away").is_none());
-        let two = schema(std::slice::from_ref(&set)).unwrap();
+        let two = Schema::latest(std::slice::from_ref(&set)).unwrap();
         assert!(two.require("people").unwrap().column("away").is_some());
+    }
+
+    #[test]
+    fn a_searchable_column_with_a_default_is_refused() {
+        let schema = |steps: Vec<Step>| {
+            Schema::latest(&[Set {
+                name: "core",
+                migrations: vec![steps],
+            }])
+        };
+        let noted =
+            |text: Column| Table::new("notes", vec![Column::text("name"), text], vec!["name"]);
+        let searchable = || Step::AddSearch {
+            table: "notes",
+            column: "text",
+        };
+        // A table that declares the column with a default and makes it
+        // searchable.
+        let mut declared = noted(Column::text("text").default("none"));
+        declared.search = Some("text");
+        assert!(matches!(
+            schema(vec![Step::AddTable(declared)]),
+            Err(DbError::Schema(e)) if e.contains("has a default, so cannot be searched")
+        ));
+        // A column that already has a default, made searchable later.
+        assert!(matches!(
+            schema(vec![
+                Step::AddTable(noted(Column::text("text").default("none"))),
+                searchable(),
+            ]),
+            Err(DbError::Schema(e)) if e.contains("has a default, so cannot be searched")
+        ));
+        // The same column with no default is searchable.
+        assert!(
+            schema(vec![
+                Step::AddTable(noted(Column::text("text"))),
+                searchable()
+            ])
+            .is_ok()
+        );
     }
 
     #[test]
@@ -254,7 +322,7 @@ mod tests {
                 name: "core",
                 migrations: vec![vec![Step::AddTable(people())], steps],
             };
-            matches!(schema(&[set]), Err(DbError::Schema(_)))
+            matches!(Schema::latest(&[set]), Err(DbError::Schema(_)))
         };
         // A column rows already there could not fill.
         assert!(refused(vec![Step::AddColumn {

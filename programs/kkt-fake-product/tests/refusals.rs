@@ -5,12 +5,18 @@
 //!
 //! Also one thing the inventory's markers cannot see, because no foreign
 //! text appears in it: a handle another swarm holds is refused as taken.
-//! That is known and kept: handles are unique per org (one org, in phase
-//! 1, holds every swarm), so the refusal says the handle exists in some
-//! swarm of the org, and nothing more. The plan lists it, with the
-//! server-wide message IDs, whose gaps count other swarms' messages.
+//! That is known and kept: handles are unique per org, and one org holds
+//! every swarm, so the refusal says the handle exists in some swarm of the
+//! org, and nothing more. Server-wide message IDs are the same: their gaps
+//! count other swarms' messages.
 
-use kkt_fake_product::client::Client;
+#[expect(
+    dead_code,
+    reason = "a shared helper: each test binary uses a different subset"
+)]
+mod client;
+
+use client::Client;
 use kkt_fake_product::{Bearers, Product, main, other};
 use reqwest::StatusCode;
 use serde_json::json;
@@ -23,7 +29,7 @@ async fn an_unknown_bearer_gets_nothing() {
         memory(),
         system_clock(),
         os_entropy(),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);
@@ -105,7 +111,7 @@ async fn a_handle_taken_in_the_other_swarm_is_taken_and_nothing_more() {
         memory(),
         system_clock(),
         os_entropy(),
-        kkt_config::Limits::DEFAULT,
+        kkt_fake_product::Settings::DEFAULT,
     )
     .await;
     let client = Client::new(&product);
@@ -142,19 +148,14 @@ async fn a_handle_taken_in_the_other_swarm_is_taken_and_nothing_more() {
 }
 
 /// A new database in memory, with the core's tables.
-fn memory() -> kkt_store::Db {
-    kkt_store::Db::new(
-        kkt_db_sqlite::MemoryPlace::new()
-            .expect("an in-memory database")
-            .open(&[kkt_store::schema()])
-            .expect("the core's tables"),
-    )
+fn memory() -> kkt_rules::Db {
+    kkt_rules::testing::database().expect("an in-memory database")
 }
 
 fn system_clock() -> std::sync::Arc<dyn kkt_clock::Clock> {
-    std::sync::Arc::new(kkt_clock::SystemClock)
+    std::sync::Arc::new(kkt_clock_system::SystemClock)
 }
 
-fn os_entropy() -> std::sync::Arc<dyn kkt_names::Entropy> {
-    std::sync::Arc::new(kkt_names::OsEntropy)
+fn os_entropy() -> std::sync::Arc<dyn kkt_entropy::Entropy> {
+    std::sync::Arc::new(kkt_entropy_os::OsEntropy)
 }

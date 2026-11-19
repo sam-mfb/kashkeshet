@@ -1,39 +1,35 @@
 //! Admission: whether an HTTP caller is let in to `/mcp` or the web page at
-//! all. This comes before agent tokens (`rules::auth`) and channel access
-//! (`rules::access`), and knows nothing about either.
+//! all. This comes before anything that asks who the caller is or what it
+//! may do.
 //!
 //! For `/mcp`, the HTTP layer turns a request into [`Credentials`], asks
 //! [`Admission::decide`], and then acts on the [`Decision`]: for a caller let
-//! in, the [`Principal`] it was admitted as. Every mode of admitting callers
-//! provides the same thing, [`Mode::admit`]; there are three, [`Open`],
-//! [`SharedKey`] and [`AnyBearer`], and [`Admission`] is the one a server
-//! uses. kkt itself uses only the first two.
+//! in, the [`Principal`] it was admitted as. There are three modes of
+//! admitting callers: open, a [`SharedKey`], and any bearer token; each
+//! [`Admission`] is one of them.
 //!
 //! The web page asks [`WebAdmission`] instead. A viewer signs in once with
-//! credentials [`Admission`] accepts and gets a session; later requests are
-//! let in by the session alone.
+//! credentials [`Admission`] accepts and gets a session, which the page
+//! keeps; later requests are let in by the session alone.
 
 mod any_bearer;
 pub mod server_keys;
-mod session;
 mod shared_key;
 
-pub use any_bearer::{AnyBearer, BearerToken};
-pub use session::Sessions;
+use any_bearer::AnyBearer;
+pub use any_bearer::BearerToken;
+pub use server_keys::{KeyRefused, key_refusal};
 pub use shared_key::SharedKey;
 
 mod open;
-pub use open::Open;
+use open::Open;
 
-use session::Lookup;
-use sha2::{Digest, Sha256};
 use std::sync::Arc;
-use std::time::Duration;
 
 /// A way of admitting callers: what every mode provides. A mode turns the
 /// credential a caller presents into who was admitted, a [`Principal`], or a
 /// refusal, and says nothing about agent tokens or channels.
-pub trait Mode: Send + Sync {
+pub(crate) trait Mode: Send + Sync {
     /// Decides whether the caller that presented `credentials` is let in.
     fn admit(&self, credentials: &Credentials) -> Decision;
 }
@@ -209,68 +205,28 @@ impl Admission {
     }
 }
 
-/// Admission for the web page. With [`Admission::Open`], everyone sees it.
-/// Otherwise a viewer needs a live session.
+/// Admission for the web page: whether sign-in is needed, whether a key is
+/// good and whom it admits, and the decision for an open page or a
+/// session's holder. With [`Admission::Open`], everyone sees it. Otherwise
+/// a viewer needs a live session. The sessions are kkt-web's.
 pub struct WebAdmission {
     admission: Arc<Admission>,
-    sessions: Sessions,
-    /// The form token when no sign-in is required, so there are no
-    /// sessions to tie one to. Drawn at startup; a restart changes it.
-    open_form_token: String,
 }
 
-/// The answer to a sign-in.
-pub enum SignIn {
-    /// Signed in. `session_id` goes back to the viewer and nowhere else; the
-    /// session lasts `lifetime`.
-    Started {
-        session_id: String,
-        lifetime: Duration,
-    },
-    Refused(Refusal),
+/// The session a web request presents, as the page found it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum WebSession {
+    /// The request carries no session.
+    Absent,
+    /// The session was never issued, was signed out, or has expired.
+    Ended,
+    /// A live session, started for this principal.
+    Live(Principal),
 }
 
 impl WebAdmission {
-    pub fn new(admission: Arc<Admission>, sessions: Sessions) -> WebAdmission {
-        WebAdmission {
-            admission,
-            open_form_token: sessions.secret(),
-            sessions,
-        }
-    }
-
-    /// The token a page puts in its forms, so a change can be told from a
-    /// request forged by another site, which cannot read the page. With
-    /// sign-in, it belongs to the viewer's live session (a hash of the
-    /// session ID, which only the viewer's cookie holds); `None` without one.
-    /// Without sign-in, it is one token for this server run.
-    pub fn form_token(&self, session_id: Option<&str>) -> Option<String> {
-        if !self.sign_in_required() {
-            return Some(self.open_form_token.clone());
-        }
-        let id = session_id?;
-        match self.sessions.lookup(id) {
-            Lookup::Live(_) => {
-                let digest = Sha256::digest(format!("kkt-form:{id}").as_bytes());
-                Some(digest.iter().map(|b| format!("{b:02x}")).collect())
-            }
-            Lookup::Unknown => None,
-        }
-    }
-
-    /// Whether `presented` is the form token for the viewer holding
-    /// `session_id`. Takes the same time whatever `presented` is.
-    pub fn form_token_matches(&self, session_id: Option<&str>, presented: &str) -> bool {
-        let Some(expected) = self.form_token(session_id) else {
-            return false;
-        };
-        let expected: [u8; 32] = Sha256::digest(expected.as_bytes()).into();
-        let presented: [u8; 32] = Sha256::digest(presented.as_bytes()).into();
-        let diff = expected
-            .iter()
-            .zip(presented.iter())
-            .fold(0u8, |acc, (a, b)| acc | (a ^ b));
-        std::hint::black_box(diff) == 0
+    pub fn new(admission: Arc<Admission>) -> WebAdmission {
+        WebAdmission { admission }
     }
 
     /// Whether viewers must sign in. When false, `decide` admits everyone.
@@ -278,41 +234,28 @@ impl WebAdmission {
         !matches!(*self.admission, Admission::Open)
     }
 
-    /// Decides whether the viewer holding `session_id`, if any, is let in.
-    pub fn decide(&self, session_id: Option<&str>) -> Decision {
+    /// Decides whether the viewer presenting `session` is let in.
+    pub fn decide(&self, session: WebSession) -> Decision {
         if !self.sign_in_required() {
             return Decision::Admitted(Principal::Anyone);
         }
-        match session_id.map(|id| self.sessions.lookup(id)) {
-            None => Decision::Refused(Refusal::NoSession),
-            Some(Lookup::Live(principal)) => Decision::Admitted(principal),
-            Some(Lookup::Unknown) => Decision::Refused(Refusal::SessionEnded),
+        match session {
+            WebSession::Absent => Decision::Refused(Refusal::NoSession),
+            WebSession::Live(principal) => Decision::Admitted(principal),
+            WebSession::Ended => Decision::Refused(Refusal::SessionEnded),
         }
     }
 
-    /// Starts a session if `credentials` match the web page's own key.
-    pub fn sign_in(&self, credentials: &Credentials) -> SignIn {
-        match self.admission.decide(credentials) {
-            Decision::Admitted(principal) => SignIn::Started {
-                session_id: self.sessions.start(principal),
-                lifetime: self.sessions.lifetime(),
-            },
-            Decision::Refused(refusal) => SignIn::Refused(refusal),
-        }
-    }
-
-    /// Ends the session with `session_id`, if there is one.
-    pub fn sign_out(&self, session_id: &str) {
-        self.sessions.end(session_id);
+    /// Whether `credentials` match the web page's own key, and whom they
+    /// admit: the principal a session started now holds.
+    pub fn sign_in(&self, credentials: &Credentials) -> Decision {
+        self.admission.decide(credentials)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use kkt_clock::testing::FixedClock;
-    use kkt_clock::{Span, Time};
-    use kkt_names::testing::SeqEntropy;
 
     const KEY: &str = "0123456789abcdef0123456789abcdef";
 
@@ -401,112 +344,51 @@ mod tests {
         assert_eq!(keyed().key_source(), Some("/keys/kkt"));
     }
 
-    fn web(admission: Admission) -> (Arc<FixedClock>, WebAdmission) {
-        web_with_seed(admission, 7)
-    }
-
-    fn web_with_seed(admission: Admission, seed: u64) -> (Arc<FixedClock>, WebAdmission) {
-        let start = Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap();
-        let clock = Arc::new(FixedClock::new(start));
-        let sessions = Sessions::new(
-            clock.clone(),
-            Arc::new(SeqEntropy::new(seed)),
-            Duration::from_secs(3600),
-        );
-        (clock, WebAdmission::new(Arc::new(admission), sessions))
-    }
-
-    fn started(sign_in: SignIn) -> String {
-        match sign_in {
-            SignIn::Started { session_id, .. } => session_id,
-            SignIn::Refused(r) => panic!("refused: {r}"),
-        }
+    fn web(admission: Admission) -> WebAdmission {
+        WebAdmission::new(Arc::new(admission))
     }
 
     #[test]
     fn an_open_web_page_needs_no_session() {
-        let (_, web) = web(Admission::Open);
+        let web = web(Admission::Open);
         assert!(!web.sign_in_required());
-        assert_eq!(web.decide(None), Decision::Admitted(Principal::Anyone));
+        for session in [
+            WebSession::Absent,
+            WebSession::Ended,
+            WebSession::Live(Principal::KeyHolder(ServerKey::Web)),
+        ] {
+            assert_eq!(web.decide(session), Decision::Admitted(Principal::Anyone));
+        }
     }
 
     #[test]
-    fn signing_in_with_the_key_gives_a_session_that_expires() {
-        let (clock, web) = web(keyed());
+    fn a_keyed_web_page_admits_a_live_sessions_principal() {
+        let web = web(keyed());
         assert!(web.sign_in_required());
-        assert_eq!(web.decide(None), Decision::Refused(Refusal::NoSession));
-        let id = started(web.sign_in(&Credentials::from_key(&format!(" {KEY}\n"))));
         assert_eq!(
-            web.decide(Some(&id)),
+            web.decide(WebSession::Absent),
+            Decision::Refused(Refusal::NoSession)
+        );
+        assert_eq!(
+            web.decide(WebSession::Ended),
+            Decision::Refused(Refusal::SessionEnded)
+        );
+        assert_eq!(
+            web.decide(WebSession::Live(Principal::KeyHolder(ServerKey::Access))),
             Decision::Admitted(Principal::KeyHolder(ServerKey::Access))
         );
-        clock.advance(Span::seconds(3600));
-        assert_eq!(
-            web.decide(Some(&id)),
-            Decision::Refused(Refusal::SessionEnded)
-        );
     }
 
     #[test]
-    fn a_wrong_key_gives_no_session() {
-        let (_, web) = web(keyed());
-        assert!(matches!(
+    fn signing_in_checks_the_key_typed() {
+        let web = web(keyed());
+        assert_eq!(
+            web.sign_in(&Credentials::from_key(&format!(" {KEY}\n"))),
+            Decision::Admitted(Principal::KeyHolder(ServerKey::Access))
+        );
+        assert_eq!(
             web.sign_in(&Credentials::from_key("0123456789abcdef0123456789abcdeX")),
-            SignIn::Refused(Refusal::WrongKey)
-        ));
-        assert_eq!(
-            web.decide(Some("guess")),
-            Decision::Refused(Refusal::SessionEnded)
-        );
-    }
-
-    #[test]
-    fn form_tokens_belong_to_a_live_session() {
-        let (clock, web) = web(keyed());
-        assert_eq!(web.form_token(None), None);
-        assert_eq!(web.form_token(Some("guess")), None);
-        let id = started(web.sign_in(&Credentials::from_key(KEY)));
-        let other = started(web.sign_in(&Credentials::from_key(KEY)));
-        let token = web.form_token(Some(&id)).expect("a token");
-        assert!(
-            !token.contains(&id),
-            "the token does not reveal the session"
-        );
-        assert!(web.form_token_matches(Some(&id), &token));
-        // Another session's token, a wrong one, or none at all is refused.
-        let others = web.form_token(Some(&other)).expect("a token");
-        assert_ne!(token, others);
-        assert!(!web.form_token_matches(Some(&id), &others));
-        assert!(!web.form_token_matches(Some(&id), ""));
-        assert!(!web.form_token_matches(None, &token));
-        // It ends with its session.
-        web.sign_out(&other);
-        assert!(!web.form_token_matches(Some(&other), &others));
-        clock.advance(Span::seconds(3600));
-        assert!(!web.form_token_matches(Some(&id), &token));
-    }
-
-    #[test]
-    fn an_open_web_page_has_one_form_token_per_run() {
-        let (_, web) = web(Admission::Open);
-        let token = web.form_token(None).expect("a token");
-        assert_eq!(token.len(), kkt_config::WEB_SESSION_ID_CHARS);
-        assert_eq!(web.form_token(Some("anything")), Some(token.clone()));
-        assert!(web.form_token_matches(None, &token));
-        assert!(!web.form_token_matches(None, "wrong"));
-        assert!(!web.form_token_matches(None, ""));
-        let (_, restarted) = web_with_seed(Admission::Open, 8);
-        assert_ne!(restarted.form_token(None), Some(token));
-    }
-
-    #[test]
-    fn signing_out_ends_the_session() {
-        let (_, web) = web(keyed());
-        let id = started(web.sign_in(&Credentials::from_key(KEY)));
-        web.sign_out(&id);
-        assert_eq!(
-            web.decide(Some(&id)),
-            Decision::Refused(Refusal::SessionEnded)
+            Decision::Refused(Refusal::WrongKey)
         );
     }
 }

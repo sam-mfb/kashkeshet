@@ -8,13 +8,25 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+# Search's words, matching and excerpts, which kkt-db applies for every
+# backend.
+kkt-search = { path = "../kkt-search" }
+# Only for `testing`: the fast stand-in, `testing::FastPlace`, is built on
+# SQLite in memory. Its translation is its own; it shares nothing with
+# kkt-db-sqlite.
+rusqlite = { workspace = true, optional = true }
 thiserror.workspace = true
-tokio.workspace = true
+# Only for `testing`: the conformance checks run concurrent writes and a
+# write during a read.
+tokio = { workspace = true, optional = true }
 
 [dev-dependencies]
+# The fast stand-in, in kkt-db's own tests, built without `testing`.
+rusqlite.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [features]
 # `testing`: `testing::MemoryPlace`, a database held in memory that keeps the
-# contract, and `testing::conformance`, the checks every backend must pass.
-testing = []
+# contract; `testing::FastPlace`, a fast stand-in on SQLite in memory; `testing::conformance`, the checks every backend must pass; and
+# `testing::FaultyBackend`, which fails a change on cue.
+testing = ["dep:rusqlite", "dep:tokio"]

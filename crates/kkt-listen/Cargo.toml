@@ -1,0 +1,12 @@
+[package]
+name = "kkt-listen"
+description = "Binding an address and serving the HTTP router it is handed, and trying whether an address could be bound"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+axum.workspace = true
+tokio.workspace = true

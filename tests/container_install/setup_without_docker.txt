@@ -1,0 +1,11 @@
+== Docker is missing
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+  -> cannot run: No such file or directory (os error 2)
+error    Docker is not available: could not run `docker compose version`: No such file or directory (os error 2). Install Docker with Compose and run setup again
+
+== Docker has no Compose
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      docker compose version
+  -> exit 1, err "docker: 'compose' is not a docker command."
+error    Docker is not available: `docker compose version` failed (exit 1: docker: 'compose' is not a docker command.)

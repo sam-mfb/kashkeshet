@@ -8,7 +8,7 @@
 //! with its name, so two sessions saving different entries keep both.
 
 use super::*;
-use kkt_config::MAX_MEMORY_NAME_CHARS;
+use kkt_names::MAX_MEMORY_NAME_CHARS;
 
 impl Rules {
     /// Saves `text` as `me`'s entry named `name`, replacing any with that
@@ -17,21 +17,22 @@ impl Rules {
     /// (`invalid_argument`), or the memory would then hold more than
     /// `max_memory_chars` (`limit_reached`).
     pub async fn remember(&self, me: &Agent, name: String, text: String) -> Result<MemorySaved> {
-        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS)
+            .map_err(|e| RuleError::invalid(e.to_string()))?;
         if text.is_empty() {
             return Err(RuleError::invalid(
                 "the entry's text is empty; `forget` deletes an entry",
             ));
         }
         let chars = text.chars().count();
-        let max_entry = self.limits().max_memory_entry_chars;
+        let max_entry = self.settings().max_memory_entry_chars;
         if chars > max_entry {
             return Err(RuleError::invalid(format!(
                 "the entry is {chars} characters; an entry may have at most {max_entry} \
                  (max_memory_entry_chars). Nothing was saved."
             )));
         }
-        let max_chars = self.limits().max_memory_chars;
+        let max_chars = self.settings().max_memory_chars;
         let handle = me.handle.clone();
         let entry = MemoryEntryRecord {
             name,
@@ -73,7 +74,8 @@ impl Rules {
 
     /// `me`'s entry named `name`; `not_found` if there is none.
     pub async fn recall(&self, me: &Agent, name: String) -> Result<MemoryEntry> {
-        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS)
+            .map_err(|e| RuleError::invalid(e.to_string()))?;
         let handle = me.handle.clone();
         self.db()
             .read(move |store, swarm| memory_entry(store, swarm, &handle, &name))
@@ -89,7 +91,7 @@ impl Rules {
         cursor: Option<String>,
     ) -> Result<MemoryList> {
         let handle = me.handle.clone();
-        let max_chars = self.limits().max_memory_chars;
+        let max_chars = self.settings().max_memory_chars;
         self.db()
             .read(move |store, swarm| {
                 memory_list(store, swarm, &handle, limit, cursor.as_deref(), max_chars)
@@ -99,7 +101,8 @@ impl Rules {
 
     /// Deletes `me`'s entry named `name`; `not_found` if there is none.
     pub async fn forget(&self, me: &Agent, name: String) -> Result<()> {
-        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS)
+            .map_err(|e| RuleError::invalid(e.to_string()))?;
         let handle = me.handle.clone();
         self.db()
             .write(move |store, swarm| {
@@ -113,14 +116,17 @@ impl Rules {
     }
 
     /// The entries in the memory of the avatar `handle`, for an admin agent,
-    /// which reads it for the operator. `not_found` for no such avatar.
+    /// which reads it for the operator. Needs Read; `not_found` for no such
+    /// avatar.
     pub async fn admin_list_memories(
         &self,
+        operator: &Operator,
         handle: String,
         limit: usize,
         cursor: Option<String>,
     ) -> Result<MemoryList> {
-        let max_chars = self.limits().max_memory_chars;
+        operator.may(Permission::Read)?;
+        let max_chars = self.settings().max_memory_chars;
         self.db()
             .read(move |store, swarm| {
                 if store.agent(swarm, &handle)?.is_none() {
@@ -132,9 +138,16 @@ impl Rules {
     }
 
     /// The entry named `name` in the memory of the avatar `handle`, for an
-    /// admin agent. `not_found` for no such avatar or entry.
-    pub async fn admin_recall(&self, handle: String, name: String) -> Result<MemoryEntry> {
-        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS).map_err(RuleError::invalid)?;
+    /// admin agent. Needs Read; `not_found` for no such avatar or entry.
+    pub async fn admin_recall(
+        &self,
+        operator: &Operator,
+        handle: String,
+        name: String,
+    ) -> Result<MemoryEntry> {
+        operator.may(Permission::Read)?;
+        names::check_memory_name(&name, MAX_MEMORY_NAME_CHARS)
+            .map_err(|e| RuleError::invalid(e.to_string()))?;
         self.db()
             .read(move |store, swarm| {
                 if store.agent(swarm, &handle)?.is_none() {
@@ -148,17 +161,21 @@ impl Rules {
 
 /// Every entry in `handle`'s memory, whole, in name order: what the
 /// operator's view of an avatar shows.
-pub(super) fn memory(store: &dyn Reads, swarm: &SwarmId, handle: &str) -> Result<Vec<MemoryEntry>> {
+pub(super) fn memory(
+    store: &Reader<'_>,
+    swarm: &SwarmId,
+    handle: &str,
+) -> Result<Vec<MemoryEntry>> {
     Ok(store
         .memory_entries(swarm, handle)?
         .into_iter()
-        .map(|e| MemoryEntry::new(handle, e))
+        .map(|e| entry_from(handle, e))
         .collect())
 }
 
 /// The names and sizes of the entries in `handle`'s memory, in name order.
 pub(super) fn memory_summaries(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     handle: &str,
 ) -> Result<Vec<MemorySummary>> {
@@ -170,19 +187,19 @@ pub(super) fn memory_summaries(
 }
 
 fn memory_entry(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     handle: &str,
     name: &str,
 ) -> Result<MemoryEntry> {
     store
         .memory_entry(swarm, handle, name)?
-        .map(|e| MemoryEntry::new(handle, e))
+        .map(|e| entry_from(handle, e))
         .ok_or_else(|| memory_not_found(name))
 }
 
 fn memory_list(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     handle: &str,
     limit: usize,
@@ -219,34 +236,14 @@ fn memory_not_found(name: &str) -> RuleError {
     )
 }
 
-/// One entry in an avatar's memory, whole.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct MemoryEntry {
-    /// The avatar whose memory it is in.
-    pub handle: String,
-    pub name: String,
-    pub text: String,
-    pub saved_at: String,
-}
-
-impl MemoryEntry {
-    fn new(handle: &str, e: MemoryEntryRecord) -> MemoryEntry {
-        MemoryEntry {
-            handle: handle.to_string(),
-            name: e.name,
-            text: e.text,
-            saved_at: e.saved_at,
-        }
+/// `handle`'s memory entry, as stored.
+fn entry_from(handle: &str, e: MemoryEntryRecord) -> MemoryEntry {
+    MemoryEntry {
+        handle: handle.to_string(),
+        name: e.name,
+        text: e.text,
+        saved_at: e.saved_at,
     }
-}
-
-/// An entry's name, size and save time, without its text.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct MemorySummary {
-    pub name: String,
-    /// Its length, in characters.
-    pub chars: usize,
-    pub saved_at: String,
 }
 
 impl From<&MemoryEntryRecord> for MemorySummary {
@@ -257,31 +254,4 @@ impl From<&MemoryEntryRecord> for MemorySummary {
             saved_at: e.saved_at.clone(),
         }
     }
-}
-
-/// A page of an avatar's memory entries, and the memory as a whole.
-#[derive(Clone, Debug)]
-pub struct MemoryList {
-    pub handle: String,
-    pub page: Page<MemorySummary>,
-    /// How many entries the memory holds in all.
-    pub entries: usize,
-    /// How many characters they hold together.
-    pub chars: usize,
-    /// The most they may hold together: `max_memory_chars`.
-    pub max_chars: usize,
-}
-
-/// What `remember` saved, and the memory after it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct MemorySaved {
-    pub entry: MemorySummary,
-    /// Whether it replaced an entry with its name.
-    pub replaced: bool,
-    /// How many entries the memory now holds.
-    pub entries: usize,
-    /// How many characters they now hold together.
-    pub chars: usize,
-    /// The most they may hold together: `max_memory_chars`.
-    pub max_chars: usize,
 }

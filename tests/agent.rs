@@ -178,7 +178,6 @@ async fn call_json(
 /// names, then opened by 0.10.0: one agent with a known token and recovery
 /// code, in one channel.
 fn make_v070(path: &Path) {
-    use sha2::{Digest, Sha256};
     let conn = rusqlite::Connection::open(path).expect("open");
     conn.pragma_update(None, "foreign_keys", "OFF")
         .expect("foreign keys");
@@ -206,8 +205,8 @@ fn make_v070(path: &Path) {
     conn.execute(
         "INSERT INTO agents (name, token_hash, recovery_hash, created_at) VALUES ('amber-falcon', ?1, ?2, 't')",
         (
-            Sha256::digest(b"act_oldtoken").to_vec(),
-            Sha256::digest(b"arc_oldrecovery").to_vec(),
+            kkt_hash::sha256(b"act_oldtoken").to_vec(),
+            kkt_hash::sha256(b"arc_oldrecovery").to_vec(),
         ),
     )
     .expect("agent");

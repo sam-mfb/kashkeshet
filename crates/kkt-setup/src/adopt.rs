@@ -4,20 +4,72 @@
 //! unrecorded. Setup records such a server as it is ("adopts" it), without
 //! installing it again, once the person agrees.
 
+use super::SETUP_UNKNOWN_VERSION;
 use super::ask::{Ask, Question};
 use super::flow::{Answers, Purpose};
 use super::record::{Mode, Record};
-use kkt_config::{DEFAULT_SETUP_ADOPT, SETUP_UNKNOWN_VERSION};
+use crate::{AskError, StepError};
 use std::path::PathBuf;
 
+/// Why `--adopt` cannot record a server here.
+#[derive(Debug, thiserror::Error)]
+pub enum AdoptError {
+    /// There is no server kkt installed with no record.
+    #[error("--adopt: no kkt server without a setup record was found here")]
+    NothingFound,
+    /// What was found could not be read.
+    #[error("--adopt: {0}")]
+    Unreadable(#[source] StepError),
+    /// What was found differs from the answers given now.
+    #[error("--adopt: {summary} The answers given now are different.")]
+    Differs { summary: String },
+    /// The question whether to record it got no answer.
+    #[error(transparent)]
+    Ask(AskError),
+}
+
+/// Both a server in Docker and a kkt service are installed here with no
+/// record: which one clients use is not known.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error(
+    "{summary} A kkt service is installed here too, so which one clients use is not known; remove one (`kkt service uninstall`, or `docker compose down` in the Docker folder) and run `kkt setup` again"
+)]
+pub struct BothInstalled {
+    /// What was found in Docker.
+    pub summary: String,
+}
+
+/// An installed kkt service with no record that runs with settings other
+/// than the default config file's, which a record could not keep.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{}", not_defaults(args))]
+pub struct NotDefaults {
+    /// What the service file runs `kkt` with.
+    pub args: Vec<String>,
+}
+
+fn not_defaults(args: &[String]) -> String {
+    unreadable_service(&format!(
+        "it runs `kkt {}`, with settings other than the default config file's, which \
+         `kkt setup` and `kkt upgrade` install; a record could not keep them. Keep \
+         managing it with `kkt service`, or put its settings in the default config \
+         file, install it again with `kkt service install` and no options, and run \
+         `kkt setup`",
+        args.join(" ")
+    ))
+}
+
+/// Whether Enter records a found, unrecorded install during interactive
+/// setup.
+const DEFAULT_SETUP_ADOPT: bool = true;
+
 /// How setup finds a server to adopt: the part of [`super::Steps`] it uses.
-/// The real implementation is in the program's `src/commands/setup/steps.rs`.
 pub trait AdoptSteps {
     /// A server kkt installed here that no record or note covers, as an
     /// older kkt can leave one; `None` when there is a record, or a note of
     /// a server still installed. An error says what was found and what could
     /// not be read from it.
-    fn unrecorded(&self) -> Result<Option<Unrecorded>, String>;
+    fn unrecorded(&self) -> Result<Option<Unrecorded>, StepError>;
 }
 
 /// A server kkt installed here that neither a record nor a note of an
@@ -88,16 +140,13 @@ impl Unrecorded {
 pub fn unrecorded_here(
     docker: Option<Unrecorded>,
     service: Option<Unrecorded>,
-) -> Result<Option<Unrecorded>, (Purpose, String)> {
+) -> Result<Option<Unrecorded>, (Purpose, BothInstalled)> {
     match (docker, service) {
         (Some(docker), Some(_)) => Err((
             Purpose::Docker,
-            format!(
-                "{} A kkt service is installed here too, so which one clients use is not \
-                 known; remove one (`kkt service uninstall`, or `docker compose down` in the \
-                 Docker folder) and run `kkt setup` again",
-                docker.summary()
-            ),
+            BothInstalled {
+                summary: docker.summary(),
+            },
         )),
         (found, None) | (None, found) => Ok(found),
     }
@@ -113,34 +162,30 @@ pub fn unreadable_service(what: &str) -> String {
 /// which runs `kkt <args>`, runs it with the default config file's settings
 /// (`runs_defaults`): those are what `kkt setup` and `kkt upgrade` install,
 /// so a record could not keep any others.
-pub fn service_runs_defaults(args: &[String], runs_defaults: bool) -> Result<(), String> {
+pub fn service_runs_defaults(args: &[String], runs_defaults: bool) -> Result<(), NotDefaults> {
     if runs_defaults {
         return Ok(());
     }
-    Err(unreadable_service(&format!(
-        "it runs `kkt {}`, with settings other than the default config file's, which \
-         `kkt setup` and `kkt upgrade` install; a record could not keep them. Keep \
-         managing it with `kkt service`, or put its settings in the default config \
-         file, install it again with `kkt service install` and no options, and run \
-         `kkt setup`",
-        args.join(" ")
-    )))
+    Err(NotDefaults {
+        args: args.to_vec(),
+    })
 }
 
 /// The installed kkt service with no record: shared over Tailscale as the
-/// node `shared` names (its DNS name), else reached at `url`, with the
-/// access key in `key_file`.
+/// node `shared` names (its DNS name), at `mcp_path`, else reached at `url`,
+/// with the access key in `key_file`.
 pub fn unrecorded_service(
     shared: Option<&str>,
     url: String,
     key_file: Option<PathBuf>,
+    mcp_path: &str,
 ) -> Unrecorded {
     Unrecorded {
         mode: Mode::Service {
             tailscale: shared.is_some(),
         },
         url: match shared {
-            Some(dns_name) => format!("https://{dns_name}/mcp"),
+            Some(dns_name) => format!("https://{dns_name}{mcp_path}"),
             None => url,
         },
         key_file,
@@ -155,14 +200,12 @@ pub(super) fn adoptable(
     answers: &Answers,
     ask: &dyn Ask,
     steps: &dyn AdoptSteps,
-) -> Result<Option<Unrecorded>, String> {
+) -> Result<Option<Unrecorded>, AdoptError> {
     let found = match steps.unrecorded() {
         Ok(Some(found)) => found,
-        Ok(None) if answers.adopt => {
-            return Err("--adopt: no kkt server without a setup record was found here".into());
-        }
+        Ok(None) if answers.adopt => return Err(AdoptError::NothingFound),
         Ok(None) => return Ok(None),
-        Err(e) if answers.adopt => return Err(format!("--adopt: {e}")),
+        Err(e) if answers.adopt => return Err(AdoptError::Unreadable(e)),
         Err(e) => {
             ask.tell(&format!("{e}\nSo it cannot be recorded as it is."));
             return Ok(None);
@@ -172,10 +215,9 @@ pub(super) fn adoptable(
         || answers.tailscale.is_some_and(|t| t != found.tailscale());
     if differs {
         if answers.adopt {
-            return Err(format!(
-                "--adopt: {} The answers given now are different.",
-                found.summary()
-            ));
+            return Err(AdoptError::Differs {
+                summary: found.summary(),
+            });
         }
         ask.tell(&format!(
             "{} The answers given now are different, so setup does not record it.",
@@ -199,7 +241,10 @@ pub(super) fn adoptable(
         flag: "--adopt",
         default: Some(DEFAULT_SETUP_ADOPT),
     };
-    Ok(ask.confirm(question)?.then_some(found))
+    Ok(ask
+        .confirm(question)
+        .map_err(AdoptError::Ask)?
+        .then_some(found))
 }
 
 #[cfg(test)]
@@ -238,7 +283,7 @@ mod tests {
     #[test]
     fn docker_and_a_service_both_found_are_refused_as_dockers() {
         assert_eq!(
-            unrecorded_here(Some(docker()), Some(service())),
+            unrecorded_here(Some(docker()), Some(service())).map_err(|(p, e)| (p, e.to_string())),
             Err((
                 Purpose::Docker,
                 "Found a kkt server in Docker from /data/docker, for clients at \
@@ -254,7 +299,8 @@ mod tests {
     fn a_service_must_run_the_default_settings() {
         assert_eq!(service_runs_defaults(&["serve".into()], true), Ok(()));
         assert_eq!(
-            service_runs_defaults(&["serve".into(), "--port".into(), "9".into()], false),
+            service_runs_defaults(&["serve".into(), "--port".into(), "9".into()], false)
+                .map_err(|e| e.to_string()),
             Err(
                 "Found a kkt service, not recorded, but it runs `kkt serve --port 9`, with \
                  settings other than the default config file's, which `kkt setup` and `kkt \
@@ -278,7 +324,12 @@ mod tests {
     fn a_service_is_reached_over_tailscale_if_shared_else_as_configured() {
         let key = Some(PathBuf::from("/k/access-key"));
         assert_eq!(
-            unrecorded_service(None, "http://127.0.0.1:7880/mcp".into(), key.clone()),
+            unrecorded_service(
+                None,
+                "http://127.0.0.1:7880/mcp".into(),
+                key.clone(),
+                "/mcp"
+            ),
             Unrecorded {
                 mode: Mode::Service { tailscale: false },
                 url: "http://127.0.0.1:7880/mcp".into(),
@@ -289,13 +340,113 @@ mod tests {
             unrecorded_service(
                 Some("box.tail1234.ts.net"),
                 "http://127.0.0.1:7880/mcp".into(),
-                None
+                None,
+                "/mcp"
             ),
             Unrecorded {
                 mode: Mode::Service { tailscale: true },
                 url: "https://box.tail1234.ts.net/mcp".into(),
                 key_file: None,
             }
+        );
+    }
+}
+
+#[cfg(test)]
+mod refusals {
+    //! Every sentence adopting says when it refuses, pinned exactly.
+
+    use super::*;
+    use crate::DockerSetup;
+
+    /// Finds what it was given, or says it could not read it.
+    struct Found(Result<Option<Unrecorded>, String>);
+    impl AdoptSteps for Found {
+        fn unrecorded(&self) -> Result<Option<Unrecorded>, StepError> {
+            self.0.clone().map_err(|said| StepError(said.into()))
+        }
+    }
+
+    /// Never asked: every case here refuses before a question.
+    struct Silent;
+    impl Ask for Silent {
+        fn interactive(&self) -> bool {
+            false
+        }
+        fn choose(&self, _: Question, _: &[&str], _: usize) -> Result<usize, crate::AskError> {
+            panic!("no question expected")
+        }
+        fn confirm(&self, _: Question) -> Result<bool, crate::AskError> {
+            panic!("no question expected")
+        }
+        fn text(&self, _: Question, _: &str) -> Result<String, crate::AskError> {
+            panic!("no question expected")
+        }
+        fn tell(&self, _: &str) {}
+    }
+
+    fn docker() -> Unrecorded {
+        Unrecorded {
+            mode: Mode::Docker(DockerSetup {
+                folder: PathBuf::from("/data/docker"),
+                tailscale: false,
+                hostname: None,
+                tailnet: None,
+            }),
+            url: "http://127.0.0.1:8080/mcp".into(),
+            key_file: None,
+        }
+    }
+
+    fn refused(answers: &Answers, found: Found) -> String {
+        adoptable(answers, &Silent, &found)
+            .map(|_| ())
+            .expect_err("refused")
+            .to_string()
+    }
+
+    #[test]
+    fn every_adopt_refusal_says_what_it_always_said() {
+        let adopt = Answers {
+            adopt: true,
+            ..Answers::default()
+        };
+        assert_eq!(
+            refused(&adopt, Found(Ok(None))),
+            "--adopt: no kkt server without a setup record was found here"
+        );
+        assert_eq!(
+            refused(
+                &adopt,
+                Found(Err("its service file could not be read".into()))
+            ),
+            "--adopt: its service file could not be read"
+        );
+        let summary = docker().summary();
+        let differs = Answers {
+            purpose: Some(Purpose::Service),
+            ..adopt
+        };
+        assert_eq!(
+            refused(&differs, Found(Ok(Some(docker())))),
+            format!("--adopt: {summary} The answers given now are different.")
+        );
+        let service = Unrecorded {
+            mode: Mode::Service { tailscale: false },
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: None,
+        };
+        let (_, both) = unrecorded_here(Some(docker()), Some(service)).expect_err("both");
+        assert_eq!(
+            both.to_string(),
+            format!(
+                "{summary} A kkt service is installed here too, so which one clients use is not known; remove one (`kkt service uninstall`, or `docker compose down` in the Docker folder) and run `kkt setup` again"
+            )
+        );
+        assert_eq!(
+            service_runs_defaults(&["serve".into(), "--bind".into(), "0.0.0.0:7420".into()], false)
+                .map_err(|e| e.to_string()),
+            Err("Found a kkt service, not recorded, but it runs `kkt serve --bind 0.0.0.0:7420`, with settings other than the default config file's, which `kkt setup` and `kkt upgrade` install; a record could not keep them. Keep managing it with `kkt service`, or put its settings in the default config file, install it again with `kkt service install` and no options, and run `kkt setup`.".to_string())
         );
     }
 }

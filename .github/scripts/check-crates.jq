@@ -1,4 +1,9 @@
-# Checks 2 to 5 of check-crates.sh, over `cargo metadata --no-deps` output.
+# Checks 2 to 8 of check-crates.sh, over `cargo metadata --no-deps` output,
+# with `$effects` and `$compositions`, the names of the crates
+# docs/architecture/concerns.json marks "effect" and "composition",
+# `$platform`, the names of the crates it puts in the platform layer, and
+# `$effect_exceptions`, the documented exceptions to check 2
+# (effect-exceptions.json: package, dependency, reason).
 # Prints one line per problem, and nothing when the manifests follow the
 # rules. No package is named here except kkt-scratch, the subject of check 4.
 
@@ -12,11 +17,25 @@ def default_reach($features):
         | if $all == $seen then $seen else $all | grow end;
     ["default"] | grow;
 
+# Check 2's exceptions: a listed exception that no longer applies fails, so
+# the list says only what is true.
+(
+    . as $root
+    | $effect_exceptions[]
+    | . as $exception
+    | select(
+        any($root.packages[]; .name == $exception.package
+            and any(.dependencies[]; .name == $exception.dependency))
+        | not)
+    | "effect-exceptions.json lists \($exception.package) depending on \($exception.dependency), which it no longer does; remove the entry"
+),
+(
 [.packages[].name] as $workspace
 | .packages[]
 | . as $package
 | any(.targets[]; any(.kind[]; . == "bin")) as $program
-| any(.targets[]; any(.kind[]; . == "example")) as $examples
+# A dev-only program: a binary never released, which counts as test code.
+| ($program and (.metadata.kkt["dev-only"] // false) == true) as $dev_program
 | [.dependencies[] | select(.name as $name | any($workspace[]; . == $name))] as $local
 | (
     $local[]
@@ -24,17 +43,29 @@ def default_reach($features):
     | (.kind // "normal") as $kind
     | ({normal: "[dependencies]", dev: "[dev-dependencies]", build: "[build-dependencies]"}[$kind]
         + (if .target then " for \(.target)" else "" end)) as $section
-    # Check 2: only programs turn on another package's real.
+    # Check 2: only programs depend on an effect crate. A program's tests
+    # count too: an effect crate it names only in [dev-dependencies], and
+    # not in [dependencies] or [build-dependencies], is one only its tests
+    # use. Anything else that must is a documented exception, in
+    # $effect_exceptions.
     | (
-        if any(.features[]; . == "real")
-            and ((($kind == "normal" and $program) or ($kind == "dev" and $examples)) | not)
-        then "\($package.name): turns on \($dependency.name)'s real in \($section); only a package with a binary target may (in [dependencies]), or one with an example target (in [dev-dependencies])"
+        if any($effects[]; . == $dependency.name)
+            and (($program | not)
+                or ($kind == "dev" and (any($local[]; .name == $dependency.name and (.kind // "normal") != "dev") | not)))
+            and (any($effect_exceptions[];
+                .package == $package.name and .dependency == $dependency.name) | not)
+        then if $program
+            then "\($package.name): its tests depend on the effect crate \($dependency.name), which the program does not; list it in effect-exceptions.json with the reason, or do without it"
+            else "\($package.name): depends on the effect crate \($dependency.name) in \($section); only a program (a package with a binary target) may, unless listed in effect-exceptions.json"
+            end
         else empty end
     ),
-    # Check 3: another package's testing only in [dev-dependencies].
+    # Check 3: another package's testing only in [dev-dependencies], or in
+    # a dev-only program's [dependencies].
     (
         if any(.features[]; . == "testing") and $kind != "dev"
-        then "\($package.name): turns on \($dependency.name)'s testing in \($section); only [dev-dependencies] may"
+            and (($kind == "normal" and $dev_program) | not)
+        then "\($package.name): turns on \($dependency.name)'s testing in \($section); only [dev-dependencies] may, or a dev-only program's [dependencies]"
         else empty end
     ),
     # Check 4: kkt-scratch only in [dev-dependencies].
@@ -42,39 +73,58 @@ def default_reach($features):
         if .name == "kkt-scratch" and $kind != "dev"
         then "\($package.name): lists kkt-scratch in \($section); only [dev-dependencies] may"
         else empty end
+    ),
+    # Check 7: only programs depend on a composition crate in
+    # [dependencies]. A composition is put together by the program that
+    # runs it; a crate under it that named it would depend upward.
+    (
+        if $kind == "normal" and ($program | not)
+            and any($compositions[]; . == $dependency.name)
+        then "\($package.name): depends on the composition crate \($dependency.name) in \($section); only a program (a package with a binary target) may"
+        else empty end
+    ),
+    # Check 8: a platform crate depends in [dependencies] only on platform
+    # crates. A platform crate knows nothing of kkt.
+    (
+        if $kind == "normal"
+            and any($platform[]; . == $package.name)
+            and (any($platform[]; . == $dependency.name) | not)
+        then "\($package.name): is a platform crate but depends on \($dependency.name) in \($section); a platform crate depends only on platform crates"
+        else empty end
     )
 ),
 (
-    # Checks 2 and 3 for a package's own features that turn on a workspace
-    # dependency's real or testing. Anyone may turn on a package's features,
-    # so these count as outside [dev-dependencies].
+    # Check 3 for a package's own features that turn on a workspace
+    # dependency's testing. Anyone may turn on a package's features, so
+    # these count as outside [dev-dependencies]. The one exception: a
+    # package's own `testing` may turn on a dependency's `testing`, since
+    # it is itself on only from [dev-dependencies].
     .features
     | to_entries[]
     | .key as $feature
     | .value[]
-    | capture("^(?<dependency>[^/?]+)\\??/(?<enables>real|testing)$")
+    | capture("^(?<dependency>[^/?]+)\\??/testing$")
     | select(.dependency as $key | any($local[]; (.rename // .name) == $key))
-    | select(.enables == "testing" or ($program | not))
-    | "\($package.name): its feature \($feature) turns on \(.dependency)'s \(.enables); "
-        + (if .enables == "real" then "only a package with a binary target may, in [dependencies]" else "only [dev-dependencies] may" end)
+    | select($feature != "testing")
+    | "\($package.name): its feature \($feature) turns on \(.dependency)'s testing; only [dev-dependencies] may"
 ),
 (
-    # Checks 2 and 3 for a library's `default` feature, which every build of
-    # the library gets unless it asks otherwise: it may not turn on real or
-    # testing, its own or a workspace dependency's, whether it lists them
-    # itself or through its other features at any depth.
+    # Check 3 for a library's `default` feature, which every build of the
+    # library gets unless it asks otherwise: it may not turn on testing, its
+    # own or a workspace dependency's, whether it lists it itself or through
+    # its other features at any depth.
     if $program then empty else
         .features as $features
         | default_reach($features)[] as $feature
         | ($features[$feature] // [])[]
-        | if . == "real" or . == "testing"
-            then {whose: "its own", enables: .}
+        | if . == "testing"
+            then {whose: "its own"}
             else
-                capture("^(?<dependency>[^/?]+)\\??/(?<enables>real|testing)$")
+                capture("^(?<dependency>[^/?]+)\\??/testing$")
                 | select(.dependency as $key | any($local[]; (.rename // .name) == $key))
-                | {whose: "\(.dependency)'s", enables}
+                | {whose: "\(.dependency)'s"}
             end
-        | "\($package.name): its default feature turns on \(.whose) \(.enables)"
+        | "\($package.name): its default feature turns on \(.whose) testing"
             + (if $feature == "default" then "" else " (through its feature \($feature))" end)
             + "; a library's default feature may not"
     end
@@ -87,4 +137,12 @@ def default_reach($features):
     if ($program | not) and (.name | startswith("kkt-") | not)
     then "\(.name): its name does not start with kkt-; every package without a binary target must"
     else empty end
+),
+(
+    # Check 6: no package has a feature named `real`. Code that touches the
+    # machine is in an effect crate of its own, not behind a feature.
+    if .features | has("real")
+    then "\(.name): it has a `real` feature; code that touches the machine belongs in an effect crate, not behind a feature"
+    else empty end
+)
 )

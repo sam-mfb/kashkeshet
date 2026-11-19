@@ -110,7 +110,10 @@ impl Condition {
         Condition::Exists(Box::new(related))
     }
 
-    #[allow(clippy::should_implement_trait)]
+    #[expect(
+        clippy::should_implement_trait,
+        reason = "a condition's negation, named as the query language names it; `!` on a condition would read as a boolean"
+    )]
     pub fn not(condition: Condition) -> Condition {
         Condition::Not(Box::new(condition))
     }

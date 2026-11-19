@@ -1,8 +1,8 @@
 //! Every permission check and database change.
 //!
 //! Both the MCP tools and the web page go through this module. Nothing else
-//! touches the database, and this module reaches it only through the
-//! [`kkt_store`] contract.
+//! touches the database, and the rules reach it only through the
+//! [`Reader`] and [`Writer`] contract of their own storage module.
 //!
 //! The rules:
 //!
@@ -46,9 +46,6 @@
 //! clears the ownership first. [`Permission::IssueRecoveryCodes`] lets it
 //! issue a new recovery code for an avatar.
 //!
-//! In key mode the web page's human holds all three permissions, an admin
-//! key with a name read and change, and one with no name read only.
-//!
 //! An avatar's memory, its named entries, is read and changed through MCP
 //! only by the avatar itself; the operator, the human or an admin agent, may
 //! read it, and nobody else may.
@@ -59,83 +56,85 @@
 //! permissions. Any agent may take one, and changes only its own; taking,
 //! switching, updating or dropping a lane is announced by the agent in
 //! every channel it is in. The operator can also import lanes from files on
-//! the server machine ([`CommandLine::import_lanes`]), as the human; each
+//! the server machine ([`DirectAccess::import_lanes`]), as the human; each
 //! version imported records the folder and git commit it came from.
 
 mod access;
 mod admin;
+mod admin_api;
 mod administration;
+mod agent_api;
 mod agents;
 mod announcement;
 mod auth;
 mod channels;
 mod error;
+mod events;
 mod human;
 mod lane_import;
 mod lanes;
 pub use lane_import::{
     ImportedLane, LaneImport, LaneOutcome, check_lane_import, check_retire_missing,
 };
-pub use lanes::{
-    AgentLane, HeldLane, Lane, LaneChange, LaneRetired, LaneSave, LaneSource, LaneTaking,
-    LaneVersion,
-};
+
 mod memory;
-pub use memory::{MemoryEntry, MemoryList, MemorySaved, MemorySummary};
-mod command_line;
+
+mod direct_access;
 mod messages;
 mod operator;
-pub use announcement::ServerAnnouncement;
-pub use operator::{Audit, Operator, OperatorWording, Permission, Permissions};
-mod rate;
-mod stale;
-pub use stale::{Kept, KeptReason, StaleAgent, StaleHidden};
-mod waiting;
-use waiting::Waiting;
+mod operator_api;
 
+pub use operator::OperatorWording;
+mod rate;
+mod settings;
+pub use settings::{FLOOR, Problem, Settings};
+mod stale;
+mod startup;
+pub use startup::{NewServerRun, Startup, start};
+
+mod waiting;
+mod wording;
+use waiting::Waiting;
+pub use wording::DefaultWording;
+
+#[cfg(any(test, feature = "testing"))]
+mod scenarios;
 #[cfg(test)]
 mod tests;
 
-pub use admin::AdminChannel;
-pub use administration::ChannelChange;
-pub use agents::{Actor, Agent, AgentInfo, ClientInfo, Reclaimed, RecordedClient, Registration};
-pub use channels::{ChannelInfo, ChannelNote, ChannelQuery, Members, NewChannel, channel_cursor};
-pub use command_line::{AgentStatus, CommandLine, Revoked};
-pub use error::{Code, Refusal, RuleError};
-pub use human::{AgentView, ChannelActivity, ChannelRef, ServerRunInfo};
-/// The swarm rules act in: [`Rules::in_swarm`].
-pub use kkt_store::SwarmId;
-pub use messages::{
-    ActivityRow, Message, MessagePage, Position, ReadQuery, SearchHit, SearchQuery, WaitQuery,
-    WaitResult,
-};
+pub use direct_access::{DirectAccess, Revoked};
+
+/// Storage: the [`Reader`] and [`Writer`] contract, its implementation in
+/// kkt-db's terms, and the core's tables ([`schema`]).
+mod store;
+
 use rate::{RegisterLimiter, SendLimiter};
+#[cfg(any(test, feature = "testing"))]
+pub use store::testing;
+pub use store::{CORE, Db, StoreError, StoreResult, legacy, schema};
+// The store's records, questions and changes are the rules' own: other
+// crates' tests reach them only through `testing`.
+pub(crate) use store::{
+    AgentClient, AgentLaneRecord, AgentRecord, AnyChannelRecord, ChannelFacts, ChannelFilter,
+    ChannelScope, ChannelSummary, ChannelUseRecord, LaneRecord, LaneRetiredRecord,
+    LaneSourceRecord, LaneVersionRecord, MemoryEntryRecord, MessageRange, NewAgentRecord,
+    NewChannelRecord, NewLaneVersionRecord, NewMessageRecord, NewerFilter, NoteEditRecord, Reader,
+    SearchFilter, SentFilter, TakenLaneRecord, Writer,
+};
 
 use access::{Decision, Need, Viewer, Who};
-use kkt_clock::{self as clock, Clock, Span, Time};
-use kkt_config::Limits;
-use kkt_events::{
+use agents::may_change;
+use events::{
     AgentHidden, ChannelHidden, ChannelMembers, Events, Joined, Left, NewAgent,
     NewChannel as NewChannelEvent, Subscription, SwarmEvents,
 };
-use kkt_names::{self as names, Entropy};
-use kkt_store::{
-    ActivityRecord, AgentRecord, ChannelFacts, ChannelFilter, ChannelUseRecord, Db,
-    MemoryEntryRecord, MessageRange, MessageRecord, NewAgentRecord, NewChannelRecord,
-    NewMessageRecord, NewerFilter, NoteEditRecord, Reads, SearchFilter, SearchHitRecord,
-    SentFilter, ServerRunRecord, StoreError, Writes,
-};
-use serde::Serialize;
+use kkt_api_admin::AdminChannel;
+use kkt_api_agent::*;
+use kkt_api_operator::*;
+use kkt_clock::{self as clock, Clock, Span, Time};
+use kkt_entropy::Entropy;
+use kkt_names as names;
 use std::sync::Arc;
-
-pub type Result<T> = std::result::Result<T, RuleError>;
-
-/// One page of a list, plus the cursor for the next page if there is one.
-#[derive(Clone, Debug, Serialize)]
-pub struct Page<T> {
-    pub items: Vec<T>,
-    pub next_cursor: Option<String>,
-}
 
 /// Everything the rules depend on, supplied at startup.
 pub struct Deps {
@@ -144,14 +143,16 @@ pub struct Deps {
     /// list or change is in it; to them, nothing outside it exists.
     /// [`Rules::in_swarm`] gives the same rules in another swarm.
     pub swarm: SwarmId,
-    /// The server's one bus, which every swarm's notices go through.
-    pub events: Events,
+    /// The server's shutdown signal. When it stops, every subscription to
+    /// the rules' notices ends.
+    pub shutdown: kkt_shutdown::Shutdown,
     pub clock: Arc<dyn Clock>,
     pub entropy: Arc<dyn Entropy>,
-    /// This server run, from `provenance::record`. New agents and messages
+    /// This server run, which [`start`] records. New agents and messages
     /// are stamped with it.
     pub run_id: i64,
-    pub limits: Limits,
+    /// What the rules enforce and fill in.
+    pub settings: Settings,
     /// How notices name the operator, from where it asked.
     pub wording: Arc<dyn OperatorWording>,
 }
@@ -170,28 +171,36 @@ pub struct Rules {
 }
 
 /// What [`Rules`] share in every swarm: the database, the clock, the
-/// limits, the bus, the record of waits and the rate limiters. Waits and
+/// settings, the bus, the record of waits and the rate limiters. Waits and
 /// sends are counted per agent, a handle in a swarm.
 struct Inner {
     deps: Deps,
+    /// The server's one bus, which every swarm's notices go through, built
+    /// from `deps.settings` and `deps.shutdown`.
+    events: Events,
     /// Who is waiting for messages now, and who stopped a moment ago.
     waiting: Waiting,
-    /// Counts each agent's sends against `limits.sends_per_minute`.
+    /// Counts each agent's sends against `settings.sends_per_minute`.
     sends: SendLimiter,
     /// Counts registrations, in every swarm together, against
-    /// `limits.registrations_per_minute`.
+    /// `settings.registrations_per_minute`.
     registrations: RegisterLimiter,
 }
 
 impl Rules {
     /// Rules over `deps`, acting in `deps.swarm`, with their own record of
-    /// waiting agents and their own rate limiters, made from `deps.limits`.
+    /// waiting agents and their own rate limiters, made from `deps.settings`.
     pub fn new(deps: Deps) -> Rules {
-        let sends = SendLimiter::new(deps.limits.sends_per_minute);
-        let registrations = RegisterLimiter::new(deps.limits.registrations_per_minute);
+        let sends = SendLimiter::new(deps.settings.sends_per_minute);
+        let registrations = RegisterLimiter::new(deps.settings.registrations_per_minute);
         let swarm = deps.swarm.clone();
+        let events = Events::new(events::Settings {
+            buffer: deps.settings.event_buffer,
+        })
+        .until_stopped(deps.shutdown.clone());
         let inner = Arc::new(Inner {
             deps,
+            events,
             waiting: Waiting::default(),
             sends,
             registrations,
@@ -209,20 +218,28 @@ impl Rules {
     fn bound(inner: Arc<Inner>, swarm: SwarmId) -> Rules {
         Rules {
             store: Bound::new(inner.deps.db.clone(), swarm.clone()),
-            events: inner.deps.events.in_swarm(swarm.as_str()),
+            events: inner.events.in_swarm(swarm.as_str()),
             inner,
             swarm,
         }
     }
 
-    pub fn limits(&self) -> &Limits {
-        &self.inner.deps.limits
+    /// The server run these rules stamp the rows they make with.
+    pub fn run_id(&self) -> i64 {
+        self.inner.deps.run_id
+    }
+
+    /// What these rules enforce and fill in.
+    pub fn settings(&self) -> &Settings {
+        &self.inner.deps.settings
     }
 
     /// Hears what happens in this swarm from now on: new messages, agents
     /// and channels, members coming and going, and what is hidden. It hears
-    /// nothing from another swarm. Its [`Subscription::closer`] ends it.
-    pub fn subscribe(&self) -> Subscription {
+    /// nothing from another swarm. It ends when it is dropped, or when the
+    /// server's shutdown signal stops.
+    /// The operator hears the same through `Views::subscribe`.
+    pub(crate) fn subscribe(&self) -> Subscription {
         self.events.subscribe()
     }
 
@@ -235,8 +252,8 @@ impl Rules {
     }
 
     /// The database itself, not bound to the swarm, for tests that look at
-    /// or break what is stored.
-    #[cfg(test)]
+    /// or break what is stored, here and in the scenarios.
+    #[cfg(any(test, feature = "testing"))]
     fn unbound_db(&self) -> &Db {
         &self.inner.deps.db
     }
@@ -265,7 +282,7 @@ impl Bound {
     where
         T: Send + 'static,
         E: From<StoreError> + Send + 'static,
-        F: FnOnce(&dyn Reads, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
+        F: FnOnce(&Reader<'_>, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
     {
         let swarm = self.swarm.clone();
         self.db.read(move |store| f(store, &swarm)).await
@@ -276,7 +293,7 @@ impl Bound {
     where
         T: Send + 'static,
         E: From<StoreError> + Send + 'static,
-        F: FnOnce(&dyn Writes, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
+        F: FnOnce(&Writer<'_>, &SwarmId) -> std::result::Result<T, E> + Send + 'static,
     {
         let swarm = self.swarm.clone();
         self.db.write(move |store| f(store, &swarm)).await
@@ -285,7 +302,7 @@ impl Bound {
 
 /// The channel, if `agent` can see it, and whether `agent` is in it.
 fn visible_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     agent: &str,
     id: &str,
@@ -295,7 +312,7 @@ fn visible_channel(
 
 /// The channel, if `agent` is a member of it.
 fn member_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     agent: &str,
     id: &str,
@@ -304,7 +321,7 @@ fn member_channel(
 }
 
 fn channel_for(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     agent: &str,
     id: &str,
@@ -324,7 +341,7 @@ fn channel_for(
 
 /// The channel, if `agent` is a member of it and owns it.
 fn owned_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     agent: &str,
     id: &str,
@@ -334,7 +351,7 @@ fn owned_channel(
 
 /// The channel, if `actor` may change it as a member would.
 fn changeable_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     actor: &Actor,
     id: &str,
@@ -350,7 +367,7 @@ fn changeable_channel(
 /// The channel, if `access::decide` lets `who`, the human or an admin agent,
 /// change it as a member would.
 fn operator_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     who: Who,
     id: &str,
@@ -373,7 +390,7 @@ fn agent_view_of(facts: Option<&ChannelFacts>) -> access::Channel {
 /// tell a hidden channel from a missing one. A channel of another swarm is
 /// missing.
 fn human_view_of(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     facts: Option<&ChannelFacts>,
     id: &str,
@@ -388,7 +405,7 @@ fn human_view_of(
 /// Full details of channel `id`, hidden or not, if `access::decide` lets the
 /// human read it, and whether it is hidden.
 fn human_readable_channel(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     preview: usize,
@@ -419,13 +436,13 @@ fn decided(
     }
 }
 
-fn agent_exists(store: &dyn Reads, swarm: &SwarmId, handle: &str) -> Result<bool> {
+fn agent_exists(store: &Reader<'_>, swarm: &SwarmId, handle: &str) -> Result<bool> {
     Ok(store.agent(swarm, handle)?.is_some())
 }
 
 /// Full details of one channel, as `viewer` sees it. `viewer` is `None` for the human.
 fn channel_info(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     viewer: Option<&str>,
@@ -441,7 +458,7 @@ fn channel_info(
 /// Full details of one hidden channel, for the human. Call it only through
 /// [`human_readable_channel`], which asks `access::decide` first.
 fn hidden_channel_info(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
     preview: usize,
@@ -453,10 +470,10 @@ fn hidden_channel_info(
 }
 
 fn info_from_summary(
-    store: &dyn Reads,
+    store: &Reader<'_>,
     swarm: &SwarmId,
     id: &str,
-    summary: kkt_store::ChannelSummary,
+    summary: crate::ChannelSummary,
     preview: usize,
 ) -> Result<ChannelInfo> {
     Ok(ChannelInfo {

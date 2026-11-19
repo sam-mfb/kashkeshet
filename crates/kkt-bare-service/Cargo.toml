@@ -1,0 +1,19 @@
+[package]
+name = "kkt-bare-service"
+description = "Running kkt's server directly on the machine, as a launchd or systemd service of the user's login"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[features]
+# `testing::Memory`, a service manager in memory for consumers' tests.
+testing = []
+
+[dependencies]
+kkt-clock = { path = "../kkt-clock" }
+thiserror.workspace = true
+
+[dev-dependencies]
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }

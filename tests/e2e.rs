@@ -251,10 +251,10 @@ async fn register_and_whoami_report_the_server_version_in_both_formats() {
     client.cancel().await.unwrap();
 }
 
-/// `register`'s parameter before the rename to `handle` is refused, with a
-/// message saying to use `handle`, and registers nothing. That holds for any
-/// value of `name`, `null` included, since the old optional parameter took
-/// `null`. Registering with no arguments still works.
+/// `register` with a `name` parameter is refused, with a message saying to
+/// use `handle`, and registers nothing. That holds for any value of `name`,
+/// `null` included, since agents written for older servers may send `null`.
+/// Registering with no arguments works.
 #[tokio::test]
 async fn register_with_the_old_name_parameter_is_refused_and_creates_no_avatar() {
     let server = start().await;
@@ -974,7 +974,7 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
 )]
 async fn disconnect_clears_listening_without_completion_grace() {
     let mut config = test_config();
-    config.limits.waiting_grace = Duration::from_secs(30);
+    config.rules.waiting_grace = Duration::from_secs(30);
     let server = start_with(config).await;
     let observer = connect_new(&server).await;
     let (name, token) = register(&observer).await;
@@ -1218,7 +1218,7 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
     let db = kashkeshet::machine::database::open(&path).unwrap();
     let server = common::start_on(
         test_config(),
-        std::sync::Arc::new(kkt_clock::SystemClock),
+        std::sync::Arc::new(kkt_clock_system::SystemClock),
         db,
     )
     .await;

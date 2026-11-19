@@ -1,0 +1,697 @@
+use super::*;
+use serde_json::json;
+use std::cell::RefCell;
+use std::collections::VecDeque;
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
+
+/// The command the refusals tell a person to rerun, as kkt's setup gives it.
+const RERUN: &str = "`kkt setup`";
+
+/// The address the tests serve: kkt's default.
+const DEFAULT_BIND: SocketAddr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 7420));
+
+struct Fake {
+    replies: RefCell<VecDeque<Result<Output, RunError>>>,
+    calls: RefCell<Vec<Vec<String>>>,
+}
+
+impl Fake {
+    fn new(replies: Vec<Result<Output, RunError>>) -> Self {
+        Self {
+            replies: RefCell::new(replies.into()),
+            calls: RefCell::new(Vec::new()),
+        }
+    }
+}
+
+impl Runner for Fake {
+    fn run(&self, args: &[String]) -> Result<Output, RunError> {
+        self.calls.borrow_mut().push(args.to_vec());
+        self.replies
+            .borrow_mut()
+            .pop_front()
+            .expect("unexpected command")
+    }
+}
+
+/// No `tailscale` program to run.
+fn missing(said: &str) -> Result<Output, RunError> {
+    Err(RunError {
+        missing: true,
+        said: said.to_string(),
+    })
+}
+
+fn reply(value: Value) -> Result<Output, RunError> {
+    Ok(Output {
+        success: true,
+        stdout: value.to_string(),
+        stderr: String::new(),
+    })
+}
+
+fn running() -> Result<Output, RunError> {
+    reply(
+        json!({"BackendState":"Running", "Self":{"DNSName":"my-mac-1.tail123.ts.net."}, "CertDomains":["my-mac-1.tail123.ts.net"]}),
+    )
+}
+
+fn proxy(target: &str) -> Value {
+    json!({"TCP":{"443":{"HTTPS":true}}, "Web":{"my-mac-1.tail123.ts.net:443":{"Handlers":{"/":{"Proxy":target}, "/other":{"Path":"/somewhere"}}}}})
+}
+
+#[test]
+fn prepare_keeps_the_exact_node_name_without_changing_login() {
+    let host = Fake::new(vec![running()]);
+    assert_eq!(
+        prepare(&host, RERUN).unwrap().dns_name,
+        "my-mac-1.tail123.ts.net"
+    );
+    assert_eq!(*host.calls.borrow(), vec![vec!["status", "--json"]]);
+}
+
+#[test]
+fn prepare_reports_login_and_https_actions_before_any_changes() {
+    for (value, expected) in [
+        (json!({"BackendState":"NeedsLogin"}), "log in"),
+        (json!({"BackendState":"Stopped"}), "Stopped"),
+        (
+            json!({"BackendState":"Running","Self":{"DNSName":"node.tail.ts.net"},"CertDomains":null}),
+            "Enable HTTPS",
+        ),
+        (
+            json!({"BackendState":"Running","Self":{"DNSName":"node.tail.ts.net"},"CertDomains":["other.tail.ts.net"]}),
+            "Enable HTTPS",
+        ),
+        (
+            json!({"BackendState":"Running","Self":{"DNSName":"node/path.tail.ts.net"},"CertDomains":[]}),
+            "MagicDNS",
+        ),
+    ] {
+        let host = Fake::new(vec![reply(value)]);
+        assert!(
+            prepare(&host, RERUN)
+                .unwrap_err()
+                .to_string()
+                .contains(expected)
+        );
+        assert_eq!(host.calls.borrow().len(), 1);
+    }
+    let host = Fake::new(vec![missing("Tailscale is not installed")]);
+    assert!(
+        prepare(&host, RERUN)
+            .unwrap_err()
+            .to_string()
+            .contains("not installed")
+    );
+}
+
+#[test]
+fn logged_out_nonzero_status_is_still_actionable() {
+    let host = Fake::new(vec![Ok(Output {
+        success: false,
+        stdout: "{\"BackendState\":\"NeedsLogin\"}".into(),
+        stderr: "logged out".into(),
+    })]);
+    assert!(
+        prepare(&host, RERUN)
+            .unwrap_err()
+            .to_string()
+            .contains("log in")
+    );
+}
+
+#[test]
+fn serve_sets_persistent_https_with_the_given_loopback_port() {
+    let host = Fake::new(vec![running(), reply(json!({})), reply(json!({}))]);
+    serve(&host, "127.0.0.1:7421".parse().unwrap(), RERUN).unwrap();
+    assert_eq!(
+        host.calls.borrow()[2],
+        vec!["serve", "--bg", "--https=443", "http://127.0.0.1:7421"]
+    );
+}
+
+#[test]
+fn serve_can_reapply_its_proxy_but_refuses_other_handlers_tcp_and_funnel() {
+    let host = Fake::new(vec![
+        running(),
+        reply(proxy("http://127.0.0.1:7420")),
+        reply(json!({})),
+    ]);
+    serve(&host, DEFAULT_BIND, RERUN).unwrap();
+    for config in [
+        proxy("http://127.0.0.1:8888"),
+        json!({"TCP":{"443":{"TCPForward":"127.0.0.1:8888"}}}),
+        json!({"AllowFunnel":{"my-mac-1.tail123.ts.net:443":true}}),
+    ] {
+        let host = Fake::new(vec![running(), reply(config)]);
+        assert!(serve(&host, DEFAULT_BIND, RERUN).is_err());
+        assert_eq!(host.calls.borrow().len(), 2, "no mutation after refusal");
+    }
+}
+
+#[test]
+fn stop_targets_only_its_root_handler_and_never_resets_or_logs_out() {
+    let host = Fake::new(vec![
+        running(),
+        reply(proxy("http://127.0.0.1:7420")),
+        reply(json!({})),
+    ]);
+    stop(&host, DEFAULT_BIND, RERUN).unwrap();
+    assert_eq!(
+        host.calls.borrow()[2],
+        vec!["serve", "--bg", "--https=443", "--set-path=/", "off"]
+    );
+    let host = Fake::new(vec![running(), reply(json!({}))]);
+    stop(&host, DEFAULT_BIND, RERUN).unwrap();
+    assert_eq!(host.calls.borrow().len(), 2);
+    let host = Fake::new(vec![running(), reply(proxy("http://127.0.0.1:9999"))]);
+    assert!(
+        stop(&host, DEFAULT_BIND, RERUN)
+            .unwrap_err()
+            .to_string()
+            .contains("unchanged")
+    );
+    assert_eq!(host.calls.borrow().len(), 2);
+}
+
+#[test]
+fn bad_status_config_and_command_failures_do_not_succeed() {
+    let host = Fake::new(vec![Ok(Output {
+        success: true,
+        stdout: "not JSON".into(),
+        stderr: String::new(),
+    })]);
+    assert!(
+        prepare(&host, RERUN)
+            .unwrap_err()
+            .to_string()
+            .contains("status")
+    );
+    let host = Fake::new(vec![
+        running(),
+        Ok(Output {
+            success: true,
+            stdout: "bad config".into(),
+            stderr: String::new(),
+        }),
+    ]);
+    assert!(
+        serve(&host, DEFAULT_BIND, RERUN)
+            .unwrap_err()
+            .to_string()
+            .contains("invalid")
+    );
+    let host = Fake::new(vec![
+        running(),
+        reply(json!({})),
+        Ok(Output {
+            success: false,
+            stdout: String::new(),
+            stderr: "permission denied".into(),
+        }),
+    ]);
+    assert!(
+        serve(&host, DEFAULT_BIND, RERUN)
+            .unwrap_err()
+            .to_string()
+            .contains("permission denied")
+    );
+}
+
+fn printed(stdout: &str) -> Result<Output, RunError> {
+    Ok(Output {
+        success: true,
+        stdout: stdout.into(),
+        stderr: String::new(),
+    })
+}
+
+fn failed(stderr: &str) -> Result<Output, RunError> {
+    Ok(Output {
+        success: false,
+        stdout: String::new(),
+        stderr: stderr.into(),
+    })
+}
+
+/// Each message keeps today's text and adds why, so a person can act on it.
+#[test]
+fn unreadable_status_says_why() {
+    let error = prepare(&Fake::new(vec![printed("{}")]), RERUN)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.starts_with(
+            "could not read Tailscale status; start Tailscale and log in, then rerun `kkt setup`"
+        ),
+        "{error}"
+    );
+    assert!(
+        error.ends_with("(its output could not be read: unexpected data at line 1 column 2)"),
+        "{error}"
+    );
+    let error = prepare(&Fake::new(vec![printed("{\"BackendState\":")]), RERUN)
+        .unwrap_err()
+        .to_string();
+    assert!(
+        error.ends_with("(its output could not be read: unexpected end at line 1 column 16)"),
+        "{error}"
+    );
+}
+
+/// serde_json's own text quotes values it did not expect; the status may
+/// hold private data, so the message must never repeat it.
+#[test]
+fn unreadable_status_never_repeats_its_values() {
+    let marker = "PRIVATE_STATUS_MARKER";
+    for stdout in [
+        format!("{{\"BackendState\":\"Running\",\"Self\":\"{marker}\"}}"),
+        format!("{{\"BackendState\":\"Running\",\"Self\":{{\"DNSName\":[\"{marker}\"]}}}}"),
+        format!("{{\"BackendState\":\"Running\",\"CertDomains\":\"{marker}\"}}"),
+        format!("{{\"BackendState\":{marker}}}"),
+    ] {
+        let error = prepare(&Fake::new(vec![printed(&stdout)]), RERUN)
+            .unwrap_err()
+            .to_string();
+        assert!(
+            error.starts_with("could not read Tailscale status;"),
+            "{error}"
+        );
+        assert!(error.contains(" at line 1 column "), "{error}");
+        assert!(!error.contains(marker), "{error}");
+    }
+}
+
+#[test]
+fn failed_status_says_what_tailscale_said() {
+    let host = Fake::new(vec![Ok(Output {
+        success: false,
+        stdout: running().unwrap().stdout,
+        stderr: "permission denied\n".into(),
+    })]);
+    let error = prepare(&host, RERUN).unwrap_err().to_string();
+    assert_eq!(
+        error,
+        "Tailscale status failed; check `tailscale status` before rerunning `kkt setup` \
+         (Tailscale said: permission denied)"
+    );
+}
+
+#[test]
+fn failed_serve_status_says_what_tailscale_said() {
+    let host = Fake::new(vec![running(), failed("access denied\n")]);
+    let error = serve(&host, DEFAULT_BIND, RERUN).unwrap_err().to_string();
+    assert_eq!(
+        error,
+        "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions \
+         (Tailscale said: access denied)"
+    );
+    // With nothing on stderr, the message is today's alone.
+    let host = Fake::new(vec![running(), failed("")]);
+    let error = serve(&host, DEFAULT_BIND, RERUN).unwrap_err().to_string();
+    assert_eq!(
+        error,
+        "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions"
+    );
+}
+
+#[test]
+fn invalid_serve_config_says_why() {
+    let host = Fake::new(vec![running(), printed("bad config")]);
+    let error = serve(&host, DEFAULT_BIND, RERUN).unwrap_err().to_string();
+    assert_eq!(
+        error,
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 1"
+    );
+    let error = served(&Fake::new(vec![printed("bad config")]), DEFAULT_BIND)
+        .unwrap_err()
+        .to_string();
+    assert_eq!(
+        error,
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 1"
+    );
+}
+
+#[test]
+fn non_loopback_and_ephemeral_bind_are_refused_before_running_commands() {
+    let host = Fake::new(vec![]);
+    assert!(serve(&host, "0.0.0.0:7420".parse().unwrap(), RERUN).is_err());
+    assert!(stop(&host, "127.0.0.1:0".parse().unwrap(), RERUN).is_err());
+    assert!(host.calls.borrow().is_empty());
+}
+
+#[test]
+fn served_finds_the_node_proxying_to_the_server_from_serves_settings_alone() {
+    let target = format!("http://{DEFAULT_BIND}");
+    let host = Fake::new(vec![reply(proxy(&target))]);
+    let node = served(&host, DEFAULT_BIND).unwrap().expect("served");
+    assert_eq!(node.dns_name, "my-mac-1.tail123.ts.net");
+    // No login needed: only Serve's settings are read, and nothing changes.
+    assert_eq!(
+        *host.calls.borrow(),
+        vec![vec!["serve", "status", "--json"]]
+    );
+}
+
+#[test]
+fn served_is_none_when_tailscale_proxies_elsewhere_serves_nothing_or_is_not_installed() {
+    for answer in [
+        reply(proxy("http://127.0.0.1:9999")),
+        reply(json!({})),
+        Ok(Output {
+            success: true,
+            stdout: String::new(),
+            stderr: String::new(),
+        }),
+        missing("could not run Tailscale: not found"),
+    ] {
+        let host = Fake::new(vec![answer]);
+        assert_eq!(served(&host, DEFAULT_BIND).unwrap(), None);
+    }
+    // A server on another machine's address is never shared this way.
+    let host = Fake::new(vec![]);
+    assert_eq!(
+        served(&host, "0.0.0.0:7420".parse().unwrap()).unwrap(),
+        None
+    );
+}
+
+#[test]
+fn served_says_when_serves_settings_cannot_be_read() {
+    let failed = Ok(Output {
+        success: false,
+        stdout: String::new(),
+        stderr: "failed to connect to local tailscaled".into(),
+    });
+    let invalid = Ok(Output {
+        success: true,
+        stdout: "not json".into(),
+        stderr: String::new(),
+    });
+    let error = served(&Fake::new(vec![failed]), DEFAULT_BIND)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("local tailscaled"), "{error}");
+    assert!(served(&Fake::new(vec![invalid]), DEFAULT_BIND).is_err());
+}
+
+#[test]
+fn a_tailscale_that_is_there_but_cannot_be_run_is_an_error_not_nothing_served() {
+    let refused = Err(RunError {
+        missing: false,
+        said: "could not run Tailscale: Permission denied (os error 13); install Tailscale, \
+               start it and log in, then rerun `setup`"
+            .to_string(),
+    });
+    let error = served(&Fake::new(vec![refused]), DEFAULT_BIND)
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("Permission denied"), "{error}");
+}
+
+#[test]
+fn the_refusals_name_the_command_their_caller_gives() {
+    let error = prepare(&Fake::new(vec![printed("{}")]), "`other init`")
+        .unwrap_err()
+        .to_string();
+    assert!(error.contains("rerun `other init`"), "{error}");
+    assert!(!error.contains("kkt"), "{error}");
+}
+
+#[test]
+fn a_status_answer_reads_as_tailscale_says_it() {
+    let answer = json!({
+        "BackendState": "NeedsLogin",
+        "AuthURL": "https://login.tailscale.com/a/abc",
+        "Self": {"DNSName": "node-1.tail1234.ts.net."},
+        "CertDomains": ["node-1.tail1234.ts.net", 7],
+    });
+    assert_eq!(
+        Tailscale::read_status(&answer.to_string()),
+        Ok(Status {
+            backend_state: "NeedsLogin".into(),
+            auth_url: Some("https://login.tailscale.com/a/abc".into()),
+            dns_name: Some("node-1.tail1234.ts.net".into()),
+            cert_domains: vec!["node-1.tail1234.ts.net".into()],
+        })
+    );
+}
+
+#[test]
+fn a_status_answer_needs_only_its_backend_state() {
+    let answer = json!({"BackendState": "Running", "AuthURL": "", "Self": {}});
+    assert_eq!(
+        Tailscale::read_status(&answer.to_string()),
+        Ok(Status {
+            backend_state: "Running".into(),
+            auth_url: None,
+            dns_name: None,
+            cert_domains: Vec::new(),
+        })
+    );
+}
+
+#[test]
+fn a_status_answer_without_a_backend_state_cannot_be_read() {
+    assert_eq!(
+        Tailscale::read_status(r#"{"BackendState": 3}"#).map_err(|e| e.to_string()),
+        Err("no BackendState".to_string())
+    );
+    assert_eq!(
+        Tailscale::read_status("{}").map_err(|e| e.to_string()),
+        Err("no BackendState".to_string())
+    );
+    let not_json = Tailscale::read_status("not json")
+        .expect_err("not json")
+        .to_string();
+    assert_eq!(not_json, "syntax error at line 1 column 2");
+}
+
+#[test]
+fn an_unreadable_status_answer_never_repeats_what_it_held() {
+    // A value of the wrong shape, which serde's own text would quote.
+    let error =
+        Tailscale::read_status(r#"{"BackendState": "Running", "Self": {"DNSName": "secret-node"}"#)
+            .expect_err("cut short")
+            .to_string();
+    assert!(!error.contains("secret-node"), "{error}");
+    assert!(error.starts_with("unexpected end at line 1"), "{error}");
+}
+
+#[test]
+fn a_status_says_whether_the_node_runs_or_waits_for_a_login() {
+    let read = |state: &str| {
+        Tailscale::read_status(&json!({"BackendState": state}).to_string()).expect("readable")
+    };
+    assert!(read("Running").running() && !read("Running").needs_login());
+    assert!(read("NeedsLogin").needs_login() && !read("NeedsLogin").running());
+    let starting = read("Starting");
+    assert!(!starting.running() && !starting.needs_login());
+}
+
+/// Every message a person can be shown, pinned byte for byte: what `kkt
+/// setup` and the install commands print when sharing over Tailscale fails.
+#[test]
+fn every_sharing_message_says_what_it_always_said() {
+    let bad_json = || printed("{not json");
+    let logged_out = || reply(json!({"BackendState":"NeedsLogin"}));
+    let no_name =
+        || reply(json!({"BackendState":"Running","Self":{"DNSName":"nodot"},"CertDomains":[]}));
+    let no_https = || {
+        reply(
+            json!({"BackendState":"Running","Self":{"DNSName":"node.tail.ts.net"},"CertDomains":null}),
+        )
+    };
+    let status_failed = || {
+        Ok(Output {
+            success: false,
+            stdout: json!({"BackendState":"Running"}).to_string(),
+            stderr: "status broke".into(),
+        })
+    };
+    let refused = || {
+        Err(RunError {
+            missing: false,
+            said: "could not run Tailscale: refused; install Tailscale, start it and log in, then rerun `kkt setup`".into(),
+        })
+    };
+    let other_port = "127.0.0.1:7421".parse::<SocketAddr>().unwrap();
+    let said: Vec<String> = vec![
+        prepare(&Fake::new(vec![refused()]), RERUN)
+            .unwrap_err()
+            .to_string(),
+        prepare(&Fake::new(vec![bad_json()]), RERUN)
+            .unwrap_err()
+            .to_string(),
+        prepare(&Fake::new(vec![logged_out()]), RERUN)
+            .unwrap_err()
+            .to_string(),
+        prepare(&Fake::new(vec![status_failed()]), RERUN)
+            .unwrap_err()
+            .to_string(),
+        prepare(&Fake::new(vec![no_name()]), RERUN)
+            .unwrap_err()
+            .to_string(),
+        prepare(&Fake::new(vec![no_https()]), RERUN)
+            .unwrap_err()
+            .to_string(),
+        serve(&Fake::new(vec![]), "0.0.0.0:7420".parse().unwrap(), RERUN)
+            .unwrap_err()
+            .to_string(),
+        serve(
+            &Fake::new(vec![running(), failed("no serve")]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err()
+        .to_string(),
+        serve(&Fake::new(vec![running(), bad_json()]), DEFAULT_BIND, RERUN)
+            .unwrap_err()
+            .to_string(),
+        serve(
+            &Fake::new(vec![running(), reply(proxy("http://127.0.0.1:8888"))]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err()
+        .to_string(),
+        serve(
+            &Fake::new(vec![
+                running(),
+                reply(json!({"TCP":{"443":{"TCPForward":"x"}}})),
+            ]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err()
+        .to_string(),
+        serve(
+            &Fake::new(vec![
+                running(),
+                reply(json!({"AllowFunnel":{"my-mac-1.tail123.ts.net:443":true}})),
+            ]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err()
+        .to_string(),
+        serve(
+            &Fake::new(vec![running(), reply(json!({})), failed("not allowed")]),
+            DEFAULT_BIND,
+            RERUN,
+        )
+        .unwrap_err()
+        .to_string(),
+        served(&Fake::new(vec![refused()]), DEFAULT_BIND)
+            .unwrap_err()
+            .to_string(),
+        served(&Fake::new(vec![failed("down")]), DEFAULT_BIND)
+            .unwrap_err()
+            .to_string(),
+        served(&Fake::new(vec![bad_json()]), DEFAULT_BIND)
+            .unwrap_err()
+            .to_string(),
+        stop(
+            &Fake::new(vec![running(), reply(proxy("http://127.0.0.1:7420"))]),
+            other_port,
+            RERUN,
+        )
+        .unwrap_err()
+        .to_string(),
+    ];
+    let expected = [
+        "could not run Tailscale: refused; install Tailscale, start it and log in, then rerun `kkt setup`",
+        "could not read Tailscale status; start Tailscale and log in, then rerun `kkt setup` (its output could not be read: syntax error at line 1 column 2)",
+        "Tailscale is NeedsLogin; open Tailscale and log in (or run `tailscale up`), then rerun `kkt setup`",
+        "Tailscale status failed; check `tailscale status` before rerunning `kkt setup` (Tailscale said: status broke)",
+        "Tailscale did not report a valid node DNS name; enable MagicDNS in https://login.tailscale.com/admin/dns and rerun `kkt setup`",
+        "Tailscale HTTPS certificates are not enabled for this node; open https://login.tailscale.com/admin/dns, enable MagicDNS, then under HTTPS Certificates select Enable HTTPS and accept the certificate transparency notice. Rerun `kkt setup` afterwards",
+        "host Tailscale sharing needs a loopback server address with a fixed port",
+        "could not inspect Tailscale Serve; run `tailscale serve status` and check permissions (Tailscale said: no serve)",
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 2",
+        "Tailscale HTTPS root already serves something else; choose a different Tailscale node or remove that handler yourself",
+        "Tailscale already uses the HTTPS port for another TCP listener",
+        "Tailscale Funnel is enabled on this port; disable it before setting up private tailnet access",
+        "Tailscale Serve failed: not allowed; check `tailscale serve status` and permissions",
+        "could not run Tailscale: refused; install Tailscale, start it and log in, then rerun `kkt setup`",
+        "could not read Tailscale Serve's settings (down); start Tailscale and check `tailscale serve status`",
+        "Tailscale Serve returned invalid configuration JSON: syntax error at line 1 column 2",
+        "Tailscale HTTPS root now serves something else; left it unchanged",
+    ];
+    assert_eq!(said, expected);
+    assert_eq!(
+        Tailscale::read_status("{}").map_err(|e| e.to_string()),
+        Err("no BackendState".to_string())
+    );
+    assert_eq!(
+        Tailscale::read_status("{not json").map_err(|e| e.to_string()),
+        Err("syntax error at line 1 column 2".to_string())
+    );
+}
+
+/// Each failure carries the contract's kind, which a caller can act on.
+#[test]
+fn every_sharing_failure_has_its_kind() {
+    fn kind<T>(result: Result<T, SharingError>) -> Sharing {
+        result.map(drop).unwrap_err().kind
+    }
+    let logged_out = || reply(json!({"BackendState":"NeedsLogin"}));
+    assert_eq!(
+        kind(prepare(&Fake::new(vec![logged_out()]), RERUN)),
+        Sharing::NotLoggedIn {
+            state: "NeedsLogin".into()
+        }
+    );
+    let no_name =
+        || reply(json!({"BackendState":"Running","Self":{"DNSName":"nodot"},"CertDomains":[]}));
+    assert_eq!(
+        kind(prepare(&Fake::new(vec![no_name()]), RERUN)),
+        Sharing::NoName
+    );
+    let no_https = || {
+        reply(
+            json!({"BackendState":"Running","Self":{"DNSName":"node.tail.ts.net"},"CertDomains":null}),
+        )
+    };
+    assert_eq!(
+        kind(prepare(&Fake::new(vec![no_https()]), RERUN)),
+        Sharing::NoHttps
+    );
+    assert_eq!(
+        kind(prepare(&Fake::new(vec![printed("{not json")]), RERUN)),
+        Sharing::Unreadable
+    );
+    assert_eq!(
+        kind(serve(
+            &Fake::new(vec![]),
+            "0.0.0.0:7420".parse().unwrap(),
+            RERUN
+        )),
+        Sharing::NotLoopback
+    );
+    assert_eq!(
+        kind(serve(
+            &Fake::new(vec![running(), reply(proxy("http://127.0.0.1:8888"))]),
+            DEFAULT_BIND,
+            RERUN
+        )),
+        Sharing::Occupied
+    );
+    assert_eq!(
+        kind(served(&Fake::new(vec![failed("down")]), DEFAULT_BIND)),
+        Sharing::Failed
+    );
+    let refused = Err(RunError {
+        missing: false,
+        said: "refused".into(),
+    });
+    assert_eq!(
+        kind(served(&Fake::new(vec![refused]), DEFAULT_BIND)),
+        Sharing::Unavailable
+    );
+    assert_eq!(
+        Tailscale::read_status("{}"),
+        Err(StatusError::NoBackendState)
+    );
+}
