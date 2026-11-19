@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "3e543669",
+ "commit": "6ccbaae1",
  "crates": [
   {
    "bins": [
@@ -25470,6 +25470,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
+    "AdminKeyCollision",
     "AdminNameLineError",
     "BindError",
     "Deployment",
@@ -25500,6 +25501,7 @@ window.KKT_GRAPH = {
     "admin_name_written",
     "check_bind",
     "connection",
+    "connection::AddressError",
     "connection::ConnectionError",
     "connection::ConnectionOptions",
     "connection::ConnectionSource",
@@ -25534,6 +25536,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "AdminKeyCollision",
       "AdminNameLineError",
       "BindError",
       "Deployment",
@@ -25562,6 +25565,7 @@ window.KKT_GRAPH = {
       "admin_name_written",
       "check_bind",
       "connection",
+      "connection::AddressError",
       "connection::ConnectionError",
       "connection::ConnectionOptions",
       "connection::ConnectionSource",
@@ -25733,6 +25737,7 @@ window.KKT_GRAPH = {
    "items": [
     "KeyFileError",
     "KeyFiles",
+    "SettingError",
     "admin_key_path",
     "bound_to",
     "check_access_key",
@@ -25746,6 +25751,7 @@ window.KKT_GRAPH = {
      "detail": [
       "KeyFileError",
       "KeyFiles",
+      "SettingError",
       "admin_key_path",
       "bound_to",
       "check_access_key",
@@ -25768,6 +25774,7 @@ window.KKT_GRAPH = {
    "items": [
     "Client",
     "ClientCommand",
+    "ClientConfigError",
     "Host",
     "Setup",
     "allow_kkt",
@@ -25782,6 +25789,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Client",
       "ClientCommand",
+      "ClientConfigError",
       "Host",
       "Setup",
       "allow_kkt",
@@ -25839,7 +25847,9 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [],
+   "test_items": [
+    "MAX_ADMIN_NAME_CHARS"
+   ],
    "to": "kkt-names"
   },
   {
@@ -25907,9 +25917,11 @@ window.KKT_GRAPH = {
     "Purpose",
     "Record",
     "Server",
+    "SetupError",
     "StepError",
     "Steps",
     "Switch",
+    "SwitchError",
     "SwitchSteps",
     "TailscaleLogin",
     "Unfinished",
@@ -25945,7 +25957,9 @@ window.KKT_GRAPH = {
       "NoRecord",
       "Purpose",
       "Record",
+      "SetupError",
       "StepError",
+      "SwitchError",
       "Unfinished",
       "Unrecorded",
       "recorded_setup",
@@ -25978,13 +25992,22 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-install-commands",
    "items": [
+    "BackupError",
     "Backups",
+    "Layout",
     "testing::Memory"
    ],
    "kind": "dev",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
+    {
+     "detail": [
+      "BackupError",
+      "Layout"
+     ],
+     "role": "uses"
+    },
     {
      "detail": [
       "testing::Memory"
@@ -26117,10 +26140,12 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "Answered",
+    "Check",
     "Initialized",
     "KeyFile",
     "Prober",
     "Probing",
+    "report",
     "testing::Memory"
    ],
    "kind": "dev",
@@ -26130,8 +26155,10 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Answered",
+      "Check",
       "Initialized",
-      "Probing"
+      "Probing",
+      "report"
      ],
      "role": "uses"
     },
