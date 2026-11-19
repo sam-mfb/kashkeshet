@@ -124,7 +124,7 @@ impl Service for Memory {
     fn add_key(
         &self,
         key: &Path,
-        make: &dyn Fn(&Path) -> Result<(), String>,
+        make: &dyn Fn(&Path) -> Result<(), crate::KeyError>,
     ) -> Result<bool, ServiceError> {
         // A key it gave the server before is not made again, but the
         // restart runs, as a real service manager's does.

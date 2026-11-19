@@ -313,7 +313,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                         service.add_key(&admin, &|path| {
                             let key =
                                 new_key_file(self.parts.key_files, self.parts.entropy, path, false)
-                                    .map_err(|e| e.to_string())?;
+                                    .map_err(|e| kkt_bare_service::KeyError(e.into()))?;
                             kkt_deployment::admin_name_written(
                                 path,
                                 Some(&name.to_string()),
@@ -323,7 +323,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                                 ),
                             )
                             .map(drop)
-                            .map_err(|e| e.to_string())
+                            .map_err(|e| kkt_bare_service::KeyError(e.into()))
                         })
                     })
                     ?;

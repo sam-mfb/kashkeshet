@@ -131,7 +131,7 @@ pub trait Service {
     fn add_key(
         &self,
         key: &Path,
-        make: &dyn Fn(&Path) -> Result<(), String>,
+        make: &dyn Fn(&Path) -> Result<(), KeyError>,
     ) -> Result<bool, ServiceError>;
 
     /// Whether the service is installed and running, for code that acts on
@@ -205,7 +205,7 @@ impl Service for Unsupported {
     fn add_key(
         &self,
         _: &Path,
-        _: &dyn Fn(&Path) -> Result<(), String>,
+        _: &dyn Fn(&Path) -> Result<(), KeyError>,
     ) -> Result<bool, ServiceError> {
         Err(self.refuse())
     }
@@ -219,6 +219,12 @@ impl Service for Unsupported {
         Err(self.refuse())
     }
 }
+
+/// Why the maker handed to [`Service::add_key`] could not make the key file:
+/// its own error, passed on unread.
+#[derive(Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct KeyError(pub Box<dyn std::error::Error + Send + Sync>);
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
@@ -258,9 +264,9 @@ pub enum ServiceError {
     /// manager's wrapper, says why and how to finish.
     #[error("{0}")]
     ReloadFailed(String),
-    /// Making a key file failed; the text says how.
-    #[error("{0}")]
-    Key(String),
+    /// Making a key file failed: the maker's own error, passed on as it is.
+    #[error(transparent)]
+    Key(KeyError),
     /// The server was not running `checked_after` (the settings'
     /// [`Settings::service_start_check`]) after the service started it (see
     /// [`Service::check_started`]). The service was then stopped, unless
