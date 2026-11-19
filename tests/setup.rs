@@ -988,7 +988,6 @@ async fn docker_setup_with_an_admin_key_makes_it_in_the_container_and_saves_a_pr
 
 /// `kkt <args>` with `home` as its only home directory, `bin` as PATH, and
 /// no terminal.
-#[cfg(target_os = "linux")]
 #[expect(
     clippy::disallowed_methods,
     reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
