@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "3d8fcdff",
+ "commit": "7a4040f1",
  "crates": [
   {
    "bins": [
@@ -5206,6 +5206,7 @@ window.KKT_GRAPH = {
       "down",
       "exec",
       "file",
+      "has_volume",
       "inspect",
       "make_folders",
       "pull",
@@ -5273,7 +5274,8 @@ window.KKT_GRAPH = {
       "new",
       "unavailable",
       "with_config",
-      "with_file"
+      "with_file",
+      "with_volume"
      ],
      "path": "testing::MemoryProjects"
     },
@@ -5774,6 +5776,7 @@ window.KKT_GRAPH = {
       "existing",
       "has_settings",
       "provision",
+      "reuses_data",
       "run_in_server",
       "settings_file",
       "sharing_key",
@@ -17695,6 +17698,7 @@ window.KKT_GRAPH = {
       "check_typed_key",
       "detect_clients",
       "discard_key",
+      "docker_data_notice",
       "doctor",
       "forget_unfinished",
       "import_lanes",

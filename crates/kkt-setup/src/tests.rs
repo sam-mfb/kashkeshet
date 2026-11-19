@@ -476,6 +476,10 @@ mod flow {
     }
 
     impl Steps for Fake {
+        fn docker_data_notice(&self) -> Option<String> {
+            None
+        }
+
         fn install_service(
             &self,
             tailscale: bool,

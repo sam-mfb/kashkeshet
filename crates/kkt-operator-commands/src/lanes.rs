@@ -137,6 +137,7 @@ pub enum LanesOn {
 pub fn lanes_on(
     deployment: Option<&Deployment>,
     local_options: bool,
+    action: &LanesAction,
 ) -> Result<LanesOn, LanesOnError> {
     match deployment {
         Some(Deployment::Docker { folder, .. }) => {
@@ -144,6 +145,11 @@ pub fn lanes_on(
                 return Err(LanesOnError::DockerTakesNoLocalOptions);
             }
             Ok(LanesOn::Docker(folder.clone()))
+        }
+        Some(Deployment::Client)
+            if local_options && matches!(action, LanesAction::Import { .. }) =>
+        {
+            Ok(LanesOn::Local)
         }
         Some(Deployment::Client) => Err(LanesOnError::OnAClient),
         Some(Deployment::Service { .. }) | None => Ok(LanesOn::Local),
@@ -158,6 +164,7 @@ pub trait LaneServers {
     /// `config` names others.
     fn here(
         &self,
+        action: &LanesAction,
         db: Option<PathBuf>,
         config: Option<PathBuf>,
     ) -> Result<Box<dyn LaneServer + '_>, PartError>;
@@ -172,7 +179,7 @@ pub async fn run(
 ) -> Result<(), LaneError> {
     let server = parts
         .lane_servers
-        .here(db, config)
+        .here(&command, db, config)
         .map_err(LaneError::Here)?;
     match command {
         LanesAction::Export { folder } => server.export(&folder).await,
@@ -515,16 +522,22 @@ mod tests {
         }
     }
 
+    fn export() -> LanesAction {
+        LanesAction::Export {
+            folder: "out".into(),
+        }
+    }
+
     const SERVICE: Deployment = Deployment::Service { tailscale: false };
 
     #[test]
     fn lanes_act_on_docker_in_its_folder_without_local_options() {
         assert_eq!(
-            lanes_on(Some(&docker()), false),
+            lanes_on(Some(&docker()), false, &export()),
             Ok(LanesOn::Docker(PathBuf::from("/data/docker")))
         );
         assert_eq!(
-            lanes_on(Some(&docker()), true).map_err(|e| e.to_string()),
+            lanes_on(Some(&docker()), true, &export()).map_err(|e| e.to_string()),
             Err(
                 "kkt in Docker keeps its lanes in the container; --db and --config apply only \
                  to a local server"
@@ -536,15 +549,18 @@ mod tests {
     #[test]
     fn lanes_act_on_the_local_database_for_a_service_or_no_record() {
         for local_options in [false, true] {
-            assert_eq!(lanes_on(Some(&SERVICE), local_options), Ok(LanesOn::Local));
-            assert_eq!(lanes_on(None, local_options), Ok(LanesOn::Local));
+            assert_eq!(
+                lanes_on(Some(&SERVICE), local_options, &export()),
+                Ok(LanesOn::Local)
+            );
+            assert_eq!(lanes_on(None, local_options, &export()), Ok(LanesOn::Local));
         }
     }
 
     #[test]
     fn lanes_are_refused_on_a_client() {
         assert_eq!(
-            lanes_on(Some(&Deployment::Client), false).map_err(|e| e.to_string()),
+            lanes_on(Some(&Deployment::Client), false, &export()).map_err(|e| e.to_string()),
             Err(
                 "this machine is a client; run `kkt lanes` on the machine where the server runs"
                     .to_string()

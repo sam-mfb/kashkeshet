@@ -1504,6 +1504,10 @@ mod tests {
     struct Unseen;
 
     impl kkt_containerized_service::ServiceContainer for Unseen {
+        fn reuses_data(&self, _: &kkt_container::Folder, _: &str) -> Result<bool, ContainerError> {
+            unreachable!("setup is not run")
+        }
+
         fn provision<'a>(
             &'a self,
             _: &'a dyn kkt_clock::Clock,

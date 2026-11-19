@@ -184,6 +184,14 @@ impl<P: Projects> Containerized<P> {
 }
 
 impl<P: Projects> ServiceContainer for Containerized<P> {
+    fn reuses_data(&self, folder: &Folder, volume: &str) -> Result<bool, ContainerError> {
+        let project = self.project(folder);
+        Ok(
+            self.projects.file(&project, Path::new("")) == kkt_container::FileState::Other
+                || self.projects.has_volume(&project, volume)?,
+        )
+    }
+
     fn provision<'a>(
         &'a self,
         clock: &'a dyn Clock,

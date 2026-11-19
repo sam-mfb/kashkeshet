@@ -32,8 +32,9 @@ After `kkt setup`, `kkt backup` follows the saved mode: it backs up the
 service's database or asks the managed Docker server to back up and copies
 the result to the host folder you named. With Docker, `kkt backup` without
 a folder keeps the result in the managed `docker/backups` folder only;
-with a service or no setup record, the destination folder is required. Client-only machines refer you to
-the server owner.
+with a service or no setup record, the destination folder is required. On a client machine,
+give a destination folder and use `--db` or `--config` to select a local
+server. With neither flag, run the backup on the server machine.
 
 Without a setup record, `kkt backup` uses the database, config file and keys
 that `kkt serve` would use. Give `--db` or `--config` if the server uses

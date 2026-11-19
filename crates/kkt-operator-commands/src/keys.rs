@@ -157,6 +157,7 @@ mod tests {
     impl LaneServers for Unused {
         fn here(
             &self,
+            _: &crate::lanes::LanesAction,
             _: Option<PathBuf>,
             _: Option<PathBuf>,
         ) -> Result<Box<dyn LaneServer + '_>, crate::PartError> {

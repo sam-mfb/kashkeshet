@@ -4,6 +4,11 @@ For guided installation, run `kkt setup --mode docker` (see [setup](setup.md)).
 This page covers Compose files you manage yourself; `kkt upgrade` manages
 only the Docker folder recorded by setup.
 
+Guided setup uses the Compose project `kkt` and the volume `kkt_kkt-data`.
+When the managed folder or volume already exists, setup names both before
+making changes, then starts the server with the existing data. Moving the
+managed folder leaves the volume in Docker, including its database and keys.
+
 The image runs `kkt serve --bind 0.0.0.0:7420 --allow-any-bind`. A container
 has to listen on its own network interface, so it uses `--allow-any-bind`;
 kkt accepts that only with an access key. Keep the port on the host's
