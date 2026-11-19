@@ -23,7 +23,7 @@ pub use adopt::{
     AdoptSteps, Unrecorded, service_runs_defaults, unreadable_service, unrecorded_here,
     unrecorded_service,
 };
-pub use ask::{Ask, Lines, Question, unanswered};
+pub use ask::{Ask, AskError, LineError, Lines, Question, unanswered};
 pub use flow::{Answers, ClientKey, Installed, Purpose, Steps, run};
 pub use local::{NoRecord, recorded_setup};
 pub use record::{

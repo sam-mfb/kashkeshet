@@ -935,8 +935,9 @@ mod tests {
         fn say(&self, _: &str) {
             self.0.borrow_mut().push("lines.say");
         }
-        fn read_line(&self, _: &str) -> Result<Option<String>, String> {
+        fn read_line(&self, _: &str) -> Result<Option<String>, kkt_setup::LineError> {
             self.refused("lines.read_line")
+                .map_err(|said| kkt_setup::LineError(said.into()))
         }
     }
 
