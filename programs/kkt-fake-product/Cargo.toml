@@ -1,0 +1,64 @@
+[package]
+name = "kkt-fake-product"
+description = "A fake product with two swarms, assembled from the shared crates, to check that nothing of one swarm reaches the other; for development only, never released"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+# `kkt-fake-product` serves the fake product on a loopback port, to look at
+# by hand; the tests in `tests/` start it in their own process.
+[[bin]]
+name = "kkt-fake-product"
+path = "src/main.rs"
+
+# Never in a release: dist builds only the `kkt` program, and
+# .github/scripts/check-release-packages.sh checks no release depends on it.
+[package.metadata.dist]
+dist = false
+
+[package.metadata.kkt]
+dev-only = true
+
+[dependencies]
+kkt-admission = { path = "../../crates/kkt-admission" }
+# Making the second swarm (`Swarms::create_swarm`).
+kkt-api-admin = { path = "../../crates/kkt-api-admin" }
+kkt-api-agent = { path = "../../crates/kkt-api-agent" }
+# The real clock, so agents' waits end on time.
+kkt-clock = { path = "../../crates/kkt-clock" }
+kkt-clock-system = { path = "../../crates/kkt-clock-system" }
+# The program's database file.
+kkt-db-sqlite = { path = "../../crates/kkt-db-sqlite" }
+kkt-listen = { path = "../../crates/kkt-listen" }
+kkt-log-tracing = { path = "../../crates/kkt-log-tracing" }
+kkt-hosts = { path = "../../crates/kkt-hosts" }
+kkt-identity = { path = "../../crates/kkt-identity" }
+kkt-identity-keymode = { path = "../../crates/kkt-identity-keymode" }
+kkt-entropy = { path = "../../crates/kkt-entropy" }
+kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }
+kkt-mcp = { path = "../../crates/kkt-mcp" }
+kkt-names = { path = "../../crates/kkt-names" }
+kkt-rules = { path = "../../crates/kkt-rules" }
+kkt-server = { path = "../../crates/kkt-server" }
+kkt-shutdown = { path = "../../crates/kkt-shutdown" }
+kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os" }
+kkt-web = { path = "../../crates/kkt-web" }
+kkt-terminal = { path = "../../crates/kkt-terminal" }
+tokio.workspace = true
+
+[dev-dependencies]
+# The tests drive the running product over HTTP with kkt-agent-client-mcp's
+# client, an effect crate the product itself does not use. Tests should not;
+# this is a documented exception (.github/scripts/effect-exceptions.json).
+kkt-agent-client-mcp = { path = "../../crates/kkt-agent-client-mcp" }
+futures.workspace = true
+serde_json.workspace = true
+reqwest.workspace = true
+# The tests' store, in memory.
+kkt-rules = { path = "../../crates/kkt-rules", features = ["testing"] }
+# Seeded randomness, so two runs can be compared.
+kkt-entropy = { path = "../../crates/kkt-entropy", features = ["testing"] }
+# A clock that stays put, so two runs can be compared.
+kkt-clock = { path = "../../crates/kkt-clock", features = ["testing"] }

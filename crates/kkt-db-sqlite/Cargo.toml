@@ -1,0 +1,27 @@
+[package]
+name = "kkt-db-sqlite"
+description = "kkt's database contract over SQLite: the only crate that knows SQLite"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-db = { path = "../kkt-db" }
+thiserror.workspace = true
+rusqlite.workspace = true
+# SQLite blocks, so reads and writes run on tokio's blocking pool.
+tokio.workspace = true
+
+[dev-dependencies]
+kkt-db = { path = "../kkt-db", features = ["testing"] }
+kkt-scratch = { path = "../kkt-scratch" }
+# The differential tests: SQLite's own word splitting (FTS5) against the
+# rules kkt-db applies, kkt-search's.
+kkt-search = { path = "../kkt-search" }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[features]
+# `testing`: `MemoryPlace`, a SQLite database held in memory.
+testing = []

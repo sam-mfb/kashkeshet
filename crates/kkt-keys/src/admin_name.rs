@@ -1,0 +1,184 @@
+//! The name tied to an admin key: its bound file text, and what the name
+//! file beside a key says of it.
+use kkt_names::{AdminName, NameError};
+use std::io;
+use std::path::{Path, PathBuf};
+
+/// What is wrong with the text of an admin name file.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+pub enum NameFileError {
+    /// Its first line is not an admin name.
+    #[error(transparent)]
+    Name(NameError),
+    /// Its second line is not the key's hash.
+    #[error("its second line must be `{KEY_HASH_LABEL}` and a hash of the admin key")]
+    NoKeyHash,
+    /// It has more than the name and the hash.
+    #[error("it must have only the name and the key's hash")]
+    Extra,
+}
+
+/// Why the name file beside an admin key could not be used. Its words say
+/// what is wrong with the file; the caller says what it was doing.
+#[derive(Debug, thiserror::Error)]
+pub enum AdminNameError {
+    /// The name file could not be read.
+    #[error("the admin name could not be read from {}: {cause}", names.display())]
+    Unreadable {
+        names: PathBuf,
+        #[source]
+        cause: io::Error,
+    },
+    /// The name file's text is not a name tied to a key.
+    #[error("admin name in {}: {cause}", names.display())]
+    Invalid {
+        names: PathBuf,
+        #[source]
+        cause: NameFileError,
+    },
+}
+
+/// The text of a name file that ties this name to the admin key `key`
+/// alone: the name, then a line with a hash of the key (never the key).
+/// Surrounding whitespace is not part of the key, as for `SharedKey`.
+pub fn bound_to(name: &AdminName, key: &str) -> String {
+    format!("{}\n{KEY_HASH_LABEL}{}\n", name, key_hash(key))
+}
+
+/// The name in the name file `text` if it is tied to the admin key
+/// `key`; `None` if it is tied to another key, as when the key file was
+/// replaced without its name. An error says what is wrong with `text`.
+/// The name is checked as [`AdminName::new`] checks it, with at most
+/// `max_chars`.
+pub fn bound_in(
+    text: &str,
+    key: &str,
+    max_chars: usize,
+) -> Result<Option<AdminName>, NameFileError> {
+    let mut lines = text.lines();
+    let name =
+        AdminName::new(lines.next().unwrap_or(""), max_chars).map_err(NameFileError::Name)?;
+    let Some(hash) = lines.next().and_then(|l| l.strip_prefix(KEY_HASH_LABEL)) else {
+        return Err(NameFileError::NoKeyHash);
+    };
+    if lines.any(|l| !l.trim().is_empty()) {
+        return Err(NameFileError::Extra);
+    }
+    Ok((hash.trim() == key_hash(key)).then_some(name))
+}
+
+/// How a name file's line with the key's hash starts.
+const KEY_HASH_LABEL: &str = "key-sha256: ";
+
+/// A SHA-256 of `key`, without surrounding whitespace, in hex. A fixed
+/// prefix keeps it from equalling a hash of the key made for anything else.
+fn key_hash(key: &str) -> String {
+    kkt_hash::sha256(format!("kkt-admin-name:{}", key.trim()).as_bytes())
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect()
+}
+
+/// What the name file beside an admin key says about that key.
+pub enum AdminNameFile {
+    /// The admin agent's name, tied to this key.
+    Named(AdminName),
+    /// There is no name file: the key may only read.
+    None,
+    /// The name file, at this path, is for a different key, as when the key
+    /// file was replaced without its name: this key may only read.
+    OtherKey(PathBuf),
+}
+
+/// The name tied to the admin key `key`, kept in the file at `path`, from
+/// the name file beside it, which `read` reads (`None` when there is none).
+pub fn read_admin_name(
+    path: &Path,
+    key: &str,
+    read: impl FnOnce(&Path) -> io::Result<Option<String>>,
+) -> Result<AdminNameFile, AdminNameError> {
+    let names = crate::admin_name_path(path);
+    let text = match read(&names) {
+        Ok(text) => text,
+        Err(cause) => return Err(AdminNameError::Unreadable { names, cause }),
+    };
+    match text {
+        Some(text) => match bound_in(&text, key, kkt_names::MAX_ADMIN_NAME_CHARS) {
+            Ok(Some(name)) => Ok(AdminNameFile::Named(name)),
+            Ok(None) => Ok(AdminNameFile::OtherKey(names)),
+            Err(cause) => Err(AdminNameError::Invalid { names, cause }),
+        },
+        None => Ok(AdminNameFile::None),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    const MAX_CHARS: usize = 40;
+    #[test]
+    fn an_admin_name_belongs_only_to_the_key_it_was_written_for() {
+        let first = "0123456789abcdef0123456789abcdef";
+        let second = "fedcba9876543210fedcba9876543210";
+        let sentinel = AdminName::new("sentinel", MAX_CHARS).unwrap();
+        let text = bound_to(&sentinel, first);
+        assert!(text.starts_with("admin-sentinel\nkey-sha256: "), "{text}");
+        assert!(!text.contains(first));
+
+        assert_eq!(
+            bound_in(&text, first, MAX_CHARS),
+            Ok(Some(sentinel.clone()))
+        );
+        // A key file's final newline is not part of the key.
+        assert_eq!(
+            bound_in(&text, &format!("{first}\n"), MAX_CHARS),
+            Ok(Some(sentinel))
+        );
+        // Another key, or the same file after the key was replaced, has none.
+        assert_eq!(bound_in(&text, second, MAX_CHARS), Ok(None));
+
+        // A name alone, as an older or hand-written file might hold, is an
+        // error, not a name for whatever key is beside it.
+        for bad in [
+            "admin-sentinel\n",
+            "",
+            "Night Owl\nkey-sha256: 00\n",
+            "admin-sentinel\nsha: 00\n",
+            &format!("{text}extra\n"),
+        ] {
+            assert!(bound_in(bad, first, MAX_CHARS).is_err(), "{bad:?}");
+        }
+    }
+
+    /// What is wrong with a name file, pinned exactly.
+    #[test]
+    fn every_name_file_message_says_what_it_always_said() {
+        let key = "0123456789abcdef0123456789abcdef";
+        assert_eq!(
+            bound_in("admin-sentinel\n", key, MAX_CHARS).map_err(|e| e.to_string()),
+            Err("its second line must be `key-sha256: ` and a hash of the admin key".to_string())
+        );
+        let text = bound_to(&AdminName::new("sentinel", MAX_CHARS).unwrap(), key);
+        assert_eq!(
+            bound_in(&format!("{text}extra\n"), key, MAX_CHARS).map_err(|e| e.to_string()),
+            Err("it must have only the name and the key's hash".to_string())
+        );
+        let path = Path::new("/k/admin-key");
+        let refused = read_admin_name(path, key, |_| Ok(Some("admin-sentinel\n".into())))
+            .err()
+            .expect("no hash");
+        // The caller says what it was doing ("invalid setting: "), as
+        // kkt-deployment's admin-name line does.
+        assert_eq!(
+            refused.to_string(),
+            "admin name in /k/admin-key.name: its second line must be `key-sha256: ` and a hash of the admin key"
+        );
+    }
+
+    #[test]
+    fn bound_names_use_the_supplied_name_length_limit() {
+        let text = bound_to(&AdminName::new("abc", 9).unwrap(), "key");
+        assert!(bound_in(&text, "key", 9).is_ok());
+        assert!(bound_in(&text, "key", 8).is_err());
+    }
+}

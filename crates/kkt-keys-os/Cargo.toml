@@ -1,0 +1,16 @@
+[package]
+name = "kkt-keys-os"
+description = "Private key files on disk: kkt-keys' KeyFiles over the operating system's files"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-keys = { path = "../kkt-keys" }
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }
+
+[features]

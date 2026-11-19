@@ -52,7 +52,7 @@ fn write_tool_text() -> Result<(), String> {
 
 /// The tools in a tool text file, or what is wrong with it.
 fn tool_texts(text: &str) -> Result<Vec<ToolText>, String> {
-    let table: toml::Table = text.parse().map_err(|e| format!("{e}"))?;
+    let table = kkt_toml::parse(text).map_err(|e| format!("{e}"))?;
     table
         .iter()
         .map(|(name, value)| tool_text(name, value))
@@ -60,18 +60,18 @@ fn tool_texts(text: &str) -> Result<Vec<ToolText>, String> {
 }
 
 /// One tool's section, `[name]` with `description` and `[name.parameters]`.
-fn tool_text(name: &str, value: &toml::Value) -> Result<ToolText, String> {
-    let toml::Value::Table(table) = value else {
+fn tool_text(name: &str, value: &kkt_toml::Value) -> Result<ToolText, String> {
+    let kkt_toml::Value::Table(table) = value else {
         return Err(format!("`{name}` must be a section, [{name}]"));
     };
     let mut description = None;
     let mut parameters = Vec::new();
     for (key, value) in table {
         match (key.as_str(), value) {
-            ("description", toml::Value::String(text)) => description = Some(fold(text)),
-            ("parameters", toml::Value::Table(texts)) => {
+            ("description", kkt_toml::Value::Text(text)) => description = Some(fold(text)),
+            ("parameters", kkt_toml::Value::Table(texts)) => {
                 for (parameter, text) in texts {
-                    let toml::Value::String(text) = text else {
+                    let kkt_toml::Value::Text(text) = text else {
                         return Err(format!(
                             "[{name}.parameters] `{parameter}` must be text in quotes"
                         ));

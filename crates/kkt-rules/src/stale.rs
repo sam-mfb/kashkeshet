@@ -1,68 +1,32 @@
 //! Agents that have gone quiet, and hiding them together. The human (or an
 //! admin agent) picks how long an agent must have been quiet, sees the list,
-//! and chooses which to hide; nothing here happens on its own. Each is hidden by the same rule
+//! and chooses which to hide; only then are they hidden. Each is hidden by the same rule
 //! as hiding one agent. A channel owner is never hidden this way.
 
-use super::administration::{HIDDEN, hidden_body, operator_words};
-use super::human::ChannelRef;
+use super::administration::{HIDDEN, Removal, hidden_body};
 use super::*;
 use std::time::Duration;
-
-/// An agent that has made no authenticated call for longer than the period
-/// asked about, and has no open wait.
-#[derive(Clone, Debug)]
-pub struct StaleAgent {
-    pub info: AgentInfo,
-    /// The channels it is in, in name order.
-    pub channels: Vec<ChannelRef>,
-    /// How many entries its memory holds.
-    pub memory_entries: usize,
-    /// The channels it owns, in name order. An owner is never hidden as
-    /// stale.
-    pub owns: Vec<ChannelRef>,
-}
-
-/// What hiding stale agents did.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct StaleHidden {
-    /// The agents hidden, in the order asked for.
-    pub hidden: Vec<String>,
-    /// The agents asked for but kept, and why, in the order asked for.
-    pub kept: Vec<Kept>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Kept {
-    pub handle: String,
-    pub reason: KeptReason,
-}
-
-/// Why an agent the human chose was not hidden as stale.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KeptReason {
-    /// No such agent, or it is already hidden.
-    Gone,
-    /// It has made a call within the period, or has an open wait.
-    Active,
-    /// It owns a channel.
-    Owner,
-}
 
 impl Rules {
     /// Every agent that has made no authenticated call for longer than
     /// `idle` and has no open wait, the longest quiet first. Owners are
     /// listed too, with the channels they own. `invalid` if `idle` is zero
     /// or reaches before any time the clock can name.
-    pub async fn stale_agents(&self, idle: Duration) -> Result<Vec<StaleAgent>> {
+    pub async fn stale_agents(
+        &self,
+        operator: &Operator,
+        idle: Duration,
+    ) -> Result<Vec<StaleAgent>> {
+        operator.may(Permission::Read)?;
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
         self.db()
-            .read(move |store| {
+            .read(move |store, swarm| {
                 let mut stale = Vec::new();
                 // Most recently seen first, so reversed: the longest quiet first.
-                for record in store.agents_by_last_seen()?.into_iter().rev() {
+                for record in store.agents_by_last_seen(swarm)?.into_iter().rev() {
                     if rules.is_stale(&record, cutoff) {
-                        stale.push(stale_agent(store, record)?);
+                        stale.push(stale_agent(store, swarm, record)?);
                     }
                 }
                 Ok(stale)
@@ -80,14 +44,14 @@ impl Rules {
         idle: Duration,
         chosen: Vec<String>,
     ) -> Result<StaleHidden> {
-        actor.may_change()?;
-        let who = operator_words(&actor)?;
+        may_change(&actor)?;
+        let who = self.operator_words(&actor)?;
         let cutoff = self.stale_cutoff(idle)?;
         let rules = self.clone();
         let now = self.now_text();
         let (outcome, removals) = self
             .db()
-            .write(move |store| {
+            .write(move |store, swarm| {
                 let mut outcome = StaleHidden {
                     hidden: Vec::new(),
                     kept: Vec::new(),
@@ -99,12 +63,12 @@ impl Rules {
                     if seen {
                         continue;
                     }
-                    let reason = match store.agent(&handle)? {
+                    let reason = match store.agent(swarm, &handle)? {
                         None => Some(KeptReason::Gone),
                         Some(record) if !rules.is_stale(&record, cutoff) => {
                             Some(KeptReason::Active)
                         }
-                        Some(_) if !store.owned_channel_ids(&handle)?.is_empty() => {
+                        Some(_) if !store.owned_channel_ids(swarm, &handle)?.is_empty() => {
                             Some(KeptReason::Owner)
                         }
                         Some(_) => None,
@@ -114,11 +78,14 @@ impl Rules {
                         None => {
                             removals.push(rules.remove_avatar_in(
                                 store,
-                                &handle,
-                                names::OPERATOR,
-                                &hidden_body(&who, &handle),
-                                HIDDEN,
-                                &now,
+                                swarm,
+                                Removal {
+                                    handle: &handle,
+                                    author: names::OPERATOR,
+                                    body: &hidden_body(&who, &handle),
+                                    what: HIDDEN,
+                                    now: &now,
+                                },
                             )?);
                             outcome.hidden.push(handle);
                         }
@@ -156,24 +123,24 @@ impl Rules {
             && !self
                 .inner
                 .waiting
-                .has_wait(&record.name, self.inner.deps.clock.now())
+                .has_wait(&self.swarm, &record.name, self.inner.deps.clock.now())
     }
 }
 
-fn stale_agent(store: &dyn Reads, record: AgentRecord) -> Result<StaleAgent> {
+fn stale_agent(store: &Reader<'_>, swarm: &SwarmId, record: AgentRecord) -> Result<StaleAgent> {
     let handle = record.name.clone();
     Ok(StaleAgent {
-        channels: channel_refs(store, store.all_channel_ids(Some(&handle))?)?,
-        owns: channel_refs(store, store.owned_channel_ids(&handle)?)?,
-        memory_entries: store.memory_entries(&handle)?.len(),
+        channels: channel_refs(store, swarm, store.all_channel_ids(swarm, Some(&handle))?)?,
+        owns: channel_refs(store, swarm, store.owned_channel_ids(swarm, &handle)?)?,
+        memory_entries: store.memory_entries(swarm, &handle)?.len(),
         info: AgentInfo::from(record),
     })
 }
 
-fn channel_refs(store: &dyn Reads, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
+fn channel_refs(store: &Reader<'_>, swarm: &SwarmId, ids: Vec<String>) -> Result<Vec<ChannelRef>> {
     let mut refs = Vec::new();
     for id in ids {
-        if let Some(facts) = store.channel(&id)? {
+        if let Some(facts) = store.channel(swarm, &id)? {
             refs.push(ChannelRef {
                 id: facts.id,
                 name: facts.name,

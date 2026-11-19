@@ -1,6 +1,11 @@
 use super::*;
-use kkt_config::{MAX_HANDLE_ATTEMPTS, MAX_HANDLE_CHARS, MAX_LANE_NAME_CHARS};
-use lanes::{AgentLane, HeldLane};
+use kkt_names::{MAX_HANDLE_CHARS, MAX_LANE_NAME_CHARS};
+
+/// How many numbered handles to try before giving up on a drawn handle.
+/// kkt-names' tests show every drawn handle, numbered up to attempt
+/// 10,000, fits its handle limit, so this must stay at most that.
+const MAX_HANDLE_ATTEMPTS: u32 = 10_000;
+const _: () = assert!(MAX_HANDLE_ATTEMPTS <= 10_000);
 
 impl Rules {
     /// Creates a new avatar with a server-chosen handle and a fresh token.
@@ -26,7 +31,8 @@ impl Rules {
         lane: Option<String>,
     ) -> Result<Registration> {
         if let Some(handle) = &proposed {
-            names::check_proposed_handle(handle, MAX_HANDLE_CHARS).map_err(RuleError::invalid)?;
+            names::check_proposed_handle(handle, MAX_HANDLE_CHARS)
+                .map_err(|e| RuleError::invalid(e.to_string()))?;
         }
         if let Some(name) = &lane {
             names::check_lane_name(name, MAX_LANE_NAME_CHARS)
@@ -38,7 +44,7 @@ impl Rules {
                 Code::RateLimited,
                 format!(
                     "this server accepts at most {} registrations a minute; wait and try again",
-                    self.limits().registrations_per_minute
+                    self.settings().registrations_per_minute
                 ),
             ));
         }
@@ -55,11 +61,11 @@ impl Rules {
         proposed: Option<String>,
         lane: Option<String>,
     ) -> Result<Registration> {
-        let max_agents = self.limits().max_agents;
+        let max_agents = self.settings().max_agents;
         let entropy = self.inner.deps.entropy.clone();
         let wanted = match proposed {
             Some(handle) => Wanted::Proposed(handle),
-            None => Wanted::Drawn(self.limits().name_pack.agent_handle(entropy.as_ref())),
+            None => Wanted::Drawn(self.settings().name_pack.agent_handle(entropy.as_ref())),
         };
         let token = auth::token(entropy.as_ref());
         let hash = auth::hash_token(&token);
@@ -70,7 +76,7 @@ impl Rules {
         let run_id = self.inner.deps.run_id;
         let (handle, server_announcement, held) = self
             .db()
-            .write(move |store| {
+            .write(move |store, swarm| {
                 let lane = lane
                     .map(|name| {
                         super::lanes::takeable_lane(store, &name, "Nothing was registered.")
@@ -78,7 +84,7 @@ impl Rules {
                     .transpose()?;
                 // A cap too large for the database's count type is no cap.
                 let cap = i64::try_from(max_agents).unwrap_or(i64::MAX);
-                if store.active_agent_count()? >= cap {
+                if store.active_agent_count(swarm, )? >= cap {
                     return Err(RuleError::new(
                         Code::LimitReached,
                         format!(
@@ -102,7 +108,7 @@ impl Rules {
                         handle
                     }
                 };
-                store.insert_agent(&NewAgentRecord {
+                store.insert_agent(swarm, &NewAgentRecord {
                     name: handle.clone(),
                     token_hash: hash,
                     recovery_hash: Some(recovery_hash),
@@ -110,10 +116,10 @@ impl Rules {
                     last_seen: Some(now.clone()),
                     run_id,
                 })?;
-                store.set_agent_client(
+                store.set_agent_client(swarm,
                     &handle,
                     client
-                        .map(|c| kkt_store::AgentClient {
+                        .map(|c| crate::AgentClient {
                             name: c.name,
                             version: c.version,
                             recorded_at: now.clone(),
@@ -123,9 +129,9 @@ impl Rules {
                 )?;
                 if let Some(lane) = lane {
                     // A new avatar is in no channel, so there is no one to tell.
-                    store.set_agent_lane(
+                    store.set_agent_lane(swarm,
                         &handle,
-                        Some(&kkt_store::TakenLaneRecord {
+                        Some(&crate::TakenLaneRecord {
                             lane: lane.name,
                             version: lane.current.version,
                             taken_at: now,
@@ -134,9 +140,8 @@ impl Rules {
                     )?;
                 }
                 let announcement = store
-                    .current_server_announcement()?
-                    .map(ServerAnnouncement::from);
-                let held = super::lanes::held_lane(store, &handle)?;
+                    .current_server_announcement()?;
+                let held = super::lanes::held_lane(store, swarm, &handle)?;
                 Ok::<_, RuleError>((handle, announcement, held))
             })
             .await?;
@@ -184,8 +189,8 @@ impl Rules {
         let rules = self.clone();
         let (handle, server_announcement, held, notices, memory) = self
             .db()
-            .write(move |store| {
-                let found = store.agent_by_recovery_hash(&handle, &recovery_hash)?;
+            .write(move |store, swarm| {
+                let found = store.agent_by_recovery_hash(swarm, &handle, &recovery_hash)?;
                 let Some(AgentRecord {
                     revoked_at: None, ..
                 }) = found
@@ -195,12 +200,13 @@ impl Rules {
                         "unknown handle or recovery code, or avatar unavailable",
                     ));
                 };
-                store.set_token_hash(&handle, &token_hash)?;
-                store.set_last_seen(&handle, &now)?;
+                store.set_token_hash(swarm, &handle, &token_hash)?;
+                store.set_last_seen(swarm, &handle, &now)?;
                 store.set_agent_client(
+                    swarm,
                     &handle,
                     client
-                        .map(|c| kkt_store::AgentClient {
+                        .map(|c| crate::AgentClient {
                             name: c.name,
                             version: c.version,
                             recorded_at: now.clone(),
@@ -212,6 +218,7 @@ impl Rules {
                     Some(lane) => {
                         let (taking, notices) = rules.take_lane_in(
                             store,
+                            swarm,
                             &handle,
                             Some(&lane),
                             &now,
@@ -219,12 +226,10 @@ impl Rules {
                         )?;
                         (taking.held, notices)
                     }
-                    None => (super::lanes::held_lane(store, &handle)?, Vec::new()),
+                    None => (super::lanes::held_lane(store, swarm, &handle)?, Vec::new()),
                 };
-                let announcement = store
-                    .current_server_announcement()?
-                    .map(ServerAnnouncement::from);
-                let memory = super::memory::memory_summaries(store, &handle)?;
+                let announcement = store.current_server_announcement()?;
+                let memory = super::memory::memory_summaries(store, swarm, &handle)?;
                 Ok::<_, RuleError>((handle, announcement, held, notices, memory))
             })
             .await?;
@@ -243,13 +248,13 @@ impl Rules {
     /// Replaces `me`'s description, which others see when they list agents
     /// or members. Empty text clears it.
     pub async fn set_description(&self, me: &Agent, text: String) -> Result<AgentInfo> {
-        let description = clean_description(&text, self.limits().max_description_chars)?;
+        let description = clean_description(&text, self.settings().max_description_chars)?;
         let me = me.handle.clone();
         self.db()
-            .write(move |store| {
-                store.set_description(&me, description.as_deref())?;
+            .write(move |store, swarm| {
+                store.set_description(swarm, &me, description.as_deref())?;
                 store
-                    .agent(&me)?
+                    .agent(swarm, &me)?
                     .map(AgentInfo::from)
                     .ok_or_else(|| RuleError::new(Code::Internal, format!("agent {me} vanished")))
             })
@@ -269,16 +274,17 @@ impl Rules {
         let viewer = me.handle.clone();
         let rules = self.clone();
         self.db()
-            .read(move |store| {
+            .read(move |store, swarm| {
                 let mut items: Vec<AgentInfo> = store
                     .agents(
+                        swarm,
                         query.as_deref(),
                         lane.as_deref(),
                         cursor.as_deref(),
                         limit + 1,
                     )?
                     .into_iter()
-                    .map(|a| rules.observed_agent(store, a, Some(&viewer), None))
+                    .map(|a| rules.observed_agent(store, swarm, a, Some(&viewer), None))
                     .collect::<Result<Vec<_>>>()?;
                 let next_cursor = if items.len() > limit {
                     items.truncate(limit);
@@ -301,7 +307,7 @@ enum Wanted {
 }
 
 /// `base` if no agent has it, else the first free numbered form of it.
-fn free_handle(store: &dyn Reads, base: &str) -> Result<String> {
+fn free_handle(store: &Reader<'_>, base: &str) -> Result<String> {
     if !store.agent_name_taken(base)? {
         return Ok(base.to_string());
     }
@@ -331,98 +337,13 @@ fn clean_description(text: &str, max_chars: usize) -> Result<Option<String>> {
     Ok(Some(text.to_string()))
 }
 
-/// Who makes a change: an agent, the human operator through the web page,
-/// or an admin agent acting for the operator at `/mcp-admin`. All go
-/// through the same rules.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Actor {
-    Agent(Agent),
-    Human,
-    /// An admin agent, under the name tied to its admin key. It may change
-    /// what the human may, except issuing recovery codes; its changes are
-    /// announced as the operator's, via its name.
-    Admin(kkt_names::AdminName),
-    /// An admin agent whose admin key has no name. It may only read: every
-    /// change it asks for is refused ([`Actor::may_change`]).
-    UnnamedAdmin,
-}
-
-impl Actor {
-    /// Refuses every change from [`Actor::UnnamedAdmin`]. Each rule that
-    /// makes a change calls this before anything else.
-    pub(super) fn may_change(&self) -> Result<()> {
-        match self {
-            Actor::UnnamedAdmin => Err(unnamed_admin()),
-            Actor::Agent(_) | Actor::Human | Actor::Admin(_) => Ok(()),
-        }
+/// Refuses a change from an operator without [`Permission::Change`].
+/// Each rule that makes a change calls this before anything else.
+pub(super) fn may_change(actor: &Actor) -> Result<()> {
+    match actor {
+        Actor::Avatar(_) => Ok(()),
+        Actor::Operator(operator) => operator.may(Permission::Change),
     }
-}
-
-/// The refusal for a change from an admin key with no name.
-pub(super) fn unnamed_admin() -> RuleError {
-    RuleError::new(
-        Code::Unauthenticated,
-        "this admin key has no name, so it may only read. The operator names it by \
-         making the key again with `kkt key create --admin --force --name <name>` \
-         and restarting the server.",
-    )
-}
-
-impl From<&Agent> for Actor {
-    fn from(agent: &Agent) -> Actor {
-        Actor::Agent(agent.clone())
-    }
-}
-
-/// An agent that has proven which avatar it holds on this call.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Agent {
-    pub handle: String,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct Registration {
-    pub server_announcement: Option<ServerAnnouncement>,
-    pub handle: String,
-    pub token: String,
-    pub recovery_code: String,
-    /// The lane the new avatar took, if it asked for one.
-    pub lane: Option<HeldLane>,
-}
-
-/// A new authentication token for an existing avatar.
-#[derive(Clone, Debug, Serialize)]
-pub struct Reclaimed {
-    pub handle: String,
-    pub token: String,
-    /// The current server announcement, as at registration.
-    pub server_announcement: Option<ServerAnnouncement>,
-    /// The lane the avatar holds, if any.
-    pub lane: Option<HeldLane>,
-    /// The entries in the avatar's memory, in name order, without their
-    /// text: `recall` reads each.
-    pub memory: Vec<super::MemorySummary>,
-}
-
-#[derive(Clone, Debug, Serialize)]
-pub struct AgentInfo {
-    pub handle: String,
-    pub created_at: String,
-    pub last_seen: Option<String>,
-    /// When the agent last sent a message the viewer may see: in the
-    /// channel listed, in any channel visible to the agent viewing, or, for
-    /// the human and admin agents, anywhere. Worked out for each viewer, so
-    /// it never shows activity in a closed channel the viewer is not in.
-    pub last_sent: Option<String>,
-    /// The server run that created the agent, if it was recorded.
-    pub run_id: Option<i64>,
-    /// What the agent says about itself, if anything.
-    pub description: Option<String>,
-    pub client: Option<RecordedClient>,
-    pub listening: bool,
-    pub waiting_channels: Vec<String>,
-    /// The lane the agent holds, if any. It grants no permissions.
-    pub lane: Option<AgentLane>,
 }
 
 // Agents see revoked avatars like any other: their handles and messages stay.
@@ -443,26 +364,8 @@ impl From<AgentRecord> for AgentInfo {
     }
 }
 
-/// Client-reported MCP initialization metadata, without library types.
-#[derive(Clone, Debug)]
-pub struct ClientInfo {
-    pub name: String,
-    pub version: String,
-}
-
-/// The MCP client an agent reported at its last registration or reclaim,
-/// and when. Reported by the client, not verified by the server.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct RecordedClient {
-    pub name: String,
-    pub version: String,
-    pub recorded_at: String,
-    /// The server run that recorded it.
-    pub run_id: i64,
-}
-
-impl From<kkt_store::AgentClient> for RecordedClient {
-    fn from(c: kkt_store::AgentClient) -> RecordedClient {
+impl From<crate::AgentClient> for RecordedClient {
+    fn from(c: crate::AgentClient) -> RecordedClient {
         RecordedClient {
             name: c.name,
             version: c.version,

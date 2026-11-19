@@ -1,9 +1,8 @@
 //! Waiting for a server `kkt setup` just set up to answer, and how long
 //! setup waits by kind of setup.
 
-use super::{Check, Inspector, unreachable};
+use super::{Check, Inspector, Settings, Unprobed, unreachable};
 use kkt_clock::Clock;
-use kkt_config as config;
 use std::path::Path;
 use std::time::Duration;
 
@@ -24,14 +23,14 @@ pub struct Wait {
     pub every: Duration,
 }
 
-/// How long setup waits for `server` to answer.
-pub fn setup_wait(server: SetupServer) -> Wait {
+/// How long setup waits for `server` to answer, by `settings`.
+pub fn setup_wait(settings: Settings, server: SetupServer) -> Wait {
     Wait {
         total: match server {
             SetupServer::Elsewhere => Duration::ZERO,
-            SetupServer::New => config::SETUP_SERVER_WAIT,
+            SetupServer::New => settings.setup_server_wait,
         },
-        every: config::SETUP_SERVER_POLL,
+        every: settings.setup_server_poll,
     }
 }
 
@@ -46,7 +45,7 @@ pub async fn until_reachable(
     key_file: Option<&Path>,
     wait: Wait,
     waiting: &mut dyn FnMut(),
-) -> Result<Vec<Check>, String> {
+) -> Result<Vec<Check>, Unprobed> {
     let end = clock.now() + wait.total;
     let mut said = false;
     loop {

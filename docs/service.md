@@ -32,7 +32,16 @@ After editing it, run `kkt service stop` and then `kkt service start`.
 Install again after moving the program or changing `--db`.
 
 `install` checks the settings first, so a bad one fails there rather than in
-a loop of restarts.
+a loop of restarts. It also checks that the server can listen on its
+address (`bind`), so an address another program has fails there too. This
+check is skipped when the kkt service is already running, since it holds
+its own address.
+
+After starting the service, `install` waits 3 seconds and checks that the
+server is still running. If it is not, `install` stops the service, so it
+does not keep failing and starting again every 5 seconds, and fails,
+pointing to `kkt service logs`. The service stays installed; once the cause
+is fixed, `kkt service start` starts it.
 
 ## Where things go
 

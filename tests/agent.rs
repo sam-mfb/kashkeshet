@@ -3,10 +3,9 @@
 
 #[path = "common/home.rs"]
 mod home;
-use kkt_scratch as scratch;
-#[path = "common/serving.rs"]
-mod serving;
+use common::serving;
 use home::OwnHome;
+use kkt_scratch as scratch;
 
 mod common;
 
@@ -176,28 +175,28 @@ async fn call_json(
 }
 
 /// A database written by v0.7.0, when avatars' handles were still called
-/// names: one agent with a known token and recovery code, in one channel.
+/// names, then opened by 0.10.0: one agent with a known token and recovery
+/// code, in one channel.
 fn make_v070(path: &Path) {
-    use sha2::{Digest, Sha256};
     let conn = rusqlite::Connection::open(path).expect("open");
     conn.pragma_update(None, "foreign_keys", "OFF")
         .expect("foreign keys");
     for migration in [
-        include_str!("../crates/kkt-store/migrations/0001_init.sql"),
-        include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
-        include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
-        include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
-        include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
-        include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
-        include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
-        include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
-        include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
-        include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
-        include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
-        include_str!("../crates/kkt-store/migrations/0012_operator_channels.sql"),
-        include_str!("../crates/kkt-store/migrations/0013_channel_owners.sql"),
-        include_str!("../crates/kkt-store/migrations/0014_agent_clients.sql"),
-        include_str!("../crates/kkt-store/migrations/0015_instruction_authors.sql"),
+        include_str!("migrations/sql/0001_init.sql"),
+        include_str!("migrations/sql/0002_server_runs.sql"),
+        include_str!("migrations/sql/0003_revoked_agents.sql"),
+        include_str!("migrations/sql/0004_identity_recovery.sql"),
+        include_str!("migrations/sql/0005_messages_by_time.sql"),
+        include_str!("migrations/sql/0006_agent_descriptions.sql"),
+        include_str!("migrations/sql/0007_channel_notes.sql"),
+        include_str!("migrations/sql/0008_operator_messages.sql"),
+        include_str!("migrations/sql/0009_handoff_notes.sql"),
+        include_str!("migrations/sql/0010_hidden_entries.sql"),
+        include_str!("migrations/sql/0011_operator_instructions.sql"),
+        include_str!("migrations/sql/0012_operator_channels.sql"),
+        include_str!("migrations/sql/0013_channel_owners.sql"),
+        include_str!("migrations/sql/0014_agent_clients.sql"),
+        include_str!("migrations/sql/0015_instruction_authors.sql"),
     ] {
         conn.execute_batch(migration).expect("migration");
     }
@@ -206,8 +205,8 @@ fn make_v070(path: &Path) {
     conn.execute(
         "INSERT INTO agents (name, token_hash, recovery_hash, created_at) VALUES ('amber-falcon', ?1, ?2, 't')",
         (
-            Sha256::digest(b"act_oldtoken").to_vec(),
-            Sha256::digest(b"arc_oldrecovery").to_vec(),
+            kkt_hash::sha256(b"act_oldtoken").to_vec(),
+            kkt_hash::sha256(b"arc_oldrecovery").to_vec(),
         ),
     )
     .expect("agent");
@@ -217,7 +216,23 @@ fn make_v070(path: &Path) {
          INSERT INTO memberships VALUES ('ch_1', 'amber-falcon', 't');",
     )
     .expect("channel");
+    for migration in TO_0_10_0 {
+        conn.execute_batch(migration).expect("0.10.0's migrations");
+    }
+    conn.pragma_update(None, "user_version", 21)
+        .expect("version");
 }
+
+/// What 0.10.0 did on opening a database from 0.7.0: its migrations 16 to
+/// 21, which bring it to schema 21, the one this version adopts.
+const TO_0_10_0: [&str; 6] = [
+    include_str!("migrations/sql/0016_lanes.sql"),
+    include_str!("migrations/sql/0017_agent_lanes.sql"),
+    include_str!("migrations/sql/0018_lane_sources.sql"),
+    include_str!("migrations/sql/0019_memory.sql"),
+    include_str!("migrations/sql/0020_channel_runs.sql"),
+    include_str!("migrations/sql/0021_messages_by_agent.sql"),
+];
 
 #[tokio::test]
 async fn an_avatar_from_a_v0_7_0_database_is_reached_by_its_handle() {

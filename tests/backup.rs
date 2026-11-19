@@ -4,10 +4,9 @@
 
 #[path = "common/home.rs"]
 mod home;
-use kkt_scratch as scratch;
-#[path = "common/serving.rs"]
-mod serving;
+use common::serving;
 use home::OwnHome;
+use kkt_scratch as scratch;
 use serving::start;
 
 mod common;
@@ -21,7 +20,7 @@ use tokio::process::Command;
 
 const KKT: &str = env!("CARGO_BIN_EXE_kkt");
 const TIMEOUT: Duration = Duration::from_secs(20);
-const V1: &str = include_str!("../crates/kkt-store/migrations/0001_init.sql");
+const V1: &str = include_str!("migrations/sql/0001_init.sql");
 
 /// An empty home, removed when dropped; a test declares it before the `kkt`
 /// processes that use it.
@@ -224,7 +223,7 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
     let (success, text) = finish(kkt(&home, &["key", "create", "--web"])).await;
     assert!(success, "{text}");
     let db = home.join("kashkeshet.db");
-    drop(kkt_store::Db::open(&db).expect("make a database"));
+    drop(kashkeshet::machine::database::open(&db).expect("make a database"));
     let folder = home.join("backups");
     let (success, text) = finish(kkt(
         &home,
@@ -344,7 +343,7 @@ async fn a_backup_keeps_the_admin_key_private_and_restores_it() {
         assert!(success, "{text}");
     }
     let db = home.join("kashkeshet.db");
-    drop(kkt_store::Db::open(&db).expect("make a database"));
+    drop(kashkeshet::machine::database::open(&db).expect("make a database"));
     let folder = home.join("backups");
     let (success, text) = finish(kkt(
         &home,
@@ -404,7 +403,7 @@ async fn a_backup_without_an_admin_key_has_none_and_does_not_name_it() {
     let (success, text) = finish(kkt(&home, &["key", "create"])).await;
     assert!(success, "{text}");
     let db = home.join("kashkeshet.db");
-    drop(kkt_store::Db::open(&db).expect("make a database"));
+    drop(kashkeshet::machine::database::open(&db).expect("make a database"));
     let folder = home.join("backups");
     let (success, text) = finish(kkt(
         &home,
@@ -446,12 +445,36 @@ async fn backing_up_a_missing_database_is_refused() {
     assert!(!folder.exists());
 }
 
-/// A database at schema version 1 with one message, at `path`.
-fn make_v1(path: &Path) {
+/// 0.10.0's migrations after the first: run over a schema 1 database,
+/// they bring it to schema 21, as 0.10.0 did when it opened one.
+const AFTER_V1: [&str; 20] = [
+    include_str!("migrations/sql/0002_server_runs.sql"),
+    include_str!("migrations/sql/0003_revoked_agents.sql"),
+    include_str!("migrations/sql/0004_identity_recovery.sql"),
+    include_str!("migrations/sql/0005_messages_by_time.sql"),
+    include_str!("migrations/sql/0006_agent_descriptions.sql"),
+    include_str!("migrations/sql/0007_channel_notes.sql"),
+    include_str!("migrations/sql/0008_operator_messages.sql"),
+    include_str!("migrations/sql/0009_handoff_notes.sql"),
+    include_str!("migrations/sql/0010_hidden_entries.sql"),
+    include_str!("migrations/sql/0011_operator_instructions.sql"),
+    include_str!("migrations/sql/0012_operator_channels.sql"),
+    include_str!("migrations/sql/0013_channel_owners.sql"),
+    include_str!("migrations/sql/0014_agent_clients.sql"),
+    include_str!("migrations/sql/0015_instruction_authors.sql"),
+    include_str!("migrations/sql/0016_lanes.sql"),
+    include_str!("migrations/sql/0017_agent_lanes.sql"),
+    include_str!("migrations/sql/0018_lane_sources.sql"),
+    include_str!("migrations/sql/0019_memory.sql"),
+    include_str!("migrations/sql/0020_channel_runs.sql"),
+    include_str!("migrations/sql/0021_messages_by_agent.sql"),
+];
+
+/// A database at 0.10.0's schema (21) with one message, at `path`: made at
+/// schema 1, as the first kkt made it, and brought up by 0.10.0.
+fn make_v0_10_0(path: &Path) {
     let conn = Connection::open(path).expect("open v1");
     conn.execute_batch(V1).expect("v1 schema");
-    conn.pragma_update(None, "user_version", 1)
-        .expect("version");
     conn.execute_batch(
         "INSERT INTO agents (name, token_hash, created_at) VALUES ('amber-falcon', x'00', 't');
          INSERT INTO channels (id, name, is_open, created_by, created_at)
@@ -460,6 +483,13 @@ fn make_v1(path: &Path) {
              VALUES ('ch_1', 'amber-falcon', 'hello from v1', 't');",
     )
     .expect("v1 rows");
+    conn.pragma_update(None, "foreign_keys", "OFF")
+        .expect("foreign keys off, as the old runner had them");
+    for migration in AFTER_V1 {
+        conn.execute_batch(migration).expect("0.10.0's migrations");
+    }
+    conn.pragma_update(None, "user_version", 21)
+        .expect("version");
 }
 
 /// `kkt serve` on `db` with no access key; `start` adds the address.
@@ -480,7 +510,7 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
     let data = home.join("data");
     std::fs::create_dir_all(&data).expect("data dir");
     let db = data.join("kkt.db");
-    make_v1(&db);
+    make_v0_10_0(&db);
     let folder = data.join("upgrade-backups");
     std::fs::create_dir_all(&folder).expect("backups dir");
     for day in 1..=4 {
@@ -502,7 +532,7 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
     let log = server.log;
 
     assert!(log.contains("backed up the database to"), "{log}");
-    assert!(log.contains("from schema 1 to"), "{log}");
+    assert!(log.contains("from schema 21 to core 2"), "{log}");
     let backups = backups_in(&folder);
     let names: Vec<String> = backups
         .iter()
@@ -524,9 +554,9 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
     assert_eq!(files, ["about.txt", "kashkeshet.db"]);
     // The backup is the database as it was before the upgrade.
     let copy = backups[1].join("kashkeshet.db");
-    assert_eq!(schema_version(&copy), 1);
+    assert_eq!(schema_version(&copy), 21);
     assert_eq!(messages_in(&copy), (1, 1));
-    assert!(schema_version(&db) > 1);
+    assert_eq!(schema_version(&db), kkt_db_sqlite::MANAGED);
 
     // Up to date now, so another start makes no backup.
     let mut server = start(kkt(
@@ -546,7 +576,7 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
 async fn a_failed_backup_before_an_upgrade_stops_the_server_and_changes_nothing() {
     let home = temp_home("upgrade-fails");
     let db = home.join("kkt.db");
-    make_v1(&db);
+    make_v0_10_0(&db);
     // A file where the backup folder should be, so the backup cannot be made.
     std::fs::write(home.join("upgrade-backups"), "in the way").expect("blocker");
 
@@ -563,7 +593,7 @@ async fn a_failed_backup_before_an_upgrade_stops_the_server_and_changes_nothing(
     assert!(text.contains("the backup failed"), "{text}");
     assert!(text.contains("did not start"), "{text}");
     assert!(text.contains("upgrade-backups"), "{text}");
-    assert_eq!(schema_version(&db), 1);
+    assert_eq!(schema_version(&db), 21);
     assert_eq!(messages_in(&db), (1, 1));
 }
 

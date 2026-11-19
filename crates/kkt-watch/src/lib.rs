@@ -3,131 +3,79 @@
 //! with `once`, stops after the first new messages. When the agent's lane
 //! has a newer version, it says so once, apart from the message lines.
 //!
-//! What it depends on is injected: the server (`Server`), the time
-//! (`Clock`), where it keeps its place (`Place`) and where its output goes
-//! (`Report`).
+//! What it depends on is injected: the server, as kkt-agent-client's
+//! `Watched` contract, the time (`Clock`), where it keeps its place
+//! (`Place`) and where its output goes (`Report`).
 
+mod error;
 mod filters;
 #[cfg(test)]
 mod tests;
 
 use futures::future::BoxFuture;
+use kkt_agent_client::{Channel, Failure, Message, NewerLane, Waited, Watched};
 use kkt_clock::{Clock, Span, Time};
-use kkt_config::{
-    WATCH_BODY_CHARS, WATCH_CALL_GRACE, WATCH_RETRY_FIRST, WATCH_RETRY_MAX, WATCH_WAIT,
-};
-use std::fmt;
 use std::time::Duration;
 
-/// Why a call to the server failed.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Failure {
-    /// The server could not be reached, the connection broke, or its answer
-    /// made no sense.
-    Lost(String),
-    /// The server answered with one of its error codes, such as
-    /// `unauthenticated`.
-    Refused { code: String, message: String },
-    /// The server refused the key the watch reaches it with (HTTP 401), at
-    /// start or after a key change. `key` names it, such as `the access key
-    /// in /home/me/.kkt/key`, when the caller knows where it came from.
-    KeyRefused { key: Option<String> },
+pub use error::{PlaceError, ReportError, WatchError};
+
+/// The most characters of a message body on its line.
+const WATCH_BODY_CHARS: usize = 300;
+
+/// How long the watch's calls wait, and how it retries. The program passes
+/// [`Settings::DEFAULT`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// How long each `wait_for_messages` call asks to wait. The server caps
+    /// it at its own `max_wait`.
+    pub watch_wait: Duration,
+    /// How long past its wait a call may take before it counts as lost.
+    pub watch_call_grace: Duration,
+    /// The first pause after a lost connection; it doubles up to
+    /// `watch_retry_max`.
+    pub watch_retry_first: Duration,
+    /// The longest pause after a lost connection.
+    pub watch_retry_max: Duration,
+    /// How often a server whose waits answer at once ([`Watched::polls`],
+    /// the admin endpoint's) is asked again while nothing new comes.
+    pub watch_poll: Duration,
 }
 
-impl fmt::Display for Failure {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Failure::Lost(reason) => write!(f, "could not reach the server: {reason}"),
-            Failure::Refused { code, message } => write!(f, "{code}: {message}"),
-            Failure::KeyRefused { key: Some(key) } => write!(f, "the server refused {key}"),
-            Failure::KeyRefused { key: None } => write!(f, "the server refused the access key"),
-        }
+impl Settings {
+    /// Waits of 50 seconds with 30 seconds' grace; pauses from 2 seconds,
+    /// doubling up to a minute; a server that answers at once asked every
+    /// 2 seconds.
+    pub const DEFAULT: Settings = Settings {
+        watch_wait: Duration::from_secs(50),
+        watch_call_grace: Duration::from_secs(30),
+        watch_retry_first: Duration::from_secs(2),
+        watch_retry_max: Duration::from_secs(60),
+        watch_poll: Duration::from_secs(2),
+    };
+}
+
+/// Whether trying again later may work. A lost connection or a busy
+/// server may recover; a bad token, a refused key or a missing channel will
+/// not.
+fn passing(failure: &Failure) -> bool {
+    match failure {
+        Failure::Lost(_) => true,
+        Failure::Refused { code, .. } => matches!(code.as_str(), "rate_limited" | "internal"),
+        Failure::KeyRefused { .. } => false,
     }
-}
-
-/// A new message, as `kkt watch` shows it.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Message {
-    pub id: i64,
-    pub channel_name: String,
-    pub agent: String,
-    pub body: String,
-    /// Whether the server cut the body to fit its answer.
-    pub cut: bool,
-}
-
-/// What a wait gave: new messages, and the agent's lane if it has a newer
-/// version.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Waited {
-    pub messages: Vec<Message>,
-    pub newer_lane: Option<NewerLane>,
-}
-
-/// The lane the agent holds, which has a newer version than the one it took.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NewerLane {
-    pub name: String,
-    /// The version the agent took.
-    pub version: i64,
-    /// The lane's newest version.
-    pub current_version: i64,
-}
-
-/// A visible channel, for resolving names before watching starts.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Channel {
-    pub id: String,
-    pub name: String,
-}
-
-impl Failure {
-    /// Whether trying again later may work. A lost connection or a busy
-    /// server may recover; a bad token, a refused key or a missing channel
-    /// will not.
-    fn passing(&self) -> bool {
-        match self {
-            Failure::Lost(_) => true,
-            Failure::Refused { code, .. } => matches!(code.as_str(), "rate_limited" | "internal"),
-            Failure::KeyRefused { .. } => false,
-        }
-    }
-}
-
-/// The server, acting as one agent.
-pub trait Server: Send + Sync {
-    /// The agent's handle. `run` asks for it first, on every start, so it
-    /// must reach the server with the watcher's credentials: a failure here
-    /// is what reports a wrong address, key or token at once.
-    fn handle(&self) -> BoxFuture<'_, Result<String, Failure>>;
-    /// All visible channels, including every page of the server's list.
-    fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>>;
-    /// The highest message ID in the agent's channels, or 0 if none.
-    fn latest_id(&self) -> BoxFuture<'_, Result<i64, Failure>>;
-    /// One message, with its whole body.
-    fn message(&self, id: i64) -> BoxFuture<'_, Result<Message, Failure>>;
-    /// Messages newer than `after_id`, oldest first, waiting up to `wait`
-    /// for one, and the agent's lane if it has a newer version. `channels`
-    /// limits the messages to those channels.
-    fn wait<'a>(
-        &'a self,
-        after_id: i64,
-        channels: Option<&'a [String]>,
-        wait: Duration,
-    ) -> BoxFuture<'a, Result<Waited, Failure>>;
 }
 
 /// Where the highest message ID seen is kept between runs.
 pub trait Place {
     /// The kept ID, or `None` if none is kept yet.
-    fn load(&self) -> Result<Option<i64>, String>;
-    fn save(&self, id: i64) -> Result<(), String>;
+    fn load(&self) -> Result<Option<i64>, PlaceError>;
+    fn save(&self, id: i64) -> Result<(), PlaceError>;
 }
 
 /// Where the output goes.
 pub trait Report {
     /// One line for one new message. Nothing else is reported this way.
-    fn message(&mut self, line: &str) -> Result<(), String>;
+    fn message(&mut self, line: &str) -> Result<(), ReportError>;
     /// Anything else: where watching starts, lost connections, a newer
     /// version of the agent's lane.
     fn note(&mut self, text: &str);
@@ -176,26 +124,28 @@ pub enum Outcome {
 /// The timeout covers every call. If it runs out before watching starts,
 /// that is an error, since nothing has been checked; after, it is
 /// `TimedOut`. Each call made with no sooner deadline may take its wait
-/// plus `WATCH_CALL_GRACE` before it counts as lost.
+/// plus `settings.watch_call_grace` before it counts as lost.
 pub async fn run(
-    server: &dyn Server,
+    server: &dyn Watched,
     clock: &dyn Clock,
+    settings: Settings,
     place: Option<&dyn Place>,
     report: &mut dyn Report,
     options: &Options,
-) -> Result<Outcome, String> {
-    let deadline =
-        match options.timeout {
-            Some(timeout) => Some(later(clock.now(), timeout).ok_or_else(|| {
-                format!("the timeout of {} seconds is too long", timeout.as_secs())
-            })?),
-            None => None,
-        };
-    let me = starting(clock, deadline, server.handle()).await?;
+) -> Result<Outcome, WatchError> {
+    let deadline = match options.timeout {
+        Some(timeout) => Some(
+            later(clock.now(), timeout).ok_or(WatchError::TimeoutTooLong {
+                seconds: timeout.as_secs(),
+            })?,
+        ),
+        None => None,
+    };
+    let me = starting(clock, settings, deadline, server.handle()).await?;
     let visible = if options.channel_names.is_empty() {
         Vec::new()
     } else {
-        starting(clock, deadline, server.channels()).await?
+        starting(clock, settings, deadline, server.channels()).await?
     };
     let channels = filters::channels(
         options.channels.as_deref(),
@@ -203,7 +153,7 @@ pub async fn run(
         &visible,
     )?;
     let saved = match place {
-        Some(place) => place.load()?,
+        Some(place) => place.load().map_err(WatchError::Place)?,
         None => None,
     };
     let mut after = match saved {
@@ -211,38 +161,40 @@ pub async fn run(
         None => {
             let id = match options.after_id {
                 Some(id) => id,
-                None => starting(clock, deadline, server.latest_id()).await?,
+                None => starting(clock, settings, deadline, server.latest_id()).await?,
             };
             if let Some(place) = place {
-                place.save(id)?;
+                place.save(id).map_err(WatchError::Place)?;
             }
             id
         }
     };
     report.note(&format!("watching as {me}, after message {after}"));
-    let mut pause = WATCH_RETRY_FIRST;
+    let mut pause = settings.watch_retry_first;
     let mut noted_lane: Option<NewerLane> = None;
     loop {
         let wait = match deadline {
-            Some(deadline) => left(clock.now(), deadline).min(WATCH_WAIT),
-            None => WATCH_WAIT,
+            Some(deadline) => left(clock.now(), deadline).min(settings.watch_wait),
+            None => settings.watch_wait,
         };
-        let grace = later(clock.now(), wait + WATCH_CALL_GRACE).ok_or(OUT_OF_RANGE)?;
+        let grace = later(clock.now(), wait + settings.watch_call_grace).ok_or(OUT_OF_RANGE)?;
         let limit = deadline.map_or(grace, |d| d.min(grace));
         let answer = tokio::select! {
-            answer = fetch(server, &me, after, options, channels.as_deref(), wait) => answer,
+            answer = fetch(server, clock, settings, &me, after, options, channels.as_deref(), wait) => answer,
             () = clock.sleep_until(limit) => Err(Failure::Lost("no answer in time".into())),
         };
         match answer {
             Ok(waited) => {
-                pause = WATCH_RETRY_FIRST;
+                pause = settings.watch_retry_first;
                 let before = after;
                 let mut shown = false;
                 for message in waited.messages.iter().filter(|m| m.id > before) {
                     if message.agent != me
                         && (!options.mentions || filters::mentions(&message.body, &me))
                     {
-                        report.message(&line(message, options.full))?;
+                        report
+                            .message(&line(message, options.full))
+                            .map_err(WatchError::Report)?;
                         shown = true;
                     }
                     after = after.max(message.id);
@@ -250,7 +202,7 @@ pub async fn run(
                 if after != before
                     && let Some(place) = place
                 {
-                    place.save(after)?;
+                    place.save(after).map_err(WatchError::Place)?;
                 }
                 if let Some(lane) = waited.newer_lane
                     && noted_lane.as_ref() != Some(&lane)
@@ -262,18 +214,18 @@ pub async fn run(
                     return Ok(Outcome::Received);
                 }
             }
-            Err(failure) if failure.passing() && deadline.is_some_and(|d| clock.now() >= d) => {
+            Err(failure) if passing(&failure) && deadline.is_some_and(|d| clock.now() >= d) => {
                 return Ok(Outcome::TimedOut);
             }
-            Err(failure) if failure.passing() => {
+            Err(failure) if passing(&failure) => {
                 report.note(&format!("{failure}; trying again in {}s", pause.as_secs()));
                 let resume = later(clock.now(), pause).ok_or(OUT_OF_RANGE)?;
                 clock
                     .sleep_until(deadline.map_or(resume, |d| d.min(resume)))
                     .await;
-                pause = (pause * 2).min(WATCH_RETRY_MAX);
+                pause = (pause * 2).min(settings.watch_retry_max);
             }
-            Err(failure) => return Err(failure.to_string()),
+            Err(failure) => return Err(WatchError::Server(failure)),
         }
         if let Some(deadline) = deadline
             && clock.now() >= deadline
@@ -283,39 +235,70 @@ pub async fn run(
     }
 }
 
-const OUT_OF_RANGE: &str = "the clock is out of range";
+const OUT_OF_RANGE: WatchError = WatchError::ClockOutOfRange;
 
-/// A call made before watching starts. It may take `WATCH_CALL_GRACE`, or
-/// until the deadline if that is sooner.
+/// A call made before watching starts. It may take
+/// `settings.watch_call_grace`, or until the deadline if that is sooner.
 async fn starting<T>(
     clock: &dyn Clock,
+    settings: Settings,
     deadline: Option<Time>,
     call: BoxFuture<'_, Result<T, Failure>>,
-) -> Result<T, String> {
-    let grace = later(clock.now(), WATCH_CALL_GRACE).ok_or(OUT_OF_RANGE)?;
+) -> Result<T, WatchError> {
+    let grace = later(clock.now(), settings.watch_call_grace).ok_or(OUT_OF_RANGE)?;
     let limit = deadline.map_or(grace, |d| d.min(grace));
     tokio::select! {
-        answer = call => answer.map_err(|e| e.to_string()),
+        answer = call => answer.map_err(WatchError::Server),
         () = clock.sleep_until(limit) => Err(if limit == grace {
-            Failure::Lost("no answer in time".into()).to_string()
+            WatchError::Server(Failure::Lost("no answer in time".into()))
         } else {
-            "no answer from the server before the timeout".into()
+            WatchError::NoAnswerBeforeTimeout
         }),
     }
 }
 
-/// Messages after `after`, waiting up to `wait`. Whole bodies are needed
-/// for `full` and for finding mentions beyond the server's preview. The
-/// agent's own messages are not shown, so they are not fetched.
+/// Messages after `after`, waiting up to `wait`: on the server, or, for a
+/// server that answers at once, by asking again every
+/// `settings.watch_poll` until something comes or the wait is over. Whole
+/// bodies are needed for `full` and for finding mentions beyond the
+/// server's preview. The agent's own messages are not shown, so they are
+/// not fetched.
+#[expect(
+    clippy::too_many_arguments,
+    reason = "the loop's state, passed as it is; a struct of them would only rename it"
+)]
 async fn fetch(
-    server: &dyn Server,
+    server: &dyn Watched,
+    clock: &dyn Clock,
+    settings: Settings,
     me: &str,
     after: i64,
     options: &Options,
     channels: Option<&[String]>,
     wait: Duration,
 ) -> Result<Waited, Failure> {
-    let mut waited = server.wait(after, channels, wait).await?;
+    let mut waited = if server.polls() {
+        let lost = || Failure::Lost(OUT_OF_RANGE.to_string());
+        let end = later(clock.now(), wait).ok_or_else(lost)?;
+        let poll = Span::from_std(settings.watch_poll).map_err(|_| lost())?;
+        // Asked only before the end: once the next ask would fall at or
+        // after it, the wait sleeps to its end and gives what it has, so
+        // the end of the wait wins over a last ask. The next wait asks at
+        // once.
+        loop {
+            let waited = server.wait(after, channels, wait).await?;
+            let next = clock.now() + poll;
+            if !waited.messages.is_empty() || next >= end {
+                if waited.messages.is_empty() {
+                    clock.sleep_until(end).await;
+                }
+                break waited;
+            }
+            clock.sleep_until(next).await;
+        }
+    } else {
+        server.wait(after, channels, wait).await?
+    };
     if options.full || options.mentions {
         for message in waited
             .messages

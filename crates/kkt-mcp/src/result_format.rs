@@ -1,0 +1,121 @@
+//! The MCP tools' results, turned into small responses: plain-text lines by default, JSON
+//! on request. Lists and message previews fit the response size cap. Single-item
+//! get_message, registration and whoami replies keep their full contents.
+//! When something is left out, the response says how to get it.
+//!
+//! `fit` holds the size-cap machinery every response shares; the other files
+//! hold the output for one area each.
+
+mod admin;
+mod agents;
+mod channels;
+mod fit;
+mod lanes;
+mod memory;
+mod messages;
+
+#[cfg(test)]
+mod tests;
+
+use kkt_api_agent::RuleError;
+use kkt_clock::Clock;
+use serde_json::json;
+use std::sync::Arc;
+
+/// How a response is written.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Format {
+    /// Compact lines of text. The default.
+    #[default]
+    Text,
+    /// A JSON object.
+    Json,
+}
+
+/// Smallest allowed `max_response_bytes`. A smaller cap could cut a
+/// registration answer, and with it the agent's token.
+pub const MIN_RESPONSE_BYTES: usize = 1024;
+
+/// Characters of a pinned note shown in channel previews.
+const NOTE_PREVIEW_CHARS: usize = 120;
+
+/// The formatter's own settings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Settings {
+    /// Largest response, in bytes, before the server cuts it and says how to get the rest.
+    pub max_response_bytes: usize,
+}
+
+impl Settings {
+    pub const DEFAULT: Settings = Settings {
+        max_response_bytes: 8 * 1024,
+    };
+
+    /// Every invalid setting, with the check that found it. The caller
+    /// chooses which problem to report alongside other owners' problems.
+    pub fn problems(&self) -> Vec<Problem> {
+        if self.max_response_bytes < MIN_RESPONSE_BYTES {
+            vec![Problem {
+                name: "max_response_bytes",
+                check: "floor",
+                rule: format!("must be at least {MIN_RESPONSE_BYTES}"),
+            }]
+        } else {
+            Vec::new()
+        }
+    }
+
+    /// The formatter's settings as the run record words them.
+    pub fn record_lines(&self) -> Vec<(String, String)> {
+        let Self { max_response_bytes } = self;
+        vec![("max_response_bytes".into(), max_response_bytes.to_string())]
+    }
+}
+
+/// An invalid formatter setting and the owner's check that found it.
+#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("{name} {rule}")]
+pub struct Problem {
+    pub name: &'static str,
+    pub check: &'static str,
+    pub rule: String,
+}
+
+#[derive(Clone)]
+pub struct Formatter {
+    max_bytes: usize,
+    clock: Arc<dyn Clock>,
+    server_version: &'static str,
+}
+
+impl Formatter {
+    /// `server_version` is the kkt version agents are told at `register`
+    /// and `whoami`.
+    pub fn new(
+        max_response_bytes: usize,
+        clock: Arc<dyn Clock>,
+        server_version: &'static str,
+    ) -> Formatter {
+        Formatter {
+            max_bytes: max_response_bytes,
+            clock,
+            server_version,
+        }
+    }
+
+    pub fn error(&self, f: Format, e: &RuleError) -> String {
+        match f {
+            Format::Text => format!("error: {}: {}", e.code.as_str(), e.message),
+            Format::Json => {
+                json!({ "error": { "code": e.code, "message": e.message } }).to_string()
+            }
+        }
+    }
+
+    pub fn ok(&self, f: Format) -> String {
+        match f {
+            Format::Text => "ok".to_string(),
+            Format::Json => json!({ "ok": true }).to_string(),
+        }
+    }
+}

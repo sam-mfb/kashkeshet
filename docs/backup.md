@@ -55,6 +55,10 @@ database as the older version left it.
 If that backup fails, for example because the disk is full, the server does
 not start, says why, and leaves the database unchanged.
 
+kkt upgrades databases from 0.10.0 and later. A database from an earlier
+version is refused, unchanged, with directions: open it with kkt 0.10
+first, which upgrades it, then with this version.
+
 ## Restoring
 
 1. Stop the server.

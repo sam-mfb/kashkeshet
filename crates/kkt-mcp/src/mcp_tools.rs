@@ -4,13 +4,13 @@
 //! and reading the parameters both take the same way (the read position, a
 //! body cut, an offset into text).
 //!
-//! Nothing here logs. Logging stays with each endpoint, which passes in what
-//! to do with an internal error.
+//! Each endpoint logs for itself, and passes in what to do with an internal
+//! error.
 
+use crate::result_format::{Format, Formatter};
 use crate::tool_text;
-use kkt_config::Limits;
-use kkt_format::{Format, Formatter};
-use kkt_rules::{self as rules, Position, RuleError};
+use kkt_api_agent::Limits;
+use kkt_api_agent::{Position, RuleError};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::Value;
@@ -98,7 +98,7 @@ fn describe(text: &str, limits: &Limits) -> String {
         ("{max_memory_chars}", limits.max_memory_chars.to_string()),
         (
             "{max_memory_name_chars}",
-            kkt_config::MAX_MEMORY_NAME_CHARS.to_string(),
+            kkt_names::MAX_MEMORY_NAME_CHARS.to_string(),
         ),
         (
             "{max_description_chars}",
@@ -111,16 +111,16 @@ fn describe(text: &str, limits: &Limits) -> String {
         ("{max_wait_s}", limits.max_wait.as_secs().to_string()),
         (
             "{max_handle_chars}",
-            kkt_config::MAX_HANDLE_CHARS.to_string(),
+            kkt_names::MAX_HANDLE_CHARS.to_string(),
         ),
         ("{max_lane_chars}", limits.max_lane_chars.to_string()),
         (
             "{max_lane_name_chars}",
-            kkt_config::MAX_LANE_NAME_CHARS.to_string(),
+            kkt_names::MAX_LANE_NAME_CHARS.to_string(),
         ),
         (
             "{max_lane_description_chars}",
-            kkt_config::MAX_LANE_DESCRIPTION_CHARS.to_string(),
+            limits.max_lane_description_chars.to_string(),
         ),
     ];
     values.iter().fold(text.to_string(), |text, (name, value)| {
@@ -163,13 +163,13 @@ fn size(bytes: usize) -> String {
 pub(crate) fn respond(
     fmt: &Formatter,
     format: Format,
-    out: rules::Result<String>,
+    out: kkt_api_agent::Result<String>,
     log_internal: impl FnOnce(&RuleError),
 ) -> CallToolResult {
     match out {
         Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
         Err(e) => {
-            if e.code == rules::Code::Internal {
+            if e.code == kkt_api_agent::Code::Internal {
                 log_internal(&e);
             }
             CallToolResult::error(vec![ContentBlock::text(fmt.error(format, &e))])
@@ -185,7 +185,10 @@ pub(crate) fn body_chars(requested: Option<u32>) -> Option<usize> {
 
 /// Where to read from, given `after_id` and `before_id`. Both at once is
 /// refused.
-pub(crate) fn position(after_id: Option<i64>, before_id: Option<i64>) -> rules::Result<Position> {
+pub(crate) fn position(
+    after_id: Option<i64>,
+    before_id: Option<i64>,
+) -> kkt_api_agent::Result<Position> {
     match (after_id, before_id) {
         (Some(_), Some(_)) => Err(RuleError::invalid(
             "give `after_id` or `before_id`, not both",
@@ -198,7 +201,11 @@ pub(crate) fn position(after_id: Option<i64>, before_id: Option<i64>) -> rules::
 
 /// The offset a caller asked for into something `len` long, zero if none.
 /// An offset past `len` is refused with `past_end` as the message.
-pub(crate) fn offset(requested: Option<u32>, len: usize, past_end: &str) -> rules::Result<usize> {
+pub(crate) fn offset(
+    requested: Option<u32>,
+    len: usize,
+    past_end: &str,
+) -> kkt_api_agent::Result<usize> {
     let offset = requested.unwrap_or(0) as usize;
     if offset > len {
         return Err(RuleError::invalid(past_end));
@@ -209,9 +216,9 @@ pub(crate) fn offset(requested: Option<u32>, len: usize, past_end: &str) -> rule
 #[cfg(test)]
 mod tests {
     use super::*;
+    use kkt_api_agent::Code;
     use kkt_clock::Time;
     use kkt_clock::testing::FixedClock;
-    use kkt_rules::Code;
     use std::time::Duration;
 
     fn odd_limits() -> Limits {
@@ -225,14 +232,14 @@ mod tests {
             max_lane_chars: 666,
             default_wait: Duration::from_secs(5),
             max_wait: Duration::from_secs(9),
-            ..Limits::DEFAULT
+            ..kkt_rules::Settings::DEFAULT.limits()
         }
     }
 
     fn formatter() -> Formatter {
         let now = Time::from_parts(2026, 10, 23, 15, 0, 0).unwrap();
         Formatter::new(
-            Limits::DEFAULT.max_response_bytes,
+            crate::result_format::Settings::DEFAULT.max_response_bytes,
             Arc::new(FixedClock::new(now)),
             "1.2.3-test",
         )

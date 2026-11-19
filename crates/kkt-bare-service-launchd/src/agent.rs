@@ -1,0 +1,587 @@
+//! A launchd user agent on macOS. The plist starts the server at login and
+//! again only if it exits with a failure. launchd never rotates a log, so
+//! the server writes its own, bounded one (`--log-file`); launchd's own
+//! output file only catches what comes before logging starts, and crashes.
+//! It runs in the user's `gui/<uid>` domain.
+
+use crate::system::{
+    Command, DryRun, System, create_dir, exists, failure_detail, read_service_file, remove_file,
+    run, run_attached, run_ok, write_file,
+};
+use kkt_bare_service::{
+    SERVICE_RESTART_DELAY, SERVICE_STOP_TIMEOUT, ServiceError, ServiceState, Settings, Spec,
+    path_text, plain_text,
+};
+use kkt_clock::Clock;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
+/// The launchd job label on macOS. The plist is `<label>.plist`.
+const LAUNCHD_LABEL: &str = "com.sam-mfb.kashkeshet";
+/// Where launchd user agents live, under the home directory.
+const LAUNCH_AGENTS_DIR: &str = "Library/LaunchAgents";
+/// Where the service's log goes on macOS, under the home directory. Linux
+/// services log to the journal.
+const MACOS_LOG_DIR: &str = "Library/Logs/kashkeshet";
+/// The service's log file on macOS, in [`MACOS_LOG_DIR`]. The server writes
+/// it itself (`--log-file`), within kkt-rolling-file's `LogPolicy::DEFAULT`.
+const MACOS_LOG_FILE_NAME: &str = "kashkeshet.log";
+/// Where launchd sends the service's stdout and stderr on macOS, in
+/// [`MACOS_LOG_DIR`]. Only output from before logging starts, and crashes,
+/// land here.
+const MACOS_CRASH_LOG_FILE_NAME: &str = "kashkeshet.crash.log";
+
+/// `launchctl print`'s exit status for a service it doesn't have loaded.
+const NOT_FOUND: i32 = 113;
+/// `launchctl print`'s exit status when the user has no `gui/<uid>`
+/// domain, that is, no desktop login session.
+const NO_DOMAIN: i32 = 125;
+/// What `launchctl print` says then: "Could not print domain: 125: Domain
+/// does not support specified action".
+const NO_DOMAIN_TEXT: &str = "Could not print domain";
+/// `launchctl kill`'s exit status when the service has no process (ESRCH).
+const NO_PROCESS: i32 = 3;
+
+pub(crate) struct Agent {
+    home: PathBuf,
+    agents_dir: PathBuf,
+    log_dir: PathBuf,
+    waits: crate::Settings,
+}
+
+impl Agent {
+    pub(crate) fn new(home: &Path, waits: crate::Settings) -> Agent {
+        Agent {
+            home: home.to_path_buf(),
+            agents_dir: home.join(LAUNCH_AGENTS_DIR),
+            log_dir: home.join(MACOS_LOG_DIR),
+            waits,
+        }
+    }
+
+    fn plist(&self) -> PathBuf {
+        self.agents_dir.join(format!("{LAUNCHD_LABEL}.plist"))
+    }
+
+    fn log_file(&self) -> PathBuf {
+        self.log_dir.join(MACOS_LOG_FILE_NAME)
+    }
+
+    fn crash_log_file(&self) -> PathBuf {
+        self.log_dir.join(MACOS_CRASH_LOG_FILE_NAME)
+    }
+
+    pub(crate) fn render(&self, spec: &Spec) -> Result<String, ServiceError> {
+        let mut arguments = format!("    <string>{}</string>\n", xml(path_text(&spec.program)?)?);
+        // The server's own, bounded log; it goes last, so it wins over a
+        // `log_file` in the config file.
+        let log_file = path_text(&self.log_file())?.to_string();
+        for arg in spec
+            .args
+            .iter()
+            .chain(&["--log-file".to_string(), log_file])
+        {
+            arguments.push_str(&format!("    <string>{}</string>\n", xml(arg)?));
+        }
+        let crash_log = xml(path_text(&self.crash_log_file())?)?;
+        Ok(format!(
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Written by `kkt service install`. Install again to change it. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>{label}</string>
+  <key>ProgramArguments</key>
+  <array>
+{arguments}  </array>
+  <key>WorkingDirectory</key>
+  <string>{home}</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <dict>
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+  <key>ThrottleInterval</key>
+  <integer>{restart}</integer>
+  <key>ExitTimeOut</key>
+  <integer>{stop}</integer>
+  <key>StandardOutPath</key>
+  <string>{crash_log}</string>
+  <key>StandardErrorPath</key>
+  <string>{crash_log}</string>
+</dict>
+</plist>
+"#,
+            label = xml(LAUNCHD_LABEL)?,
+            home = xml(path_text(&self.home)?)?,
+            restart = SERVICE_RESTART_DELAY.as_secs(),
+            stop = SERVICE_STOP_TIMEOUT.as_secs(),
+        ))
+    }
+
+    /// The installed plist's `ProgramArguments`, after the program and
+    /// without the `--log-file` that `render` adds, if it is there.
+    pub(crate) fn installed_args(
+        &self,
+        system: &dyn System,
+    ) -> Result<Option<Vec<String>>, ServiceError> {
+        let plist = self.plist();
+        let Some(text) = read_service_file(system, &plist)? else {
+            return Ok(None);
+        };
+        let unreadable = |reason| ServiceError::Unreadable {
+            path: plist.clone(),
+            reason,
+        };
+        let mut lines = text.lines().map(str::trim);
+        if !lines.any(|line| line == "<key>ProgramArguments</key>")
+            || lines.next() != Some("<array>")
+        {
+            return Err(unreadable("it has no ProgramArguments array"));
+        }
+        let mut words = Vec::new();
+        loop {
+            match lines.next() {
+                Some("</array>") => break,
+                Some(line) => {
+                    let word = line
+                        .strip_prefix("<string>")
+                        .and_then(|rest| rest.strip_suffix("</string>"))
+                        .ok_or_else(|| unreadable("its ProgramArguments are not all strings"))?;
+                    words.push(unxml(word));
+                }
+                None => return Err(unreadable("its ProgramArguments array does not end")),
+            }
+        }
+        if words.is_empty() {
+            return Err(unreadable("its ProgramArguments array is empty"));
+        }
+        words.remove(0);
+        let log_file = self.log_file();
+        if let [.., flag, path] = words.as_slice()
+            && flag == "--log-file"
+            && Path::new(path) == log_file
+        {
+            words.truncate(words.len() - 2);
+        }
+        Ok(Some(words))
+    }
+
+    /// The user's launchd domain, `gui/<uid>`.
+    fn domain(&self, system: &dyn System) -> Result<String, ServiceError> {
+        let uid = system.user_id().map_err(|source| ServiceError::Run {
+            command: "id -u".to_string(),
+            source,
+        })?;
+        Ok(format!("gui/{uid}"))
+    }
+
+    /// This service in the user's domain, `gui/<uid>/<label>`.
+    fn target(&self, system: &dyn System) -> Result<String, ServiceError> {
+        Ok(format!("{}/{LAUNCHD_LABEL}", self.domain(system)?))
+    }
+
+    /// `launchctl bootstrap`, which loads the plist and, since it says
+    /// RunAtLoad, starts the server.
+    fn bootstrap_command(&self, system: &dyn System) -> Result<Command, ServiceError> {
+        let domain = self.domain(system)?;
+        let plist = path_text(&self.plist())?.to_string();
+        Ok(Command::new("launchctl", &["bootstrap", &domain, &plist]))
+    }
+
+    fn bootstrap(&self, system: &dyn System) -> Result<(), ServiceError> {
+        run_ok(system, &self.bootstrap_command(system)?)?;
+        Ok(())
+    }
+
+    /// Loads the service just after `bootout` unloaded the old one.
+    /// `bootout` returns before launchd has removed the old service, and a
+    /// `bootstrap` before it has finished fails ("Operation already in
+    /// progress", shown as "Input/output error"). So while `launchctl
+    /// print` still finds the old service, a failed `bootstrap` is tried
+    /// again every `reload_retry` of its settings on `clock`, for up to
+    /// their `removal_wait`. Once the old service is gone, one
+    /// more try; a failure then is the new service's own, and final.
+    async fn reload(&self, system: &dyn System, clock: &dyn Clock) -> Result<(), ServiceError> {
+        let waits = self.waits;
+        let bootstrap = self.bootstrap_command(system)?;
+        let end = clock.now() + waits.removal_wait;
+        let mut tries = 0;
+        // Whether the old service was already gone before the latest try.
+        let mut removed = false;
+        loop {
+            let began = clock.now();
+            let finished = run(system, &bootstrap)?;
+            tries += 1;
+            if finished.success() {
+                return Ok(());
+            }
+            let failed = |still_removing_for| {
+                ServiceError::ReloadFailed(reload_failed(
+                    &bootstrap.to_string(),
+                    &failure_detail(&finished),
+                    tries,
+                    still_removing_for,
+                ))
+            };
+            if removed {
+                return Err(failed(None));
+            }
+            removed = !self.loaded(system)?;
+            if !removed {
+                if began >= end {
+                    return Err(failed(Some(waits.removal_wait)));
+                }
+                clock.sleep_until(began + waits.reload_retry).await;
+            }
+        }
+    }
+
+    /// What `launchctl print` says about the service, or `None` if launchd
+    /// doesn't have it loaded. A user with no desktop login session, and so
+    /// no `gui/<uid>` domain, is [`ServiceError::NoLoginSession`]. Any other
+    /// failure is an error.
+    fn print(&self, system: &dyn System) -> Result<Option<String>, ServiceError> {
+        let target = self.target(system)?;
+        let print = Command::query("launchctl", &["print", &target]);
+        let finished = run(system, &print)?;
+        if finished.success() {
+            Ok(Some(finished.stdout))
+        } else if finished.code == Some(NO_DOMAIN) && finished.said(NO_DOMAIN_TEXT) {
+            Err(no_login_session())
+        } else if finished.code == Some(NOT_FOUND) || finished.said("Could not find service") {
+            Ok(None)
+        } else {
+            Err(ServiceError::Failed {
+                command: print.to_string(),
+                detail: failure_detail(&finished),
+            })
+        }
+    }
+
+    /// Whether launchd has the service loaded (installed and not booted out).
+    fn loaded(&self, system: &dyn System) -> Result<bool, ServiceError> {
+        Ok(self.print(system)?.is_some())
+    }
+
+    /// Writes the service file, starts the service, and has it start at
+    /// each login, after making the folders the server needs. Installing
+    /// again replaces the file and restarts it, which waits on `clock`
+    /// while launchd removes the old service, as its settings say.
+    pub(crate) async fn install(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+        spec: &Spec,
+    ) -> Result<Vec<String>, ServiceError> {
+        for dir in &spec.dirs {
+            create_dir(system, dir)?;
+        }
+        self.load_new(system, clock, spec).await
+    }
+
+    /// What [`Agent::install`] would change on `system`, changing nothing.
+    pub(crate) async fn dry_run(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+        spec: &Spec,
+    ) -> Result<Vec<String>, ServiceError> {
+        let dry = DryRun::new(system);
+        self.install(&dry, clock, spec).await?;
+        Ok(dry.actions())
+    }
+
+    /// Checks, after waiting `settings.service_start_check` on `clock`, that
+    /// the server the service just started is still running. If not, the
+    /// service is unloaded: a stop is not enough, since launchd starts a
+    /// failed server again.
+    pub(crate) async fn check_started(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+        settings: Settings,
+    ) -> Result<(), ServiceError> {
+        clock
+            .sleep_until(clock.now() + settings.service_start_check)
+            .await;
+        if self.state(system)?.running {
+            return Ok(());
+        }
+        let stopped = self.unload(system);
+        Err(ServiceError::DidNotStayUp {
+            checked_after: settings.service_start_check,
+            stop_failed: stopped.err().map(|e| e.to_string()),
+        })
+    }
+
+    /// Gives the server the key file `key`: `make` writes it unless it is
+    /// already there, then the service is stopped and started.
+    pub(crate) fn add_key(
+        &self,
+        system: &dyn System,
+        key: &Path,
+        make: &dyn Fn(&Path) -> Result<(), kkt_bare_service::KeyError>,
+    ) -> Result<bool, ServiceError> {
+        let made = !exists(system, key)?;
+        if made {
+            make(key).map_err(ServiceError::Key)?;
+        }
+        self.stop(system)?;
+        self.start(system)?;
+        Ok(made)
+    }
+
+    async fn load_new(
+        &self,
+        system: &dyn System,
+        clock: &dyn Clock,
+        spec: &Spec,
+    ) -> Result<Vec<String>, ServiceError> {
+        let plist = self.render(spec)?;
+        // Asked before the plist is written, so a user launchd cannot serve
+        // (no login session) is refused with no service file left behind.
+        let loaded = self.loaded(system)?;
+        create_dir(system, &self.agents_dir)?;
+        create_dir(system, &self.log_dir)?;
+        write_file(system, &self.plist(), &plist)?;
+        // launchd keeps the plist it loaded, so a loaded one is unloaded
+        // (which stops it) before the new one is loaded.
+        if loaded {
+            let target = self.target(system)?;
+            run_ok(system, &Command::new("launchctl", &["bootout", &target]))?;
+            self.reload(system, clock).await?;
+        } else {
+            self.bootstrap(system)?;
+        }
+        Ok(vec![
+            format!("Installed {}", self.plist().display()),
+            "Started kashkeshet; it starts again at each login.".to_string(),
+            format!("Log: {}", self.log_file().display()),
+        ])
+    }
+
+    /// Unloads the service if launchd has it loaded, which stops it and
+    /// keeps launchd from starting it again until the next login or
+    /// `start`. A `stop` is not enough for a server that keeps failing:
+    /// launchd starts it again after each failure.
+    pub(crate) fn unload(&self, system: &dyn System) -> Result<(), ServiceError> {
+        if self.loaded(system)? {
+            let target = self.target(system)?;
+            run_ok(system, &Command::new("launchctl", &["bootout", &target]))?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn uninstall(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+        let mut said = Vec::new();
+        if self.loaded(system)? {
+            let target = self.target(system)?;
+            run_ok(system, &Command::new("launchctl", &["bootout", &target]))?;
+            said.push("Stopped kashkeshet.".to_string());
+        }
+        if remove_file(system, &self.plist())? {
+            said.push(format!("Removed {}", self.plist().display()));
+        } else {
+            said.push("The service was not installed.".to_string());
+        }
+        Ok(said)
+    }
+
+    pub(crate) fn start(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+        if !exists(system, &self.plist())? {
+            return Err(ServiceError::NotInstalled);
+        }
+        if self.loaded(system)? {
+            let target = self.target(system)?;
+            run_ok(system, &Command::new("launchctl", &["kickstart", &target]))?;
+        } else {
+            // Loading it starts it, since the plist says RunAtLoad.
+            self.bootstrap(system)?;
+        }
+        Ok(vec!["Started kashkeshet.".to_string()])
+    }
+
+    pub(crate) fn stop(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+        if !exists(system, &self.plist())? {
+            return Err(ServiceError::NotInstalled);
+        }
+        if !self.loaded(system)? {
+            return Ok(vec!["kashkeshet was not running.".to_string()]);
+        }
+        // The server exits cleanly on SIGTERM, and launchd starts it again
+        // only after a failure, so it stays stopped until the next login.
+        let target = self.target(system)?;
+        let kill = Command::new("launchctl", &["kill", "SIGTERM", &target]);
+        let finished = run(system, &kill)?;
+        if finished.success() {
+            Ok(vec![
+                "Stopped kashkeshet. It starts again at the next login, or with `kkt service start`."
+                    .to_string(),
+            ])
+        } else if finished.code == Some(NO_PROCESS) || finished.said("No such process") {
+            Ok(vec!["kashkeshet was not running.".to_string()])
+        } else {
+            Err(ServiceError::Failed {
+                command: kill.to_string(),
+                detail: failure_detail(&finished),
+            })
+        }
+    }
+
+    pub(crate) fn state(&self, system: &dyn System) -> Result<ServiceState, ServiceError> {
+        if !exists(system, &self.plist())? {
+            return Ok(ServiceState {
+                installed: false,
+                running: false,
+            });
+        }
+        let running = match self.print(system)? {
+            Some(printed) => PrintedState::read(&printed).state.as_deref() == Some("running"),
+            None => false,
+        };
+        Ok(ServiceState {
+            installed: true,
+            running,
+        })
+    }
+
+    pub(crate) fn status(&self, system: &dyn System) -> Result<Vec<String>, ServiceError> {
+        let plist = self.plist();
+        if !exists(system, &plist)? {
+            return Ok(vec![format!(
+                "Not installed (no {}). Run `kkt service install`.",
+                plist.display()
+            )]);
+        }
+        let mut said = vec![format!("Installed: {}", plist.display())];
+        match self.print(system)? {
+            None => {
+                said.push("Not loaded, so not running. Run `kkt service start`.".to_string());
+            }
+            Some(printed) => {
+                let state = PrintedState::read(&printed);
+                said.push(match (state.state, state.pid) {
+                    (Some(s), Some(pid)) => format!("State: {s} (pid {pid})"),
+                    (Some(s), None) => format!("State: {s}"),
+                    (None, _) => "State: unknown (launchctl print did not say)".to_string(),
+                });
+                if let Some(code) = state.last_exit {
+                    said.push(format!("Last exit: {code}"));
+                }
+            }
+        }
+        said.push(format!("Log: {}", self.log_file().display()));
+        Ok(said)
+    }
+
+    pub(crate) fn logs(
+        &self,
+        system: &dyn System,
+        lines: usize,
+        follow: bool,
+    ) -> Result<Vec<String>, ServiceError> {
+        let log = self.log_file();
+        if !exists(system, &log)? {
+            return Ok(vec![format!("No log yet at {}", log.display())]);
+        }
+        let lines = lines.to_string();
+        let log_text = path_text(&log)?;
+        let mut args = vec!["-n", &lines];
+        if follow {
+            // -F keeps following if the file is replaced.
+            args.push("-F");
+        }
+        args.push(log_text);
+        run_attached(system, &Command::query("tail", &args), &[])?;
+        Ok(Vec::new())
+    }
+}
+
+/// The parts of `launchctl print` that `status` reports.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) struct PrintedState {
+    pub state: Option<String>,
+    pub pid: Option<String>,
+    pub last_exit: Option<String>,
+}
+
+impl PrintedState {
+    /// Reads `key = value` lines, keeping the first of each key: later ones
+    /// belong to nested sections.
+    pub(crate) fn read(printed: &str) -> PrintedState {
+        let mut found = PrintedState::default();
+        for line in printed.lines() {
+            let Some((key, value)) = line.trim().split_once(" = ") else {
+                continue;
+            };
+            let slot = match key {
+                "state" => &mut found.state,
+                "pid" => &mut found.pid,
+                "last exit code" => &mut found.last_exit,
+                _ => continue,
+            };
+            if slot.is_none() {
+                *slot = Some(value.trim().to_string());
+            }
+        }
+        found
+    }
+}
+
+/// `text` escaped for an XML element.
+fn xml(text: &str) -> Result<String, ServiceError> {
+    Ok(plain_text(text)?
+        .replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+        .replace('\'', "&apos;"))
+}
+
+/// `text` as [`xml`] escaped it.
+fn unxml(text: &str) -> String {
+    text.replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&amp;", "&")
+}
+
+/// [`ServiceError::ReloadFailed`]'s text for launchd: `command` failed after
+/// `tries`; with `still_removing_for`, launchd was still removing the old
+/// service when the tries over that long ran out, and without it the old
+/// service was gone and the failure is the new service's own.
+fn reload_failed(
+    command: &str,
+    detail: &str,
+    tries: u32,
+    still_removing_for: Option<Duration>,
+) -> String {
+    const STOPPED: &str = "kashkeshet is stopped: the old service was unloaded, and the new one is installed but not loaded.";
+    match still_removing_for {
+        Some(waited) => format!(
+            "`{command}` failed on each of {tries} tries over {} seconds, while launchd was still removing the old service: {detail}. {STOPPED} Once the old service is gone, run `kkt service start` to load the new one, and `kkt service status` to check.",
+            waited.as_secs()
+        ),
+        None => format!(
+            "`{command}` failed after launchd removed the old service: {detail}. {STOPPED} Run `kkt service start` to load it, and `kkt service status` to check."
+        ),
+    }
+}
+
+/// This user has no desktop login session for the service to run in, in
+/// launchd's terms: the person must log in at the Mac's desktop.
+pub(crate) fn no_login_session() -> ServiceError {
+    ServiceError::NoLoginSession {
+        refusal: "kkt's service runs while you are logged in at this Mac's desktop, and this user \
+                  is not logged in there now. Log in at the desktop and run the command again, or \
+                  run `kkt serve` yourself instead."
+            .to_string(),
+        fact: "no one is logged in at this Mac's desktop, so the service cannot be asked"
+            .to_string(),
+    }
+}

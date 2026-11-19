@@ -2,12 +2,14 @@
 //! its editor, its history, and a button to retire it.
 
 use super::change::{Change, NoFields};
-use super::source::{LaneLimits, LaneRetired, LaneSave, LaneSummary, LaneVersion};
 use super::{Pages, filters, page, url_path};
 use askama::Template;
-use axum::extract::{Path, State};
+use axum::extract::Path;
 use axum::http::HeaderMap;
 use axum::response::{IntoResponse, Redirect, Response};
+use kkt_api_agent::{Lane, LaneRetired, LaneVersion, Limits};
+use kkt_api_operator::LaneSave;
+use kkt_names::MAX_LANE_NAME_CHARS;
 use serde::Deserialize;
 
 pub(super) const LANES_PATH: &str = "/lanes";
@@ -15,8 +17,11 @@ pub(super) const LANES_PATH: &str = "/lanes";
 #[derive(Template)]
 #[template(path = "lanes.html")]
 struct LanesPage {
-    lanes: Vec<LaneSummary>,
-    limits: LaneLimits,
+    /// In name order.
+    lanes: Vec<Lane>,
+    /// The application's limits, for the lane's description and text.
+    limits: Limits,
+    max_name_chars: usize,
     sign_out: bool,
     form_token: String,
 }
@@ -30,7 +35,8 @@ struct LanePage {
     current: LaneVersion,
     /// Newest first.
     history: Vec<LaneVersion>,
-    limits: LaneLimits,
+    /// The application's limits, for the lane's description and text.
+    limits: Limits,
     sign_out: bool,
     form_token: String,
 }
@@ -39,40 +45,37 @@ fn lane_path(name: &str) -> String {
     format!("{LANES_PATH}/{}", url_path(name))
 }
 
-pub(super) async fn lanes(State(pages): State<Pages>, headers: HeaderMap) -> Response {
-    match pages.source.lanes().await {
-        Ok(view) => page(LanesPage {
-            lanes: view.lanes,
-            limits: view.limits,
-            sign_out: pages.sign_out,
-            form_token: pages.form_token(&headers),
-        }),
+pub(super) async fn lanes(pages: Pages, headers: HeaderMap) -> Response {
+    match pages.api.lanes(&pages.operator).await {
+        Ok(lanes) => page(
+            pages.log.as_ref(),
+            LanesPage {
+                lanes,
+                limits: pages.api.limits(),
+                max_name_chars: MAX_LANE_NAME_CHARS,
+                sign_out: pages.sign_out,
+                form_token: pages.form_token(&headers),
+            },
+        ),
         Err(e) => pages.error(e, &headers),
     }
 }
 
-pub(super) async fn lane(
-    State(pages): State<Pages>,
-    Path(name): Path<String>,
-    headers: HeaderMap,
-) -> Response {
-    match pages.source.lane(name).await {
-        Ok(view) => match view.history.first().cloned() {
-            Some(current) => page(LanePage {
-                name: view.name,
-                created_at: view.created_at,
-                retired: view.retired,
-                current,
-                history: view.history,
-                limits: view.limits,
+pub(super) async fn lane(pages: Pages, Path(name): Path<String>, headers: HeaderMap) -> Response {
+    match pages.api.lane_history(&pages.operator, name).await {
+        Ok(h) => page(
+            pages.log.as_ref(),
+            LanePage {
+                name: h.lane.name,
+                created_at: h.lane.created_at,
+                retired: h.lane.retired,
+                current: h.lane.current,
+                history: h.versions,
+                limits: pages.api.limits(),
                 sign_out: pages.sign_out,
                 form_token: pages.form_token(&headers),
-            }),
-            None => pages.error(
-                super::SourceError::Failed("the lane has no versions".into()),
-                &headers,
-            ),
-        },
+            },
+        ),
         Err(e) => pages.error(e, &headers),
     }
 }
@@ -86,7 +89,7 @@ pub(super) struct NewLaneForm {
 
 /// The human creates a lane, then sees it.
 pub(super) async fn create_lane(
-    State(pages): State<Pages>,
+    pages: Pages,
     headers: HeaderMap,
     Change(form): Change<NewLaneForm>,
 ) -> Response {
@@ -96,8 +99,8 @@ pub(super) async fn create_lane(
         description: form.description,
         text: form.text,
     };
-    match pages.source.save_lane(save, true).await {
-        Ok(()) => Redirect::to(&lane_path(&name)).into_response(),
+    match pages.api.create_lane(pages.actor(), save).await {
+        Ok(_) => Redirect::to(&lane_path(&name)).into_response(),
         Err(e) => pages.error(e, &headers),
     }
 }
@@ -110,7 +113,7 @@ pub(super) struct LaneForm {
 
 /// The human saves a lane's next version, then sees the lane again.
 pub(super) async fn save_lane(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(name): Path<String>,
     headers: HeaderMap,
     Change(form): Change<LaneForm>,
@@ -120,21 +123,21 @@ pub(super) async fn save_lane(
         description: form.description,
         text: form.text,
     };
-    match pages.source.save_lane(save, false).await {
-        Ok(()) => Redirect::to(&lane_path(&name)).into_response(),
+    match pages.api.update_lane(pages.actor(), save).await {
+        Ok(_) => Redirect::to(&lane_path(&name)).into_response(),
         Err(e) => pages.error(e, &headers),
     }
 }
 
 /// The human retires a lane, then sees it marked retired.
 pub(super) async fn retire_lane(
-    State(pages): State<Pages>,
+    pages: Pages,
     Path(name): Path<String>,
     headers: HeaderMap,
     Change(NoFields {}): Change<NoFields>,
 ) -> Response {
-    match pages.source.retire_lane(name.clone()).await {
-        Ok(()) => Redirect::to(&lane_path(&name)).into_response(),
+    match pages.api.retire_lane(pages.actor(), name.clone()).await {
+        Ok(_) => Redirect::to(&lane_path(&name)).into_response(),
         Err(e) => pages.error(e, &headers),
     }
 }

@@ -1034,350 +1034,804 @@ dependencies = [
 
 [[package]]
 name = "kashkeshet"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "clap",
  "futures",
  "kkt-admission",
  "kkt-agent-client",
+ "kkt-agent-client-mcp",
+ "kkt-agent-commands",
+ "kkt-agent-files",
+ "kkt-api-admin",
+ "kkt-api-agent",
  "kkt-backup",
- "kkt-client-config",
+ "kkt-backup-os",
+ "kkt-bare-service",
+ "kkt-bare-service-launchd",
+ "kkt-bare-service-systemd",
+ "kkt-browser",
  "kkt-clock",
- "kkt-config",
+ "kkt-clock-system",
+ "kkt-config-file",
  "kkt-container",
+ "kkt-container-docker",
+ "kkt-containerized-service",
+ "kkt-db",
+ "kkt-db-sqlite",
+ "kkt-deployment",
  "kkt-diagnostics",
+ "kkt-entropy",
+ "kkt-entropy-os",
+ "kkt-files",
+ "kkt-hash",
  "kkt-hosts",
+ "kkt-identity-keymode",
+ "kkt-install-commands",
+ "kkt-keys",
+ "kkt-keys-os",
  "kkt-lane-files",
- "kkt-logs",
+ "kkt-listen",
+ "kkt-llm-agent-command",
+ "kkt-llm-agent-config",
+ "kkt-log",
+ "kkt-log-tracing",
+ "kkt-machine",
+ "kkt-machine-os",
+ "kkt-mcp",
  "kkt-names",
+ "kkt-operator-commands",
+ "kkt-probe",
  "kkt-provenance",
- "kkt-remote-access",
+ "kkt-remote-access-tailscale",
+ "kkt-revision",
+ "kkt-rolling-file",
  "kkt-rules",
  "kkt-scratch",
  "kkt-server",
- "kkt-service",
- "kkt-settings",
  "kkt-setup",
  "kkt-shutdown",
- "kkt-store",
+ "kkt-shutdown-os",
+ "kkt-terminal",
+ "kkt-toml",
  "kkt-watch",
- "libc",
+ "kkt-web",
  "reqwest",
  "rmcp",
  "rusqlite",
  "serde_json",
- "sha2",
+ "thiserror",
  "tokio",
- "toml",
- "tracing",
- "tracing-subscriber",
 ]
 
 [[package]]
 name = "kkt-admission"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
- "kkt-clock",
- "kkt-config",
+ "kkt-entropy",
+ "kkt-hash",
+ "kkt-keys",
  "kkt-names",
- "sha2",
  "thiserror",
 ]
 
 [[package]]
 name = "kkt-agent-client"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "futures",
- "kkt-clock",
- "kkt-config",
- "kkt-watch",
+]
+
+[[package]]
+name = "kkt-agent-client-mcp"
+version = "1.0.0-rc.1"
+dependencies = [
+ "futures",
+ "kkt-agent-client",
  "reqwest",
  "rmcp",
  "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-agent-commands"
+version = "1.0.0-rc.1"
+dependencies = [
+ "futures",
+ "kkt-agent-client",
+ "kkt-clock",
+ "kkt-deployment",
+ "kkt-keys",
+ "kkt-llm-agent-config",
+ "kkt-machine",
+ "kkt-names",
+ "kkt-watch",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-agent-files"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-scratch",
+ "libc",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-api-admin"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-api-agent",
+ "kkt-api-operator",
+ "serde",
+]
+
+[[package]]
+name = "kkt-api-agent"
+version = "1.0.0-rc.1"
+dependencies = [
+ "serde",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-api-operator"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-api-agent",
+ "serde",
+]
+
+[[package]]
+name = "kkt-api-sim"
+version = "1.0.0-rc.1"
+dependencies = [
+ "futures",
+ "kkt-api-agent",
+ "kkt-api-operator",
+ "kkt-clock",
+ "kkt-entropy",
+ "kkt-keys",
+ "kkt-names",
+ "kkt-shutdown",
+ "kkt-web",
  "tokio",
 ]
 
 [[package]]
 name = "kkt-backup"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "kkt-clock",
- "kkt-config",
+ "kkt-keys",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-backup-os"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-backup",
+ "kkt-clock",
  "kkt-scratch",
 ]
 
 [[package]]
-name = "kkt-client-config"
-version = "0.10.0"
+name = "kkt-bare-service"
+version = "1.0.0-rc.1"
 dependencies = [
- "kkt-config",
- "kkt-settings",
- "serde_json",
- "toml_edit",
+ "kkt-clock",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-bare-service-launchd"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-bare-service",
+ "kkt-clock",
+]
+
+[[package]]
+name = "kkt-bare-service-systemd"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-bare-service",
+ "kkt-clock",
+ "kkt-scratch",
+]
+
+[[package]]
+name = "kkt-browser"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-scratch",
 ]
 
 [[package]]
 name = "kkt-clock"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "chrono",
  "futures",
- "kkt-config",
  "tokio",
 ]
 
 [[package]]
-name = "kkt-config"
-version = "0.10.0"
+name = "kkt-clock-system"
+version = "1.0.0-rc.1"
 dependencies = [
- "kkt-names",
+ "futures",
+ "kkt-clock",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-config-file"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-toml",
  "thiserror",
 ]
 
 [[package]]
 name = "kkt-container"
-version = "0.10.0"
+version = "1.0.0-rc.1"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-container-docker"
+version = "1.0.0-rc.1"
 dependencies = [
  "kkt-clock",
- "kkt-config",
- "kkt-names",
+ "kkt-container",
  "kkt-scratch",
- "kkt-settings",
  "serde_json",
+]
+
+[[package]]
+name = "kkt-containerized-service"
+version = "1.0.0-rc.1"
+dependencies = [
+ "futures",
+ "kkt-clock",
+ "kkt-container",
+ "kkt-keys",
+ "kkt-machine",
+]
+
+[[package]]
+name = "kkt-db"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-search",
+ "rusqlite",
  "thiserror",
  "tokio",
 ]
 
 [[package]]
-name = "kkt-diagnostics"
-version = "0.10.0"
+name = "kkt-db-sqlite"
+version = "1.0.0-rc.1"
 dependencies = [
- "kkt-clock",
- "kkt-config",
- "reqwest",
- "serde_json",
+ "kkt-db",
+ "kkt-scratch",
+ "kkt-search",
+ "rusqlite",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-deployment"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-bare-service",
+ "kkt-containerized-service",
+ "kkt-entropy",
+ "kkt-keys",
+ "kkt-machine",
+ "kkt-names",
+ "semver",
+ "thiserror",
  "url",
 ]
 
 [[package]]
-name = "kkt-events"
-version = "0.10.0"
+name = "kkt-diagnostics"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-clock",
+ "kkt-keys",
+ "thiserror",
+ "url",
+]
+
+[[package]]
+name = "kkt-entropy"
+version = "1.0.0-rc.1"
+
+[[package]]
+name = "kkt-entropy-os"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-entropy",
+ "rand",
+]
+
+[[package]]
+name = "kkt-fake-product"
+version = "1.0.0-rc.1"
 dependencies = [
  "futures",
- "kkt-config",
+ "kkt-admission",
+ "kkt-agent-client-mcp",
+ "kkt-api-admin",
+ "kkt-api-agent",
+ "kkt-clock",
+ "kkt-clock-system",
+ "kkt-db-sqlite",
+ "kkt-entropy",
+ "kkt-entropy-os",
+ "kkt-hosts",
+ "kkt-identity",
+ "kkt-identity-keymode",
+ "kkt-listen",
+ "kkt-log-tracing",
+ "kkt-mcp",
+ "kkt-names",
+ "kkt-rules",
+ "kkt-server",
  "kkt-shutdown",
- "serde",
+ "kkt-shutdown-os",
+ "kkt-terminal",
+ "kkt-web",
+ "reqwest",
+ "serde_json",
  "tokio",
 ]
 
 [[package]]
-name = "kkt-format"
-version = "0.10.0"
+name = "kkt-files"
+version = "1.0.0-rc.1"
 dependencies = [
- "kkt-clock",
- "kkt-config",
- "kkt-rules",
- "schemars",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "kkt-hosts"
-version = "0.10.0"
-dependencies = [
- "kkt-config",
-]
-
-[[package]]
-name = "kkt-lane-files"
-version = "0.10.0"
-
-[[package]]
-name = "kkt-logs"
-version = "0.10.0"
-dependencies = [
- "kkt-clock",
- "kkt-config",
  "kkt-scratch",
 ]
 
 [[package]]
-name = "kkt-mcp"
-version = "0.10.0"
+name = "kkt-hash"
+version = "1.0.0-rc.1"
+dependencies = [
+ "sha2",
+]
+
+[[package]]
+name = "kkt-hosts"
+version = "1.0.0-rc.1"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-identity"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-admission",
+ "kkt-api-agent",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-identity-keymode"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-admission",
+ "kkt-api-agent",
+ "kkt-clock",
+ "kkt-entropy",
+ "kkt-identity",
+ "kkt-names",
+ "kkt-rules",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-install-commands"
+version = "1.0.0-rc.1"
+dependencies = [
+ "futures",
+ "kkt-backup",
+ "kkt-bare-service",
+ "kkt-clock",
+ "kkt-container",
+ "kkt-containerized-service",
+ "kkt-deployment",
+ "kkt-diagnostics",
+ "kkt-entropy",
+ "kkt-hash",
+ "kkt-keys",
+ "kkt-llm-agent-config",
+ "kkt-machine",
+ "kkt-names",
+ "kkt-provenance",
+ "kkt-remote-access",
+ "kkt-setup",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-keymode"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-admission",
+ "kkt-api-agent",
+ "kkt-backup",
+ "kkt-clock",
+ "kkt-clock-system",
+ "kkt-config-file",
+ "kkt-db-sqlite",
+ "kkt-entropy-os",
+ "kkt-files",
+ "kkt-hosts",
+ "kkt-identity-keymode",
+ "kkt-keys",
+ "kkt-keys-os",
+ "kkt-listen",
+ "kkt-log",
+ "kkt-log-tracing",
+ "kkt-mcp",
+ "kkt-names",
+ "kkt-provenance",
+ "kkt-rules",
+ "kkt-server",
+ "kkt-shutdown",
+ "kkt-shutdown-os",
+ "kkt-terminal",
+ "kkt-web",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-keys"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-entropy",
+ "kkt-hash",
+ "kkt-names",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-keys-os"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-keys",
+ "kkt-scratch",
+]
+
+[[package]]
+name = "kkt-lane-files"
+version = "1.0.0-rc.1"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-listen"
+version = "1.0.0-rc.1"
 dependencies = [
  "axum",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-llm-agent-command"
+version = "1.0.0-rc.1"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-llm-agent-config"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-keys",
+ "kkt-machine",
+ "kkt-toml",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-log"
+version = "1.0.0-rc.1"
+
+[[package]]
+name = "kkt-log-tracing"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-log",
+ "thiserror",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "kkt-machine"
+version = "1.0.0-rc.1"
+
+[[package]]
+name = "kkt-machine-os"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-machine",
+]
+
+[[package]]
+name = "kkt-mcp"
+version = "1.0.0-rc.1"
+dependencies = [
+ "axum",
+ "kkt-admission",
+ "kkt-api-admin",
+ "kkt-api-agent",
+ "kkt-api-operator",
  "kkt-clock",
- "kkt-config",
- "kkt-format",
+ "kkt-entropy",
  "kkt-hosts",
+ "kkt-identity",
+ "kkt-identity-keymode",
+ "kkt-log",
  "kkt-names",
  "kkt-rules",
  "kkt-shutdown",
+ "kkt-toml",
  "rmcp",
  "schemars",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tokio-util",
- "toml",
- "tracing",
+ "tower",
 ]
 
 [[package]]
 name = "kkt-names"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
- "rand",
- "sha2",
+ "kkt-entropy",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-operator-commands"
+version = "1.0.0-rc.1"
+dependencies = [
+ "futures",
+ "kkt-api-agent",
+ "kkt-api-operator",
+ "kkt-clock",
+ "kkt-deployment",
+ "kkt-entropy",
+ "kkt-keys",
+ "kkt-lane-files",
+ "kkt-llm-agent-config",
+ "kkt-names",
+ "kkt-rules",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-probe"
+version = "1.0.0-rc.1"
+dependencies = [
+ "reqwest",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]
 name = "kkt-provenance"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
- "kkt-config",
- "kkt-names",
- "sha2",
+ "kkt-hash",
 ]
 
 [[package]]
 name = "kkt-remote-access"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
- "kkt-config",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-remote-access-tailscale"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-remote-access",
  "serde",
  "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "kkt-revision"
+version = "1.0.0-rc.1"
+
+[[package]]
+name = "kkt-rolling-file"
+version = "1.0.0-rc.1"
+dependencies = [
+ "kkt-clock",
+ "kkt-scratch",
+ "thiserror",
 ]
 
 [[package]]
 name = "kkt-rules"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "futures",
+ "kkt-api-admin",
+ "kkt-api-agent",
+ "kkt-api-operator",
  "kkt-clock",
- "kkt-config",
- "kkt-events",
+ "kkt-db",
+ "kkt-entropy",
+ "kkt-hash",
  "kkt-names",
- "kkt-store",
+ "kkt-shutdown",
  "serde",
- "sha2",
  "thiserror",
  "tokio",
 ]
 
 [[package]]
 name = "kkt-scratch"
-version = "0.10.0"
+version = "1.0.0-rc.1"
+
+[[package]]
+name = "kkt-search"
+version = "1.0.0-rc.1"
 
 [[package]]
 name = "kkt-server"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "axum",
  "futures",
  "kkt-admission",
+ "kkt-api-admin",
+ "kkt-api-agent",
+ "kkt-api-operator",
+ "kkt-api-sim",
  "kkt-clock",
- "kkt-config",
- "kkt-events",
- "kkt-format",
+ "kkt-entropy",
  "kkt-hosts",
+ "kkt-identity",
+ "kkt-identity-keymode",
+ "kkt-log",
  "kkt-mcp",
  "kkt-names",
  "kkt-provenance",
  "kkt-rules",
  "kkt-shutdown",
- "kkt-store",
  "kkt-web",
  "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "kkt-service"
-version = "0.10.0"
-dependencies = [
- "kkt-config",
- "kkt-scratch",
- "kkt-settings",
  "thiserror",
-]
-
-[[package]]
-name = "kkt-settings"
-version = "0.10.0"
-dependencies = [
- "kkt-config",
- "kkt-names",
- "toml",
- "toml_edit",
+ "tokio",
+ "tower",
 ]
 
 [[package]]
 name = "kkt-setup"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
- "kkt-client-config",
- "kkt-config",
+ "kkt-keys",
+ "kkt-llm-agent-config",
  "kkt-names",
- "kkt-settings",
- "semver",
+ "kkt-toml",
  "serde",
- "toml",
+ "thiserror",
 ]
 
 [[package]]
 name = "kkt-shutdown"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "tokio",
  "tokio-util",
 ]
 
 [[package]]
-name = "kkt-store"
-version = "0.10.0"
+name = "kkt-shutdown-os"
+version = "1.0.0-rc.1"
 dependencies = [
- "kkt-config",
- "kkt-scratch",
- "rusqlite",
+ "kkt-shutdown",
+ "tokio",
+]
+
+[[package]]
+name = "kkt-terminal"
+version = "1.0.0-rc.1"
+dependencies = [
+ "libc",
+]
+
+[[package]]
+name = "kkt-toml"
+version = "1.0.0-rc.1"
+dependencies = [
  "serde",
  "serde_json",
+ "thiserror",
+ "toml",
+ "toml_edit",
+]
+
+[[package]]
+name = "kkt-watch"
+version = "1.0.0-rc.1"
+dependencies = [
+ "futures",
+ "kkt-agent-client",
+ "kkt-clock",
  "thiserror",
  "tokio",
 ]
 
 [[package]]
-name = "kkt-watch"
-version = "0.10.0"
-dependencies = [
- "futures",
- "kkt-clock",
- "kkt-config",
- "tokio",
-]
-
-[[package]]
 name = "kkt-web"
-version = "0.10.0"
+version = "1.0.0-rc.1"
 dependencies = [
  "askama",
  "axum",
- "clap",
  "futures",
+ "kkt-api-agent",
+ "kkt-api-operator",
+ "kkt-api-sim",
  "kkt-clock",
- "kkt-config",
- "kkt-events",
+ "kkt-entropy",
+ "kkt-hash",
  "kkt-hosts",
+ "kkt-log",
  "kkt-names",
  "kkt-shutdown",
  "serde",
  "serde_json",
+ "thiserror",
  "tokio",
  "tower",
- "tracing",
- "tracing-subscriber",
+]
+
+[[package]]
+name = "kkt-webapp-preview"
+version = "1.0.0-rc.1"
+dependencies = [
+ "clap",
+ "kkt-api-sim",
+ "kkt-clock-system",
+ "kkt-entropy",
+ "kkt-entropy-os",
+ "kkt-hosts",
+ "kkt-keys",
+ "kkt-keys-os",
+ "kkt-listen",
+ "kkt-log",
+ "kkt-log-tracing",
+ "kkt-server",
+ "kkt-shutdown",
+ "kkt-shutdown-os",
+ "kkt-web",
+ "tokio",
 ]
 
 [[package]]

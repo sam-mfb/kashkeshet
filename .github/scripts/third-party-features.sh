@@ -1,6 +1,8 @@
 #!/bin/bash
-# Print the third-party packages built into the workspace's programs (the
-# packages with a binary target), each with the features turned on, sorted.
+# Print the third-party packages built into the workspace's released
+# programs (the packages with a binary target, leaving out those marked
+# `[package.metadata.dist] dist = false`, such as the dev-only kkt-keymode),
+# each with the features turned on, sorted.
 # Workspace packages are left out, so moving code between them does not
 # change the output. A change that must not change the binary must not
 # change this output either: run it before and after and compare.
@@ -19,7 +21,10 @@ set -euo pipefail
 manifest=$(cargo locate-project --workspace --message-format plain)
 root=${manifest%/Cargo.toml}
 programs=$(cargo metadata --locked --no-deps --format-version 1 \
-    | jq -r '.packages[] | select(any(.targets[]; any(.kind[]; . == "bin"))) | .name')
+    | jq -r '.packages[]
+        | select(any(.targets[]; any(.kind[]; . == "bin")))
+        | select(.metadata.dist.dist != false)
+        | .name')
 if [ -z "$programs" ]; then
     echo "third-party-features: the workspace has no package with a binary target" >&2
     exit 1

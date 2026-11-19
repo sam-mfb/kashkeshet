@@ -1155,8 +1155,24 @@ async fn setup_waits_for_a_server_it_set_up_that_answers_late() {
     // As with a new Tailscale node, whose HTTPS certificate comes on first
     // use: the server only answers a few seconds after setup's check starts.
     let (server_home, key) = server_key("late-server").await;
-    let bind = free_bind();
-    let port = bind.trim_start_matches("127.0.0.1:").to_string();
+    // The test holds the port setup is told until the server starts, so no
+    // other program, such as a neighbouring test's server, can take it in
+    // the meantime. Each connection is accepted and dropped at once, which
+    // setup counts as a server that does not answer yet.
+    let holder = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("hold a port");
+    let port = holder
+        .local_addr()
+        .expect("held address")
+        .port()
+        .to_string();
+    let holding = tokio::spawn(async move {
+        loop {
+            let (connection, _) = holder.accept().await.expect("accept");
+            drop(connection);
+        }
+    });
     let key_text = std::fs::read_to_string(&key)
         .expect("key")
         .trim()
@@ -1186,8 +1202,17 @@ async fn setup_waits_for_a_server_it_set_up_that_answers_late() {
         .spawn()
         .expect("start setup");
     tokio::time::sleep(Duration::from_secs(3)).await;
-    // Setup was told the port before the server started, so the server
-    // cannot move to another if something took it meanwhile.
+    // Let the port go, and wait until it has gone, then start the server on
+    // it at once. Setup was told the port before the server started, so the
+    // server cannot move to another.
+    holding.abort();
+    assert!(
+        holding
+            .await
+            .expect_err("the holder runs until stopped")
+            .is_cancelled(),
+        "the holder stopped by itself"
+    );
     let (mut server, _) = serving::try_start_quiet(
         |_| serve_with_key_command(&server_home, &key),
         [port.parse::<u16>().expect("port")],
@@ -1342,7 +1367,7 @@ async fn a_silent_tailscale_container_is_not_called_logged_out() {
 )]
 async fn doctor_does_not_tell_a_docker_or_client_machine_to_start_the_service() {
     // The server is not answering, as when the Tailscale machine is off the
-    // tailnet. The old fix, `kkt service start`, is wrong on these machines.
+    // tailnet. `kkt service start` is the wrong fix on these machines.
     let said = tailscale_docker_output("ts-doctor-hint", "doctor", Some(LOGIN_NEEDED)).await;
     assert!(said.contains("problem: server"), "{said}");
     assert!(!said.contains("kkt service start"), "{said}");
@@ -2376,20 +2401,14 @@ fn script(bin: &Path, name: &str, body: &str) {
 
 #[tokio::test]
 async fn setup_adopts_an_installed_service_with_no_record() {
-    // The server the service runs: `kkt serve` with the config file's
-    // address and the default key, as `kkt service install` has it.
+    // The service as `kkt service install` writes it, with a service
+    // manager that says it runs. It is installed before its stand-in
+    // server below starts, since install refuses an address another
+    // program has; the service file names the config file, not the
+    // address, so the address set afterwards is the one it would use.
     let home = temp_home("adopt-service");
     let config = home.join(".config/kkt/config.toml");
-    let (mut server, bind) = serving::start_quiet(|bind| {
-        std::fs::write(&config, format!("bind = \"{bind}\"\n")).expect("config");
-        let mut server = Command::new(KKT);
-        server.arg("serve").own_home(&home);
-        server
-    })
-    .await;
-
-    // The service as `kkt service install` writes it, with a service
-    // manager that says it runs.
+    std::fs::write(&config, "bind = \"127.0.0.1:0\"\n").expect("config");
     let scratch = empty_home("adopt-service-scratch");
     let bin = service_manager(&scratch);
     let log = scratch.join("docker.log");
@@ -2397,6 +2416,16 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     assert!(ok, "{said}");
     let service_file = installed_service_file(&home);
     let service_text = std::fs::read_to_string(&service_file).expect("service file");
+
+    // The server the service runs: `kkt serve` with the config file's
+    // address and the default key, as `kkt service install` has it.
+    let (mut server, bind) = serving::start_quiet(|bind| {
+        std::fs::write(&config, format!("bind = \"{bind}\"\n")).expect("config");
+        let mut server = Command::new(KKT);
+        server.arg("serve").own_home(&home);
+        server
+    })
+    .await;
 
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
     assert!(
@@ -2479,7 +2508,11 @@ fn installed_service_file(home: &Path) -> PathBuf {
 #[tokio::test]
 async fn a_service_installed_with_other_settings_is_not_adopted() {
     // The default config file says one address; the service was installed
-    // with another config file, which says another.
+    // with another config file, which says another. `install` checks that
+    // its server could listen on its address, so that one is port 0, which
+    // the system gives freely: a fixed port fails the test whenever another
+    // program on the machine, such as a second test run, holds it. The
+    // default config file's address is never listened on.
     let home = temp_home("adopt-service-custom");
     std::fs::write(
         home.join(".config/kkt/config.toml"),
@@ -2487,7 +2520,7 @@ async fn a_service_installed_with_other_settings_is_not_adopted() {
     )
     .expect("config");
     let custom = home.join("custom.toml");
-    std::fs::write(&custom, "bind = \"127.0.0.1:17421\"\n").expect("custom config");
+    std::fs::write(&custom, "bind = \"127.0.0.1:0\"\n").expect("custom config");
     let scratch = empty_home("adopt-service-custom-scratch");
     let bin = service_manager(&scratch);
     let log = scratch.join("docker.log");
@@ -2521,4 +2554,54 @@ async fn a_service_installed_with_other_settings_is_not_adopted() {
     );
     assert!(!said.contains("17420/mcp"), "{said}");
     assert!(!home.join(".config/kkt/setup.toml").exists());
+}
+
+/// `--allow-kkt` lets each client set up always use kkt: Codex's server
+/// entry approves its tools and a rules file allows `kkt watch`, and OpenCode
+/// lists kkt's tools. Running setup again adds nothing twice.
+#[tokio::test]
+async fn allow_kkt_writes_the_clients_permission_rules_once() {
+    let (_server_home, mut server, url, key) = keyed_server("allow-kkt").await;
+    let home = temp_home("allow-kkt-client");
+    let extra = ["--clients", "codex,opencode,muse-code", "--allow-kkt"];
+    let (ok, said) = setup_client(&home, &url, &key, &extra).await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains("Allowed kkt's tools and `kkt watch`"),
+        "{said}"
+    );
+    assert!(said.contains("Muse Code has no setting"), "{said}");
+    assert!(
+        codex_config(&home).contains("default_tools_approval_mode = \"approve\""),
+        "{}",
+        codex_config(&home)
+    );
+    let rules = home.join(".codex/rules/kkt.rules");
+    let read = |path: &Path| std::fs::read_to_string(path).expect("read");
+    assert_eq!(
+        read(&rules),
+        "prefix_rule(pattern = [\"kkt\", \"watch\"], decision = \"allow\")\n"
+    );
+    let opencode = home.join(".config/opencode/opencode.json");
+    let text = read(&opencode);
+    assert!(text.contains("\"kkt watch *\": \"allow\""), "{text}");
+    assert!(
+        text.contains("\"kkt_wait_for_messages\": \"allow\""),
+        "{text}"
+    );
+
+    let before = (read(&rules), read(&opencode));
+    let (ok, said) = setup_client(&home, &url, &key, &extra).await;
+    assert!(ok, "{said}");
+    assert!(said.contains("Already allowed: "), "{said}");
+    assert_eq!((read(&rules), read(&opencode)), before);
+    // Connecting Codex again may move its entry's lines, but the setting
+    // is there once.
+    let codex = codex_config(&home);
+    assert_eq!(
+        codex.matches("default_tools_approval_mode").count(),
+        1,
+        "{codex}"
+    );
+    server.kill().await.expect("stop kkt");
 }

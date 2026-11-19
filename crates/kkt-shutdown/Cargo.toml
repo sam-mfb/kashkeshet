@@ -1,6 +1,6 @@
 [package]
 name = "kkt-shutdown"
-description = "kkt's signal that the server is stopping"
+description = "A signal that the server is stopping, and the contract for a source of stop signals"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,12 +8,11 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-tokio = { workspace = true, optional = true }
 tokio-util.workspace = true
 
 [dev-dependencies]
 tokio.workspace = true
 
 [features]
-# `StopSignals`: the operating system's stop signals (tokio's).
-real = ["dep:tokio"]
+# `testing::OnCue`, a stand-in `Signals` whose signal comes when the test says.
+testing = []

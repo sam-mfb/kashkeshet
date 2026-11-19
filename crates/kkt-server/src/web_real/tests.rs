@@ -1,41 +1,60 @@
 //! The page scenarios run against the server's source, over the rules and an
-//! in-memory database, behind the server's gate over real admission; plus
-//! page tests that need the rules.
+//! in-memory database, behind the server's gate over real admission and key
+//! mode's identity; plus page tests that need the rules, and tests of the
+//! gate's viewers.
 
-use super::{AdmissionGate, RulesSource};
+use super::AdmissionGate;
 use axum::http::StatusCode;
-use kkt_admission::{Admission, Sessions, WebAdmission};
+use kkt_admission::{Admission, Principal, ServerKey, SharedKey, WebAdmission};
+use kkt_api_agent::{Agent, Audit, Code, NewChannel, Operator, Permission, RuleError, SwarmId};
+use kkt_api_operator::{ChannelChange, ChannelHidden, Left, Notice};
 use kkt_clock::Span;
 use kkt_clock::testing::FixedClock;
-use kkt_config::Limits;
-use kkt_events::Events;
+use kkt_entropy::testing::SeqEntropy;
+use kkt_identity::{Identified, Identify, Identifying};
+use kkt_identity_keymode::KeyMode;
 use kkt_names as names;
-use kkt_names::testing::SeqEntropy;
-use kkt_rules::{Deps, NewChannel, Rules};
-use kkt_store::{Db, NewServerRunRecord};
+use kkt_rules::NewServerRun;
+use kkt_rules::Rules;
 use kkt_web::testing::{
-    ChannelHidden, administration_works, agent_row, announcement_editor_works, changes_work,
-    channel_creation_works, channel_row, earlier_pages_work, get, handoff_works,
-    hidden_channels_show_only_on_request, history_works, lanes_pages_work, lists_channel,
-    member_lists_show_lanes_and_latest_messages, members_shown, next_change,
-    operator_changes_are_live, page_script_works, pages_work, site, stale_agents_work, start_time,
-    summaries_agree_with_the_pages, toast,
+    ACTIVITY_BUCKET, ACTIVITY_WINDOW, App, Door, administration_works, agent_row,
+    announcement_editor_works, changes_work, channel_creation_works, channel_row,
+    earlier_pages_work, form_token_in, get, handoff_works, hidden_channels_show_only_on_request,
+    history_works, lanes_pages_work, lists_channel, member_lists_show_lanes_and_latest_messages,
+    members_shown, next_change, operator_changes_are_live, page_script_works, pages_work,
+    post_for_page, site, site_with, stale_agents_work, start_time, summaries_agree_with_the_pages,
+    toast,
 };
-use kkt_web::{ChannelAction, Gate, Left, LiveEvent, Source};
+use kkt_web::{Access, Admit, Gate, Session, Sessions, SignIn, Viewer};
 use std::sync::Arc;
 
-/// The server's gate over real admission, open: for the rules' runs.
-fn rules_gate() -> Arc<dyn Gate> {
-    let clock = Arc::new(FixedClock::new(start_time()));
+/// The server's gate over real admission, open, and key mode, with the
+/// page's sessions: for the rules' runs.
+fn rules_gate() -> Door<Principal> {
     let sessions = Sessions::new(
-        clock,
+        Arc::new(FixedClock::new(start_time())),
         Arc::new(SeqEntropy::new(9)),
-        Limits::DEFAULT.web_session_lifetime,
+        kkt_web::Settings::DEFAULT.session_lifetime,
+        Access::Open,
     );
-    Arc::new(AdmissionGate::new(WebAdmission::new(
-        Arc::new(Admission::Open),
-        sessions,
-    )))
+    Door {
+        gate: Arc::new(gate(Admission::Open, Arc::new(KeyMode::new(None)))),
+        sessions: Arc::new(sessions),
+    }
+}
+
+/// The server's gate over `admission` and `identify`.
+fn gate(admission: Admission, identify: Arc<dyn Identify>) -> AdmissionGate {
+    AdmissionGate::new(WebAdmission::new(Arc::new(admission)), identify)
+}
+
+/// The operator key mode makes of the web page's viewer.
+async fn web_operator() -> Operator {
+    KeyMode::new(None)
+        .operator(&Principal::KeyHolder(ServerKey::Web))
+        .await
+        .expect("the web page's operator")
+        .actor
 }
 
 #[tokio::test]
@@ -49,12 +68,15 @@ async fn handoff_works_through_the_rules() {
 
 #[tokio::test]
 async fn earlier_pages_work_through_the_rules() {
-    let limits = Limits {
-        web_page_messages: 2,
-        ..Limits::DEFAULT
+    let source = rules_source().await;
+    let settings = kkt_web::Settings {
+        page: kkt_web::PageLimits {
+            page_messages: 2,
+            ..kkt_web::PageLimits::DEFAULT
+        },
+        ..kkt_web::Settings::DEFAULT
     };
-    let (_, source) = rules_world_with(limits).await;
-    assert!(earlier_pages_work(source, rules_gate()).await >= 2);
+    assert!(earlier_pages_work(source, rules_gate(), settings).await >= 2);
 }
 
 #[tokio::test]
@@ -64,67 +86,69 @@ async fn changes_work_through_the_rules() {
 
 /// Rules over an in-memory database with two agents, an open and a closed
 /// channel, and a few messages.
-async fn rules_source() -> Arc<dyn Source> {
+async fn rules_source() -> App {
     rules_world().await.1
 }
 
 /// The rules behind `rules_source`, too, for checking what a change did.
-async fn rules_world() -> (Rules, Arc<dyn Source>) {
-    rules_world_with(Limits::DEFAULT).await
+async fn rules_world() -> (Rules, App) {
+    rules_world_with(kkt_rules::Settings::DEFAULT).await
 }
 
-async fn rules_world_with(limits: Limits) -> (Rules, Arc<dyn Source>) {
-    let (rules, source, _) = rules_world_and_clock(limits).await;
+async fn rules_world_with(settings: kkt_rules::Settings) -> (Rules, App) {
+    let (rules, source, _) = rules_world_and_clock(settings).await;
     (rules, source)
 }
 
 /// `rules_world_with`, and the clock the rules read.
-async fn rules_world_and_clock(limits: Limits) -> (Rules, Arc<dyn Source>, Arc<FixedClock>) {
-    let (rules, source, clock, _) = rules_world_and_db(limits).await;
+async fn rules_world_and_clock(settings: kkt_rules::Settings) -> (Rules, App, Arc<FixedClock>) {
+    let (rules, source, clock, _) = rules_world_and_db(settings).await;
     (rules, source, clock)
 }
 
 /// `rules_world_and_clock`, and the operator's commands on the same
 /// database, as `kkt agent` and `kkt lanes` use them.
 async fn rules_world_and_db(
-    limits: Limits,
-) -> (Rules, Arc<dyn Source>, Arc<FixedClock>, kkt_rules::Operator) {
+    settings: kkt_rules::Settings,
+) -> (Rules, App, Arc<FixedClock>, kkt_rules::DirectAccess) {
     let clock = Arc::new(FixedClock::new(start_time()));
-    let db = Db::open_in_memory().expect("db");
+    let db = kkt_rules::testing::database().expect("an in-memory database");
+    let startup = |clock: Arc<FixedClock>, settings| kkt_rules::Startup {
+        db: db.clone(),
+        swarm: kkt_api_agent::SwarmId::main(),
+        shutdown: kkt_shutdown::Shutdown::new(),
+        clock,
+        entropy: Arc::new(SeqEntropy::new(4)),
+        settings,
+        wording: Arc::new(kkt_rules::DefaultWording),
+    };
     // An earlier run, from before an upgrade, with values as long as real
     // ones, then this run.
-    db.write(|w| {
-        w.insert_server_run(&NewServerRunRecord {
-            started_at: "2026-10-20T09:30:00Z".into(),
+    let earlier = kkt_clock::from_text("2026-10-20T09:30:00Z").expect("a time");
+    kkt_rules::start(
+        NewServerRun {
             version: "0.5.0".into(),
             git_commit: "4f1c2a9e7b3d5f60a8c1e2d3b4a5968778695a4b-dirty".into(),
             settings: "max_response_bytes=65536\nallowed_origin=https://a-long-machine-name.tail1234abcd.ts.net".into(),
             instructions_sha256: "ab".repeat(32),
-        })
-    })
+        },
+        startup(Arc::new(FixedClock::new(earlier)), kkt_rules::Settings::DEFAULT),
+    )
     .await
     .expect("record an earlier run");
-    let run_id = db
-        .write(|w| {
-            w.insert_server_run(&NewServerRunRecord {
-                started_at: "2026-10-25T12:00:00Z".into(),
-                version: "test".into(),
-                git_commit: "test".into(),
-                settings: "test".into(),
-                instructions_sha256: "test".into(),
-            })
-        })
-        .await
-        .expect("record run");
-    let operator = kkt_rules::Operator::new(db.clone(), clock.clone());
-    let rules = Rules::new(Deps {
-        db,
-        events: Events::new(),
-        clock: clock.clone(),
-        entropy: Arc::new(SeqEntropy::new(4)),
-        run_id,
-        limits,
-    });
+    let rules = kkt_rules::start(
+        NewServerRun {
+            version: "test".into(),
+            git_commit: "test".into(),
+            settings: "test".into(),
+            instructions_sha256: "test".into(),
+        },
+        startup(clock.clone(), settings),
+    )
+    .await
+    .expect("record run");
+    let operator =
+        kkt_rules::DirectAccess::new(db.clone(), kkt_api_agent::SwarmId::main(), clock.clone());
     let mut agents = Vec::new();
     for _ in 0..2 {
         let reg = rules.register().await.expect("register");
@@ -176,7 +200,7 @@ async fn rules_world_and_db(
         .expect("memory entry");
     (
         rules.clone(),
-        Arc::new(RulesSource::new(rules)),
+        App::new(Arc::new(rules), web_operator().await),
         clock,
         operator,
     )
@@ -184,11 +208,11 @@ async fn rules_world_and_db(
 
 #[tokio::test]
 async fn the_lane_page_says_where_an_imported_version_came_from() {
-    let (rules, source, _, operator) = rules_world_and_db(Limits::DEFAULT).await;
+    let (rules, source, _, operator) = rules_world_and_db(kkt_rules::Settings::DEFAULT).await;
     rules
         .save_lane(
-            kkt_rules::Actor::Human,
-            kkt_rules::LaneSave {
+            kkt_api_agent::Actor::Operator(web_operator().await),
+            kkt_api_operator::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
                 text: "Read.".into(),
@@ -196,21 +220,28 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
         )
         .await
         .expect("lane");
+    let command_line = Operator::new(
+        kkt_api_agent::Permissions::of(&[kkt_api_agent::Permission::Change]),
+        kkt_api_agent::Audit::CommandLine,
+    );
     operator
-        .import_lanes(kkt_rules::LaneImport {
-            lanes: vec![kkt_rules::LaneSave {
-                name: "reviewer".into(),
-                description: "Reviews.".into(),
-                text: "Read twice.".into(),
-            }],
-            source: kkt_rules::LaneSource {
-                folder: "/home/sam/lanes".into(),
-                commit: Some("abc123-dirty".into()),
+        .import_lanes(
+            &command_line,
+            kkt_rules::LaneImport {
+                lanes: vec![kkt_api_operator::LaneSave {
+                    name: "reviewer".into(),
+                    description: "Reviews.".into(),
+                    text: "Read twice.".into(),
+                }],
+                source: kkt_api_agent::LaneSource {
+                    folder: "/home/sam/lanes".into(),
+                    commit: Some("abc123-dirty".into()),
+                },
+                retire_missing: false,
+                skipped_files: Vec::new(),
+                max_lane_chars: kkt_rules::Settings::DEFAULT.max_lane_chars,
             },
-            retire_missing: false,
-            skipped_files: Vec::new(),
-            max_lane_chars: Limits::DEFAULT.max_lane_chars,
-        })
+        )
         .await
         .expect("import");
     let (_, page) = get(&site(source, rules_gate()), "/lanes/reviewer").await;
@@ -225,13 +256,16 @@ async fn the_lane_page_says_where_an_imported_version_came_from() {
 #[tokio::test]
 async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
     let (rules, source) = rules_world().await;
-    let save = |text: &str| kkt_rules::LaneSave {
+    let save = |text: &str| kkt_api_operator::LaneSave {
         name: "reviewer".into(),
         description: "Reviews.".into(),
         text: text.into(),
     };
     rules
-        .save_lane(kkt_rules::Actor::Human, save("Read."))
+        .save_lane(
+            kkt_api_agent::Actor::Operator(web_operator().await),
+            save("Read."),
+        )
         .await
         .expect("lane");
     let reg = rules
@@ -248,7 +282,10 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
     assert!(!page.contains("out of date"), "{page}");
 
     rules
-        .save_lane(kkt_rules::Actor::Human, save("Read twice."))
+        .save_lane(
+            kkt_api_agent::Actor::Operator(web_operator().await),
+            save("Read twice."),
+        )
         .await
         .expect("lane");
     let (_, page) = get(&site, &page_of).await;
@@ -264,25 +301,28 @@ async fn agent_pages_and_the_front_page_show_lanes_and_mark_old_versions() {
 
 #[tokio::test]
 async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
-    let limits = Limits {
-        web_member_excerpt_chars: 12,
-        ..Limits::DEFAULT
+    let (rules, source) = rules_world().await;
+    let settings = kkt_web::Settings {
+        page: kkt_web::PageLimits {
+            member_excerpt_chars: 12,
+            ..kkt_web::PageLimits::DEFAULT
+        },
+        ..kkt_web::Settings::DEFAULT
     };
-    let (rules, source) = rules_world_with(limits).await;
     let open = source
-        .overview()
+        .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
         .await
         .expect("overview")
         .channels
         .into_iter()
-        .find(|c| c.channel.open)
+        .find(|c| c.info.open)
         .expect("an open channel")
-        .channel
+        .info
         .id;
     rules
         .save_lane(
-            kkt_rules::Actor::Human,
-            kkt_rules::LaneSave {
+            kkt_api_agent::Actor::Operator(web_operator().await),
+            kkt_api_operator::LaneSave {
                 name: "reviewer".into(),
                 description: "Reviews.".into(),
                 text: "Read.".into(),
@@ -300,7 +340,11 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         .join_channel(&newcomer, open.clone())
         .await
         .expect("join");
-    let (_, page) = get(&rules_site(source.clone()), &format!("/channels/{open}")).await;
+    let (_, page) = get(
+        &rules_site(source.clone(), settings),
+        &format!("/channels/{open}"),
+    )
+    .await;
     let row = member_row(&page, &newcomer.handle);
     assert!(
         row.contains("lane <a href=\"/lanes/reviewer\">reviewer</a> version 1"),
@@ -316,7 +360,11 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
         )
         .await
         .expect("send");
-    let (_, page) = get(&rules_site(source.clone()), &format!("/channels/{open}")).await;
+    let (_, page) = get(
+        &rules_site(source.clone(), settings),
+        &format!("/channels/{open}"),
+    )
+    .await;
     let row = member_row(&page, &newcomer.handle);
     assert!(
         row.contains(&format!(
@@ -330,9 +378,9 @@ async fn member_lists_show_lanes_and_latest_messages_from_the_rules() {
     assert!(member_lists_show_lanes_and_latest_messages(source, rules_gate()).await >= 3);
 }
 
-/// The site over `source`, behind the open gate.
-fn rules_site(source: Arc<dyn Source>) -> axum::Router {
-    site(source, rules_gate())
+/// The site over `source`, behind the open gate, with `settings`.
+fn rules_site(source: App, settings: kkt_web::Settings) -> axum::Router {
+    site_with(source, rules_gate(), settings)
 }
 
 /// The member list's row for `handle` on a channel page.
@@ -362,8 +410,11 @@ async fn summaries_agree_with_the_pages_from_the_rules() {
 #[tokio::test]
 async fn channel_page_shows_the_pinned_note_and_editor_as_escaped_text() {
     let source = rules_source().await;
-    let overview = source.overview().await.unwrap();
-    let ch = &overview.channels[0].channel;
+    let overview = source
+        .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .unwrap();
+    let ch = &overview.channels[0].info;
     let (status, page) = get(
         &site(source.clone(), rules_gate()),
         &format!("/channels/{}", ch.id),
@@ -377,7 +428,7 @@ async fn channel_page_shows_the_pinned_note_and_editor_as_escaped_text() {
     );
     assert!(!page.contains("<script>alert(1)</script>"));
     assert!(page.contains("Last edited by"));
-    assert!(page.contains(ch.note_edited_by.as_deref().unwrap()));
+    assert!(page.contains(ch.note.edited_by.as_deref().unwrap()));
     assert!(page.contains("2026-10-25"));
 }
 
@@ -408,7 +459,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let [owner, leaver, removed, removed_by_op, quitter, hidden] = &agents[..] else {
         panic!("six agents");
     };
-    let names_of = |list: &[&kkt_rules::Agent]| list.iter().map(|a| a.handle.clone()).collect();
+    let names_of = |list: &[&kkt_api_agent::Agent]| list.iter().map(|a| a.handle.clone()).collect();
     let town = rules
         .create_channel(
             owner,
@@ -435,7 +486,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         .await
         .expect("side")
         .id;
-    let mut live = source.live();
+    let mut live = source.live().await;
     let op = names::OPERATOR;
 
     // Leaving: the agent did it.
@@ -446,7 +497,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let event = next_change(&mut live).await;
     assert_eq!(
         event,
-        LiveEvent::Left(Left {
+        Notice::Left(Left {
             agent: leaver.handle.clone(),
             channel_id: town.clone(),
             channel_name: "town".into(),
@@ -469,7 +520,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         .await
         .expect("remove");
     let event = next_change(&mut live).await;
-    let LiveEvent::Left(l) = &event else {
+    let Notice::Left(l) = &event else {
         panic!("expected left, got {event:?}");
     };
     assert_eq!(
@@ -488,12 +539,12 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     source
         .change_channel(
             town.clone(),
-            ChannelAction::RemoveMember(removed_by_op.handle.clone()),
+            ChannelChange::RemoveMember(removed_by_op.handle.clone()),
         )
         .await
         .expect("remove");
     let event = next_change(&mut live).await;
-    let LiveEvent::Left(l) = &event else {
+    let Notice::Left(l) = &event else {
         panic!("expected left, got {event:?}");
     };
     assert_eq!(
@@ -511,7 +562,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     // Unregistering: the agent goes from every channel it was in.
     rules.unregister(quitter).await.expect("unregister");
     let event = next_change(&mut live).await;
-    let LiveEvent::AgentHidden(h) = &event else {
+    let Notice::AgentHidden(h) = &event else {
         panic!("expected agent_hidden, got {event:?}");
     };
     assert_eq!(
@@ -547,7 +598,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         .await
         .expect("hide agent");
     let event = next_change(&mut live).await;
-    let LiveEvent::AgentHidden(h) = &event else {
+    let Notice::AgentHidden(h) = &event else {
         panic!("expected agent_hidden, got {event:?}");
     };
     assert_eq!(
@@ -583,7 +634,7 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
     let event = next_change(&mut live).await;
     assert_eq!(
         event,
-        LiveEvent::ChannelHidden(ChannelHidden {
+        Notice::ChannelHidden(ChannelHidden {
             channel_id: side.clone(),
             channel_name: "side".into(),
             by: owner.handle.clone(),
@@ -595,13 +646,13 @@ async fn leaving_removal_and_hiding_reach_the_toasts_and_dashboard() {
         format!("{} hid #side", owner.handle)
     );
     source
-        .change_channel(town.clone(), ChannelAction::Hide)
+        .change_channel(town.clone(), ChannelChange::Hide)
         .await
         .expect("hide town");
     let event = next_change(&mut live).await;
     assert_eq!(
         event,
-        LiveEvent::ChannelHidden(ChannelHidden {
+        Notice::ChannelHidden(ChannelHidden {
             channel_id: town.clone(),
             channel_name: "town".into(),
             by: op.into(),
@@ -641,20 +692,34 @@ async fn the_page_script_shows_toasts_and_updates_the_dashboard() {
 async fn announcement_editor_works_through_rules() {
     announcement_editor_works(rules_source().await, rules_gate()).await;
 }
+/// An admin agent at the admin endpoint, under the admin key named `name`.
+fn admin_agent(name: kkt_names::AdminName) -> kkt_api_agent::Actor {
+    use kkt_api_agent::{Audit, Operator, Permission, Permissions};
+    kkt_api_agent::Actor::Operator(Operator::new(
+        Permissions::of(&[Permission::Read, Permission::Change]),
+        Audit::AdminEndpoint {
+            key_name: Some(name.to_string()),
+        },
+    ))
+}
+
 #[tokio::test]
 async fn the_history_names_the_admin_agent_that_saved_a_version() {
     let (rules, source) = rules_world().await;
     let site = site(source.clone(), rules_gate());
-    let admin = kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap();
+    let admin = kkt_names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap();
     rules
-        .save_server_announcement(kkt_rules::Actor::Admin(admin), "Be brief.".into())
+        .save_server_announcement(admin_agent(admin), "Be brief.".into())
         .await
         .unwrap();
     rules
-        .save_server_announcement(kkt_rules::Actor::Human, "Be kind.".into())
+        .save_server_announcement(
+            kkt_api_agent::Actor::Operator(web_operator().await),
+            "Be kind.".into(),
+        )
         .await
         .unwrap();
-    let history = source.server_announcement().await.unwrap().history;
+    let history = source.server_announcement().await.unwrap();
     assert_eq!(history[0].saved_by_admin, None);
     assert_eq!(history[1].saved_by_admin.as_deref(), Some("admin-sentinel"));
     let (_, page) = get(&site, "/announcement").await;
@@ -674,14 +739,12 @@ async fn a_lane_page_names_the_admin_agent_that_saved_or_retired_it() {
     let (rules, source) = rules_world().await;
     let site = site(source, rules_gate());
     let admin = || {
-        kkt_rules::Actor::Admin(
-            kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).unwrap(),
-        )
+        admin_agent(kkt_names::AdminName::new("sentinel", kkt_names::MAX_ADMIN_NAME_CHARS).unwrap())
     };
     rules
         .save_lane(
             admin(),
-            kkt_rules::LaneSave {
+            kkt_api_operator::LaneSave {
                 name: "reviewer".into(),
                 description: "d".into(),
                 text: "t".into(),
@@ -706,18 +769,21 @@ async fn channel_creation_through_rules() {
 
 #[tokio::test]
 async fn stale_agents_work_through_the_rules() {
-    let (rules, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
+    let (rules, source, clock) = rules_world_and_clock(kkt_rules::Settings::DEFAULT).await;
     // A third agent, in the open channel, so two non-owners are quiet.
     let third = rules.register().await.expect("register");
     let third = rules.authenticate(Some(&third.token)).await.expect("auth");
-    let overview = source.overview().await.expect("overview");
+    let overview = source
+        .overview(ACTIVITY_WINDOW, ACTIVITY_BUCKET)
+        .await
+        .expect("overview");
     let open = overview
         .channels
         .iter()
-        .find(|c| c.channel.open)
+        .find(|c| c.info.open)
         .expect("an open channel");
     rules
-        .join_channel(&third, open.channel.id.clone())
+        .join_channel(&third, open.info.id.clone())
         .await
         .expect("join");
     clock.advance(Span::hours(25));
@@ -726,10 +792,153 @@ async fn stale_agents_work_through_the_rules() {
 
 #[tokio::test]
 async fn history_works_through_the_rules() {
-    let (_, source, clock) = rules_world_and_clock(Limits::DEFAULT).await;
+    let (_, source, clock) = rules_world_and_clock(kkt_rules::Settings::DEFAULT).await;
     history_works(source.clone(), rules_gate(), "less than a minute").await;
     clock.advance(Span::minutes(125));
     history_works(source.clone(), rules_gate(), "2 hours 5 minutes").await;
     clock.advance(Span::days(3));
     history_works(source, rules_gate(), "3 days 2 hours").await;
+}
+
+/// The viewer key mode makes of the web page's human: every permission,
+/// audited as the web page, in the one swarm.
+fn assert_is_the_web_pages_human(viewer: &Viewer) {
+    assert_eq!(viewer.swarm, SwarmId::main());
+    for permission in [
+        Permission::Read,
+        Permission::Change,
+        Permission::IssueRecoveryCodes,
+    ] {
+        assert!(
+            viewer.operator.permissions.has(permission),
+            "{permission:?}"
+        );
+    }
+    assert_eq!(viewer.operator.audit, Audit::WebPage);
+    assert_eq!(viewer.operator.audit.author(), None);
+}
+
+#[tokio::test]
+async fn an_open_page_admits_every_viewer_as_key_modes_web_operator() {
+    let gate = gate(Admission::Open, Arc::new(KeyMode::new(None)));
+    for session in [Session::Absent, Session::Ended] {
+        match gate.admits(session).await {
+            Admit::Yes(viewer) => assert_is_the_web_pages_human(&viewer),
+            Admit::No(reason) | Admit::Refused(reason) => panic!("refused: {reason}"),
+        }
+    }
+}
+
+#[tokio::test]
+async fn a_signed_in_viewer_is_key_modes_web_operator() {
+    const KEY: &str = "0123456789abcdef0123456789abcdef";
+    let web_key = SharedKey::new(ServerKey::Web, KEY, "test").expect("key");
+    let gate = gate(Admission::SharedKey(web_key), Arc::new(KeyMode::new(None)));
+    assert_eq!(
+        gate.admits(Session::Absent).await,
+        Admit::No("sign in first".into())
+    );
+    assert_eq!(
+        gate.admits(Session::Ended).await,
+        Admit::No("the session has ended; sign in again".into())
+    );
+    assert_eq!(
+        gate.sign_in("0123456789abcdef0123456789abcdeX"),
+        SignIn::Refused(kkt_web::SignInRefused::new("the access key is wrong"))
+    );
+    let SignIn::Admitted(principal) = gate.sign_in(KEY) else {
+        panic!("the web key signs in");
+    };
+    match gate.admits(Session::Live(principal)).await {
+        Admit::Yes(viewer) => assert_is_the_web_pages_human(&viewer),
+        Admit::No(reason) | Admit::Refused(reason) => panic!("refused: {reason}"),
+    }
+}
+
+/// Makes every operator a reader in `sw_other`, or refuses everyone: so the
+/// gate can be seen to pass on what `Identify` says, whatever it is.
+struct Elsewhere {
+    refuse: bool,
+}
+
+impl Identify for Elsewhere {
+    fn avatar<'a>(
+        &'a self,
+        _tokens: &'a dyn kkt_identity::Tokens,
+        _principal: &'a Principal,
+        _token: Option<&'a str>,
+    ) -> Identifying<'a, Identified<Agent>> {
+        Box::pin(async { Err(RuleError::new(Code::Unauthenticated, "not here")) })
+    }
+
+    fn newcomer<'a>(&'a self, _principal: &'a Principal) -> Identifying<'a, SwarmId> {
+        Box::pin(async { Err(RuleError::new(Code::Unauthenticated, "not here")) })
+    }
+
+    fn operator<'a>(&'a self, _principal: &'a Principal) -> Identifying<'a, Identified<Operator>> {
+        Box::pin(async move {
+            if self.refuse {
+                return Err(RuleError::new(Code::Unauthenticated, "no operators here"));
+            }
+            Ok(Identified {
+                swarm: SwarmId::new("sw_other"),
+                actor: KeyMode::admin_operator(None),
+            })
+        })
+    }
+}
+
+#[tokio::test]
+async fn the_gate_admits_viewers_as_identify_says() {
+    let gate = gate(Admission::Open, Arc::new(Elsewhere { refuse: false }));
+    assert_eq!(
+        gate.admits(Session::Absent).await,
+        Admit::Yes(Viewer {
+            swarm: SwarmId::new("sw_other"),
+            operator: KeyMode::admin_operator(None),
+        })
+    );
+    let gate = self::gate(Admission::Open, Arc::new(Elsewhere { refuse: true }));
+    assert_eq!(
+        gate.admits(Session::Absent).await,
+        Admit::Refused("no operators here".into())
+    );
+}
+
+#[tokio::test]
+async fn hiding_an_owner_tells_the_human_to_clear_it_on_each_channels_page() {
+    let (rules, source) = rules_world().await;
+    let owner = rules.register().await.unwrap();
+    let me = rules.authenticate(Some(&owner.token)).await.unwrap();
+    let room = rules
+        .create_channel(
+            &me,
+            kkt_api_agent::NewChannel {
+                name: "room".into(),
+                open: true,
+                purpose: None,
+                members: vec![],
+            },
+        )
+        .await
+        .unwrap()
+        .id;
+    let site = site(source, rules_gate());
+    let (_, page) = get(&site, &format!("/agents/{}", me.handle)).await;
+    let token = form_token_in(&page);
+    let (status, page) = post_for_page(
+        &site,
+        &format!("/agents/{}/hide", me.handle),
+        &format!("form_token={token}"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert!(
+        page.contains(&format!(
+            "{} owns {room}; make another member the owner, or clear the owner, \
+             on each channel&#39;s page first",
+            me.handle
+        )),
+        "{page}"
+    );
 }

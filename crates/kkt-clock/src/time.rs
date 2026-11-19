@@ -1,6 +1,6 @@
-//! kkt's own time types: `Time`, a moment in UTC, and `Span`, a signed
-//! length of time between two moments. They wrap chrono, which no other kkt
-//! crate depends on, and offer only the operations and text forms kkt uses.
+//! The time types: `Time`, a moment in UTC, and `Span`, a signed length of
+//! time between two moments. They wrap chrono and offer a small set of
+//! operations and text forms.
 
 use chrono::{DateTime, NaiveDateTime, SecondsFormat, SubsecRound, TimeDelta, Utc};
 use std::fmt;
@@ -24,16 +24,6 @@ pub struct OutOfRange(chrono::OutOfRangeError);
 impl Time {
     /// 1970-01-01T00:00:00Z.
     pub const UNIX_EPOCH: Time = Time(DateTime::UNIX_EPOCH);
-
-    /// The system's wall clock now. Only `SystemClock` reads it.
-    #[cfg(any(test, feature = "real"))]
-    #[expect(
-        clippy::disallowed_methods,
-        reason = "the system clock is the one place kkt reads real time"
-    )]
-    pub(crate) fn system_now() -> Time {
-        Time(Utc::now())
-    }
 
     /// The text form used for every stored time, e.g. `2026-10-23T14:02:11Z`:
     /// whole seconds, UTC written as `Z`. Times in this form sort correctly as
@@ -172,7 +162,7 @@ impl Span {
 }
 
 impl fmt::Display for OutOfRange {
-    /// The same text as chrono's error, which kkt's messages have always shown.
+    /// The same text as chrono's error.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Display::fmt(&self.0, f)
     }
@@ -181,7 +171,7 @@ impl fmt::Display for OutOfRange {
 impl std::error::Error for OutOfRange {}
 
 /// The same text as a chrono time's debug form, such as
-/// `2026-10-23T14:02:11Z`, so test failures read as before.
+/// `2026-10-23T14:02:11Z`.
 impl fmt::Debug for Time {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         fmt::Debug::fmt(&self.0, f)
@@ -329,7 +319,7 @@ mod tests {
             "20261028T131500.000Z"
         );
         assert!(Time::is_compact_millis_text("20261028T131500.123Z"));
-        // As chrono has always read it, the fraction may be left out.
+        // As chrono reads it, the fraction may be left out.
         assert!(Time::is_compact_millis_text("20261028T131500Z"));
         assert!(!Time::is_compact_millis_text("2026-10-28T13:15:00Z"));
         assert!(!Time::is_compact_millis_text("x"));

@@ -1,0 +1,39 @@
+[package]
+name = "kkt-install-commands"
+description = "The commands for this machine's kkt install: setup, switch, status, upgrade, uninstall, the service, backup and doctor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+thiserror.workspace = true
+kkt-keys = { path = "../kkt-keys" }
+kkt-backup = { path = "../kkt-backup" }
+kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
+kkt-clock = { path = "../kkt-clock" }
+kkt-container = { path = "../kkt-container" }
+kkt-containerized-service = { path = "../kkt-containerized-service" }
+kkt-hash = { path = "../kkt-hash" }
+kkt-diagnostics = { path = "../kkt-diagnostics" }
+kkt-entropy = { path = "../kkt-entropy" }
+kkt-machine = { path = "../kkt-machine" }
+kkt-names = { path = "../kkt-names" }
+kkt-provenance = { path = "../kkt-provenance" }
+kkt-remote-access = { path = "../kkt-remote-access" }
+kkt-bare-service = { path = "../kkt-bare-service" }
+kkt-deployment = { path = "../kkt-deployment" }
+kkt-setup = { path = "../kkt-setup" }
+tokio.workspace = true
+
+[dev-dependencies]
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
+kkt-containerized-service = { path = "../kkt-containerized-service", features = ["testing"] }
+kkt-bare-service = { path = "../kkt-bare-service", features = ["testing"] }
+kkt-keys = { path = "../kkt-keys", features = ["testing"] }
+kkt-diagnostics = { path = "../kkt-diagnostics", features = ["testing"] }
+futures.workspace = true
+# A fixed clock and backups in memory, for `kkt upgrade`'s test.
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-backup = { path = "../kkt-backup", features = ["testing"] }

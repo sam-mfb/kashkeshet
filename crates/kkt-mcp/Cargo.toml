@@ -1,6 +1,6 @@
 [package]
 name = "kkt-mcp"
-description = "The agent and admin MCP tools, their text, and the endpoints' HTTP transport"
+description = "The agent and admin MCP tools, their text and replies, within a response size cap, and the endpoints' HTTP transport"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,12 +8,16 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+kkt-api-admin = { path = "../kkt-api-admin" }
 axum.workspace = true
-kkt-config = { path = "../kkt-config" }
-kkt-format = { path = "../kkt-format" }
+kkt-admission = { path = "../kkt-admission" }
+kkt-api-agent = { path = "../kkt-api-agent" }
+kkt-api-operator = { path = "../kkt-api-operator" }
+kkt-log = { path = "../kkt-log" }
+kkt-clock = { path = "../kkt-clock" }
 kkt-hosts = { path = "../kkt-hosts" }
+kkt-identity = { path = "../kkt-identity" }
 kkt-names = { path = "../kkt-names" }
-kkt-rules = { path = "../kkt-rules" }
 kkt-shutdown = { path = "../kkt-shutdown" }
 rmcp = { workspace = true, features = ["server", "macros", "transport-streamable-http-server"] }
 schemars.workspace = true
@@ -21,11 +25,17 @@ serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 tokio-util.workspace = true
-tracing.workspace = true
+thiserror.workspace = true
 
 [dev-dependencies]
+kkt-log = { path = "../kkt-log", features = ["testing"] }
+# Key mode, the identity the tests run the surfaces with.
+kkt-identity-keymode = { path = "../kkt-identity-keymode" }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-entropy = { path = "../kkt-entropy", features = ["testing"] }
+kkt-rules = { path = "../kkt-rules", features = ["testing"] }
+tower.workspace = true
 
 [build-dependencies]
 # Reads the tool text files (agent-tools.toml, admin-tools.toml).
-toml.workspace = true
+kkt-toml = { path = "../kkt-toml" }

@@ -1,0 +1,17 @@
+[package]
+name = "kkt-probe"
+description = "Probing an MCP server over HTTP: whether it answers, and what its initialize request gives"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+reqwest.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+tokio.workspace = true
+
+[features]

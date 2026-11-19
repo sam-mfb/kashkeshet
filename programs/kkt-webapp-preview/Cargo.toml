@@ -1,0 +1,41 @@
+[package]
+name = "kkt-webapp-preview"
+description = "The web page over simulated data, for working on the page; for development only, never released"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[[bin]]
+name = "kkt-webapp-preview"
+path = "src/main.rs"
+
+# Never in a release: dist builds only the `kkt` program, and
+# .github/scripts/check-release-packages.sh checks no release depends on it.
+[package.metadata.dist]
+dist = false
+
+[package.metadata.kkt]
+dev-only = true
+
+[dependencies]
+# The simulated application, and the seeded entropy its world is drawn from,
+# are stand-ins behind `testing`: a dev-only program may turn them on
+# (check-crates.sh rule 3).
+kkt-api-sim = { path = "../../crates/kkt-api-sim", features = ["testing"] }
+kkt-keys = { path = "../../crates/kkt-keys" }
+kkt-keys-os = { path = "../../crates/kkt-keys-os" }
+kkt-clock-system = { path = "../../crates/kkt-clock-system" }
+kkt-entropy = { path = "../../crates/kkt-entropy", features = ["testing"] }
+kkt-entropy-os = { path = "../../crates/kkt-entropy-os" }
+kkt-hosts = { path = "../../crates/kkt-hosts" }
+kkt-listen = { path = "../../crates/kkt-listen" }
+kkt-log = { path = "../../crates/kkt-log" }
+kkt-log-tracing = { path = "../../crates/kkt-log-tracing" }
+kkt-server = { path = "../../crates/kkt-server" }
+kkt-shutdown = { path = "../../crates/kkt-shutdown" }
+kkt-shutdown-os = { path = "../../crates/kkt-shutdown-os" }
+kkt-web = { path = "../../crates/kkt-web" }
+clap.workspace = true
+tokio.workspace = true

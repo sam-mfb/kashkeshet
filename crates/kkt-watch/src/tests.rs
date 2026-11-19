@@ -1,9 +1,25 @@
 use super::*;
+use futures::future::BoxFuture;
 use kkt_clock::testing::FixedClock;
 use std::collections::VecDeque;
 use std::sync::Mutex;
 
 const ME: &str = "me";
+
+/// [`super::run`], with its error as the text a person sees, which the
+/// tests pin.
+async fn run(
+    server: &dyn Watched,
+    clock: &dyn Clock,
+    settings: Settings,
+    place: Option<&dyn Place>,
+    report: &mut dyn Report,
+    options: &Options,
+) -> Result<Outcome, String> {
+    super::run(server, clock, settings, place, report, options)
+        .await
+        .map_err(|e| e.to_string())
+}
 
 fn start() -> Time {
     Time::from_parts(2026, 1, 1, 0, 0, 0).unwrap()
@@ -38,6 +54,8 @@ struct FakeServer<'c> {
     fetched: Mutex<Vec<i64>>,
     /// The lane each answered wait reports, in turn; after these, none.
     lanes: Mutex<VecDeque<Option<NewerLane>>>,
+    /// Whether its waits answer at once, as the admin endpoint's do.
+    polls: bool,
 }
 
 impl<'c> FakeServer<'c> {
@@ -51,6 +69,7 @@ impl<'c> FakeServer<'c> {
             whole: Vec::new(),
             fetched: Mutex::new(Vec::new()),
             lanes: Mutex::new(VecDeque::new()),
+            polls: false,
         }
     }
 
@@ -59,7 +78,10 @@ impl<'c> FakeServer<'c> {
     }
 }
 
-impl Server for FakeServer<'_> {
+impl Watched for FakeServer<'_> {
+    fn polls(&self) -> bool {
+        self.polls
+    }
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         Box::pin(async { Ok(Vec::new()) })
     }
@@ -110,11 +132,11 @@ struct FakePlace {
 }
 
 impl Place for FakePlace {
-    fn load(&self) -> Result<Option<i64>, String> {
+    fn load(&self) -> Result<Option<i64>, PlaceError> {
         Ok(*self.id.lock().unwrap())
     }
 
-    fn save(&self, id: i64) -> Result<(), String> {
+    fn save(&self, id: i64) -> Result<(), PlaceError> {
         *self.id.lock().unwrap() = Some(id);
         self.saves.lock().unwrap().push(id);
         Ok(())
@@ -128,7 +150,7 @@ struct FakeReport {
 }
 
 impl Report for FakeReport {
-    fn message(&mut self, line: &str) -> Result<(), String> {
+    fn message(&mut self, line: &str) -> Result<(), ReportError> {
         self.lines.push(line.into());
         Ok(())
     }
@@ -174,7 +196,10 @@ fn answer_unless<T: Send + 'static>(stalled: bool, answer: T) -> BoxFuture<'stat
     }
 }
 
-impl Server for Stalled {
+impl Watched for Stalled {
+    fn polls(&self) -> bool {
+        false
+    }
     fn channels(&self) -> BoxFuture<'_, Result<Vec<Channel>, Failure>> {
         answer_unless(false, Ok(Vec::new()))
     }
@@ -213,6 +238,112 @@ async fn advance(clock: &FixedClock, busy: usize, steps: Vec<u64>) {
     }
 }
 
+/// `test`, bounded in real time, so a watch that never ends fails here by
+/// name instead of hanging the run.
+#[expect(
+    clippy::disallowed_methods,
+    reason = "real time only bounds the test's own tasks; the watch itself runs on the fake clock"
+)]
+async fn within<T>(test: impl std::future::Future<Output = T>) -> T {
+    tokio::time::timeout(Duration::from_secs(30), test)
+        .await
+        .expect("the watch did not end within 30 seconds")
+}
+
+#[tokio::test]
+async fn a_server_that_answers_at_once_is_asked_again_every_poll_until_something_comes() {
+    let clock = FixedClock::new(start());
+    let mut server = FakeServer::new(
+        &clock,
+        vec![
+            Ok(Vec::new()),
+            Ok(Vec::new()),
+            Ok(vec![message(7, "other")]),
+        ],
+    );
+    server.polls = true;
+    let mut report = FakeReport::default();
+    let options = once();
+    // The watch's own limit sleeps while it polls, so one sleeper is busy.
+    let (outcome, ()) = within(async {
+        tokio::join!(
+            run(
+                &server,
+                &clock,
+                Settings::DEFAULT,
+                None,
+                &mut report,
+                &options
+            ),
+            advance(&clock, 1, vec![2, 2]),
+        )
+    })
+    .await;
+    assert_eq!(outcome, Ok(Outcome::Received));
+    assert_eq!(report.lines, vec!["[7] #talk other: message 7"]);
+    assert_eq!(server.waits().len(), 3);
+    assert_eq!(clock.now(), start() + Span::seconds(4));
+}
+
+#[tokio::test]
+async fn a_poll_stops_at_the_end_of_its_wait() {
+    let clock = FixedClock::new(start());
+    let mut server = FakeServer::new(&clock, vec![Ok(Vec::new()), Ok(Vec::new())]);
+    server.polls = true;
+    let mut report = FakeReport::default();
+    let options = Options {
+        timeout: Some(Duration::from_secs(3)),
+        ..once()
+    };
+    let (outcome, ()) = within(async {
+        tokio::join!(
+            run(
+                &server,
+                &clock,
+                Settings::DEFAULT,
+                None,
+                &mut report,
+                &options
+            ),
+            advance(&clock, 1, vec![2, 1]),
+        )
+    })
+    .await;
+    assert_eq!(outcome, Ok(Outcome::TimedOut));
+    // Asked at 0 and at 2 seconds, and not at 3: the end of the wait wins.
+    assert_eq!(server.waits().len(), 2);
+    assert_eq!(clock.now(), start() + Span::seconds(3));
+}
+
+#[tokio::test]
+async fn a_polled_wait_asks_only_before_its_end() {
+    // `fetch` alone, with no deadline racing it: the wait is 3 seconds, the
+    // poll 2, so it asks at 0 and 2 and not at 3.
+    let clock = FixedClock::new(start());
+    let mut server = FakeServer::new(&clock, vec![Ok(Vec::new()), Ok(Vec::new()), Ok(Vec::new())]);
+    server.polls = true;
+    let options = once();
+    let (waited, ()) = within(async {
+        tokio::join!(
+            fetch(
+                &server,
+                &clock,
+                Settings::DEFAULT,
+                ME,
+                0,
+                &options,
+                None,
+                Duration::from_secs(3),
+            ),
+            advance(&clock, 0, vec![2, 1]),
+        )
+    })
+    .await;
+    assert!(waited.expect("a wait").messages.is_empty());
+    assert_eq!(server.waits().len(), 2);
+    assert_eq!(clock.now(), start() + Span::seconds(3));
+}
+
 #[tokio::test]
 async fn a_lost_connection_is_retried_with_a_doubling_pause() {
     let clock = FixedClock::new(start());
@@ -223,7 +354,14 @@ async fn a_lost_connection_is_retried_with_a_doubling_pause() {
     let pauses = [2, 4, 8, 16, 32, 60, 60];
     let options = once();
     let (outcome, ()) = tokio::join!(
-        run(&server, &clock, None, &mut report, &options),
+        run(
+            &server,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, pauses.to_vec()),
     );
     assert_eq!(outcome, Ok(Outcome::Received));
@@ -253,7 +391,14 @@ async fn a_busy_server_is_retried_but_a_refusal_ends_the_watch() {
     let mut report = FakeReport::default();
     let options = once();
     let (outcome, ()) = tokio::join!(
-        run(&server, &clock, None, &mut report, &options),
+        run(
+            &server,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, vec![2]),
     );
     assert_eq!(outcome, Err("unauthenticated: no".into()));
@@ -271,7 +416,15 @@ async fn a_key_refused_at_start_ends_the_watch_and_says_so() {
     let clock = FixedClock::new(start());
     let mut server = FakeServer::new(&clock, vec![]);
     server.handle = Err(key_refused());
-    let outcome = run(&server, &clock, None, &mut FakeReport::default(), &once()).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut FakeReport::default(),
+        &once(),
+    )
+    .await;
     assert_eq!(
         outcome,
         Err("the server refused the access key in /home/me/key".into())
@@ -301,7 +454,14 @@ async fn a_key_refused_after_watching_started_ends_the_watch() {
             ..once()
         };
         let (outcome, ()) = tokio::join!(
-            run(&server, &clock, None, &mut report, &options),
+            run(
+                &server,
+                &clock,
+                Settings::DEFAULT,
+                None,
+                &mut report,
+                &options
+            ),
             advance(&clock, 0, vec![2]),
         );
         assert_eq!(
@@ -333,7 +493,15 @@ async fn failing_before_watching_starts_ends_the_watch() {
     let clock = FixedClock::new(start());
     let mut server = FakeServer::new(&clock, vec![]);
     server.handle = Err(lost());
-    let outcome = run(&server, &clock, None, &mut FakeReport::default(), &once()).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut FakeReport::default(),
+        &once(),
+    )
+    .await;
     assert_eq!(
         outcome,
         Err("could not reach the server: connection refused".into())
@@ -354,7 +522,15 @@ async fn own_messages_are_skipped_but_still_move_the_place() {
     let place = FakePlace::default();
     *place.id.lock().unwrap() = Some(4);
     let mut report = FakeReport::default();
-    let outcome = run(&server, &clock, Some(&place), &mut report, &once()).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&place),
+        &mut report,
+        &once(),
+    )
+    .await;
     assert_eq!(outcome, Ok(Outcome::Received));
     assert_eq!(report.lines, vec!["[7] #talk other: message 7"]);
     assert_eq!(*place.saves.lock().unwrap(), vec![5, 7]);
@@ -369,9 +545,16 @@ async fn without_a_place_or_id_it_starts_after_the_latest_and_saves_it() {
     server.latest = 42;
     let place = FakePlace::default();
     let mut report = FakeReport::default();
-    run(&server, &clock, Some(&place), &mut report, &once())
-        .await
-        .unwrap();
+    run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&place),
+        &mut report,
+        &once(),
+    )
+    .await
+    .unwrap();
     assert_eq!(server.waits()[0].0, 42);
     assert_eq!(*place.saves.lock().unwrap(), vec![42, 43]);
 }
@@ -389,6 +572,7 @@ async fn a_given_id_seeds_an_empty_place() {
     run(
         &server,
         &clock,
+        Settings::DEFAULT,
         Some(&place),
         &mut FakeReport::default(),
         &options,
@@ -412,6 +596,7 @@ async fn an_id_in_the_place_wins_over_a_given_id() {
     run(
         &server,
         &clock,
+        Settings::DEFAULT,
         Some(&place),
         &mut FakeReport::default(),
         &options,
@@ -433,7 +618,14 @@ async fn the_timeout_shortens_the_wait_and_ends_with_nothing() {
     let mut report = FakeReport::default();
     // The fake's wait and the call's own limit both sleep.
     let (outcome, ()) = tokio::join!(
-        run(&server, &clock, None, &mut report, &options),
+        run(
+            &server,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 1, vec![10]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
@@ -451,7 +643,14 @@ async fn a_retry_pause_stops_at_the_timeout() {
     };
     let mut report = FakeReport::default();
     let (outcome, ()) = tokio::join!(
-        run(&server, &clock, None, &mut report, &options),
+        run(
+            &server,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, vec![1]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
@@ -465,10 +664,17 @@ async fn a_wait_with_no_answer_counts_as_lost() {
         timeout: Some(Duration::from_secs(100)),
         ..once()
     };
-    let limit = (WATCH_WAIT + WATCH_CALL_GRACE).as_secs();
+    let limit = (Settings::DEFAULT.watch_wait + Settings::DEFAULT.watch_call_grace).as_secs();
     let stalled = Stalled::WAIT;
     let (outcome, ()) = tokio::join!(
-        run(&stalled, &clock, None, &mut report, &options),
+        run(
+            &stalled,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, vec![limit, 2, 100]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
@@ -522,7 +728,14 @@ async fn the_timeout_ends_a_start_with_no_answer() {
         };
         let mut report = FakeReport::default();
         let (outcome, ()) = tokio::join!(
-            run(&stalled, &clock, None, &mut report, &options),
+            run(
+                &stalled,
+                &clock,
+                Settings::DEFAULT,
+                None,
+                &mut report,
+                &options
+            ),
             advance(&clock, 0, vec![1]),
         );
         assert_eq!(
@@ -544,8 +757,19 @@ async fn without_a_timeout_a_start_with_no_answer_ends_after_the_grace() {
     let mut report = FakeReport::default();
     let options = once();
     let (outcome, ()) = tokio::join!(
-        run(&stalled, &clock, None, &mut report, &options),
-        advance(&clock, 0, vec![WATCH_CALL_GRACE.as_secs()]),
+        run(
+            &stalled,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
+        advance(
+            &clock,
+            0,
+            vec![Settings::DEFAULT.watch_call_grace.as_secs()]
+        ),
     );
     assert_eq!(
         outcome,
@@ -563,7 +787,14 @@ async fn the_timeout_ends_a_wait_with_no_answer_at_the_deadline() {
     let mut report = FakeReport::default();
     let stalled = Stalled::WAIT;
     let (outcome, ()) = tokio::join!(
-        run(&stalled, &clock, None, &mut report, &options),
+        run(
+            &stalled,
+            &clock,
+            Settings::DEFAULT,
+            None,
+            &mut report,
+            &options
+        ),
         advance(&clock, 0, vec![1]),
     );
     assert_eq!(outcome, Ok(Outcome::TimedOut));
@@ -578,7 +809,15 @@ async fn a_timeout_past_the_last_date_is_an_error() {
         timeout: Some(Duration::from_secs(1_000_000_000_000_000)),
         ..once()
     };
-    let outcome = run(&server, &clock, None, &mut FakeReport::default(), &options).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut FakeReport::default(),
+        &options,
+    )
+    .await;
     assert_eq!(
         outcome,
         Err("the timeout of 1000000000000000 seconds is too long".into())
@@ -607,7 +846,15 @@ async fn full_fetches_bodies_the_server_cut_but_not_its_own() {
         ..once()
     };
     let mut report = FakeReport::default();
-    let outcome = run(&server, &clock, None, &mut report, &options).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut report,
+        &options,
+    )
+    .await;
     assert_eq!(outcome, Ok(Outcome::Received));
     assert_eq!(*server.fetched.lock().unwrap(), vec![6]);
     assert_eq!(
@@ -630,9 +877,16 @@ async fn without_full_nothing_is_fetched() {
         }])],
     );
     let mut report = FakeReport::default();
-    run(&server, &clock, None, &mut report, &once())
-        .await
-        .unwrap();
+    run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut report,
+        &once(),
+    )
+    .await
+    .unwrap();
     assert!(server.fetched.lock().unwrap().is_empty());
     assert_eq!(report.lines, vec!["[6] #talk other: message 6"]);
 }
@@ -690,7 +944,15 @@ async fn mentions_skip_messages_advance_the_place_and_fetch_cut_bodies() {
         mentions: true,
         ..once()
     };
-    let outcome = run(&server, &clock, Some(&place), &mut report, &options).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&place),
+        &mut report,
+        &options,
+    )
+    .await;
     assert_eq!(outcome, Ok(Outcome::Received));
     assert_eq!(report.lines, vec!["[7] #talk other: @me: hello"]);
     assert_eq!(*place.saves.lock().unwrap(), vec![0, 5, 6, 8]);
@@ -729,7 +991,15 @@ async fn a_newer_lane_is_noted_once_per_version_and_does_not_end_a_once_watch() 
     ]);
     let place = FakePlace::default();
     let mut report = FakeReport::default();
-    let outcome = run(&server, &clock, Some(&place), &mut report, &once()).await;
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&place),
+        &mut report,
+        &once(),
+    )
+    .await;
     assert_eq!(outcome, Ok(Outcome::Received));
     assert_eq!(server.waits().len(), 4, "the lane did not end the watch");
     assert_eq!(report.lines, vec!["[5] #talk other: message 5"]);
@@ -743,4 +1013,101 @@ async fn a_newer_lane_is_noted_once_per_version_and_does_not_end_a_once_watch() 
         ]
     );
     assert_eq!(*place.saves.lock().unwrap(), vec![0, 5]);
+}
+
+/// The channel names given that pick no channel, or more than one, pinned
+/// exactly.
+#[test]
+fn a_channel_name_that_picks_none_or_several_says_so() {
+    let visible = [
+        Channel {
+            id: "ch_a".into(),
+            name: "talk".into(),
+        },
+        Channel {
+            id: "ch_b".into(),
+            name: "talk".into(),
+        },
+        Channel {
+            id: "ch_c".into(),
+            name: "dev".into(),
+        },
+    ];
+    assert_eq!(
+        filters::channels(None, &["nope".into()], &visible).map_err(|e| e.to_string()),
+        Err("no visible channel named \"nope\"".to_string())
+    );
+    assert_eq!(
+        filters::channels(None, &["talk".into()], &visible).map_err(|e| e.to_string()),
+        Err(
+            "several visible channels named \"talk\": ch_a, ch_b; use --channel with an ID"
+                .to_string()
+        )
+    );
+}
+
+/// A clock at the last time it can tell cannot reckon a call's grace.
+#[tokio::test]
+async fn a_clock_at_its_end_is_out_of_range() {
+    let clock =
+        FixedClock::new(Time::from_parts(262142, 12, 31, 23, 59, 59).expect("the last day"));
+    let server = FakeServer::new(&clock, vec![]);
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut FakeReport::default(),
+        &once(),
+    )
+    .await;
+    assert_eq!(outcome, Err("the clock is out of range".into()));
+}
+
+/// A place or a report that fails ends the watch with its own words.
+#[tokio::test]
+async fn a_failing_place_or_report_ends_the_watch_with_its_words() {
+    struct Unreadable;
+    impl Place for Unreadable {
+        fn load(&self) -> Result<Option<i64>, PlaceError> {
+            Err(PlaceError("could not read state file /s: denied".into()))
+        }
+        fn save(&self, _: i64) -> Result<(), PlaceError> {
+            Ok(())
+        }
+    }
+    struct Closed;
+    impl Report for Closed {
+        fn message(&mut self, _: &str) -> Result<(), ReportError> {
+            Err(ReportError("could not print a message: Broken pipe".into()))
+        }
+        fn note(&mut self, _: &str) {}
+    }
+    let clock = FixedClock::new(start());
+    let server = FakeServer::new(&clock, vec![]);
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        Some(&Unreadable),
+        &mut FakeReport::default(),
+        &once(),
+    )
+    .await;
+    assert_eq!(outcome, Err("could not read state file /s: denied".into()));
+
+    let server = FakeServer::new(&clock, vec![Ok(vec![message(1, "you")])]);
+    let outcome = run(
+        &server,
+        &clock,
+        Settings::DEFAULT,
+        None,
+        &mut Closed,
+        &once(),
+    )
+    .await;
+    assert_eq!(
+        outcome,
+        Err("could not print a message: Broken pipe".into())
+    );
 }

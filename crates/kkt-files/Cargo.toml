@@ -1,0 +1,11 @@
+[package]
+name = "kkt-files"
+description = "General file access on this machine: reading, writing, listing, making folders, renaming and removing"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dev-dependencies]
+kkt-scratch = { path = "../kkt-scratch" }

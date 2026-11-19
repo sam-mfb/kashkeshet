@@ -2,9 +2,8 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kkt_admission::{Admission, SharedKey};
-use kkt_agent_client::Remote;
-use kkt_watch::Server;
+use kkt_agent_client::Watched;
+use kkt_agent_client_mcp::{Remote, Settings};
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
 use std::path::Path;
@@ -16,7 +15,7 @@ const KEY: &str = "0123456789abcdef0123456789abcdef";
 
 async fn start() -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    config.access_key = Some(KEY.into());
     common::start_with(config).await
 }
 
@@ -131,7 +130,12 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_handle
     assert!(output.stderr.is_empty(), "unexpected stderr");
     let name = String::from_utf8(output.stdout).expect("name");
     assert_eq!(name.lines().count(), 1);
-    let remote = Remote::new(url.clone(), Some(KEY.into()), token.clone());
+    let remote = Remote::new(
+        url.clone(),
+        Some(KEY.into()),
+        token.clone(),
+        Settings::DEFAULT,
+    );
     assert!(
         remote
             .handle()
@@ -205,10 +209,15 @@ async fn register_and_reclaim_save_private_credentials_and_only_print_the_handle
             assert!(output.stderr.is_empty());
         }
         assert!(
-            Remote::new(url.clone(), Some(KEY.into()), replacement)
-                .handle()
-                .await
-                .is_ok()
+            Remote::new(
+                url.clone(),
+                Some(KEY.into()),
+                replacement,
+                Settings::DEFAULT
+            )
+            .handle()
+            .await
+            .is_ok()
         );
         assert!(remote.handle().await.is_err(), "old token still accepted");
     }
@@ -220,7 +229,7 @@ async fn existing_files_are_untouched_and_do_not_register_an_avatar() {
     let home = home("register-existing");
     let url = format!("{}/mcp", server.base);
     std::fs::write(home.join("existing"), "keep this").expect("existing file");
-    let observer = kkt_agent_client::Client::new(url.clone(), Some(KEY.into()))
+    let observer = kkt_agent_client_mcp::Client::new(url.clone(), Some(KEY.into()))
         .register(None, None)
         .await
         .unwrap_or_else(|_| panic!("observer registration"));
@@ -313,7 +322,7 @@ async fn registration_without_optional_flags_and_bad_recovery() {
     );
     assert!(!home.join("replacement").exists());
     assert!(
-        Remote::new(url, Some(KEY.into()), token)
+        Remote::new(url, Some(KEY.into()), token, Settings::DEFAULT)
             .handle()
             .await
             .is_ok()
@@ -338,7 +347,12 @@ async fn register_with_a_handle_gets_that_handle_or_registers_nothing() {
     let token = secret(&home, "token");
     private_output(&output, &[&token]);
     assert_eq!(output.stdout, b"api-reviewer-2\n");
-    let remote = Remote::new(url.clone(), Some(KEY.into()), token.clone());
+    let remote = Remote::new(
+        url.clone(),
+        Some(KEY.into()),
+        token.clone(),
+        Settings::DEFAULT,
+    );
     assert!(remote.handle().await.is_ok_and(|n| n == "api-reviewer-2"));
     let before = agent_count(&server, &token).await;
 
@@ -388,7 +402,7 @@ async fn a_failed_description_keeps_saved_credentials_usable() {
     let home = home("register-description-failure");
     let url = format!("{}/mcp", server.base);
     let mut register = command(&url, &home, "register", "token");
-    let description = "x".repeat(common::test_config().limits.max_description_chars + 1);
+    let description = "x".repeat(common::test_config().rules.max_description_chars + 1);
     register
         .arg("--description")
         .arg(description)
@@ -401,7 +415,7 @@ async fn a_failed_description_keeps_saved_credentials_usable() {
     let recovery = secret(&home, "recovery");
     private_output(&output, &[&token, &recovery]);
     assert!(
-        Remote::new(url, Some(KEY.into()), token)
+        Remote::new(url, Some(KEY.into()), token, Settings::DEFAULT)
             .handle()
             .await
             .is_ok()

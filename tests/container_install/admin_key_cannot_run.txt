@@ -1,0 +1,92 @@
+== the first access key read cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> cannot run: broken pipe
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show`: broken pipe
+
+== the admin key read cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> cannot run: broken pipe
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show --admin`: broken pipe
+
+== making the key cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> exit 4, err "no admin key"
+say      Making the admin key for /mcp-admin, for the admin agent kkt-admin...
+attached cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key create --admin --name kkt-admin
+  -> cannot run: broken pipe
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key create --admin --name kkt-admin`: broken pipe
+
+== the restart cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> exit 4, err "no admin key"
+say      Making the admin key for /mcp-admin, for the admin agent kkt-admin...
+attached cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key create --admin --name kkt-admin
+  -> exit 0
+say      Restarting kkt so it serves /mcp-admin...
+attached cwd=/data/docker  docker compose --project-directory /data/docker restart kkt
+  -> cannot run: broken pipe
+error    Docker is not available: could not run `docker compose --project-directory /data/docker restart kkt`: broken pipe
+
+== the access key read after the restart cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> exit 4, err "no admin key"
+say      Making the admin key for /mcp-admin, for the admin agent kkt-admin...
+attached cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key create --admin --name kkt-admin
+  -> exit 0
+say      Restarting kkt so it serves /mcp-admin...
+attached cwd=/data/docker  docker compose --project-directory /data/docker restart kkt
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> cannot run: broken pipe
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show`: broken pipe
+
+== the web key read cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> exit 4, err "no admin key"
+say      Making the admin key for /mcp-admin, for the admin agent kkt-admin...
+attached cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key create --admin --name kkt-admin
+  -> exit 0
+say      Restarting kkt so it serves /mcp-admin...
+attached cwd=/data/docker  docker compose --project-directory /data/docker restart kkt
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> cannot run: broken pipe
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show --web`: broken pipe
+
+== the second admin key read cannot run
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> exit 4, err "no admin key"
+say      Making the admin key for /mcp-admin, for the admin agent kkt-admin...
+attached cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key create --admin --name kkt-admin
+  -> exit 0
+say      Restarting kkt so it serves /mcp-admin...
+attached cwd=/data/docker  docker compose --project-directory /data/docker restart kkt
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
+  -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
+  -> exit 0, out "web00123456789abcdef0123456789abcdef0123456789ab\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --admin
+  -> cannot run: broken pipe
+error    Docker is not available: could not run `docker compose --project-directory /data/docker exec -T kkt kkt key show --admin`: broken pipe

@@ -1,0 +1,21 @@
+[package]
+name = "kkt-llm-agent-config"
+description = "kkt's entries in the MCP configs of agent clients"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+thiserror.workspace = true
+kkt-keys = { path = "../kkt-keys" }
+kkt-machine = { path = "../kkt-machine" }
+serde.workspace = true
+serde_json.workspace = true
+kkt-toml = { path = "../kkt-toml" }
+
+[features]
+# `testing::Recorder`, a stand-in `ClientCommand` that records each call and
+# can fail them, for the tests of the crates that pass one on.
+testing = []

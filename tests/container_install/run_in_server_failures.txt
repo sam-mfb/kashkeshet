@@ -1,0 +1,143 @@
+== mktemp fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 1, err "read-only file system"
+error    `docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX` failed (exit 1: read-only file system)
+
+== mktemp names another folder
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/other\n"
+error    unexpected output from the folder mktemp made in the container: /tmp/other
+
+
+== mktemp names an odd folder
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.ab/c\n"
+error    unexpected output from the folder mktemp made in the container: /tmp/kkt-lanes.ab/c
+
+
+== mktemp names only the prefix
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.\n"
+error    unexpected output from the folder mktemp made in the container: /tmp/kkt-lanes.
+
+
+== a file with no name
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+error    unexpected output from a file's name: /home/me/..
+
+== a copy in fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/one.md kkt:/tmp/kkt-lanes.AbC123xyz0/one.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/two.md kkt:/tmp/kkt-lanes.AbC123xyz0/two.md
+  -> exit 1, err "no such file"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+error    `docker compose --project-directory /data/docker cp /home/me/lanes/two.md kkt:/tmp/kkt-lanes.AbC123xyz0/two.md` failed (exit 1: no such file)
+
+== the chmod fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/one.md kkt:/tmp/kkt-lanes.AbC123xyz0/one.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/two.md kkt:/tmp/kkt-lanes.AbC123xyz0/two.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt chmod -R a+rX /tmp/kkt-lanes.AbC123xyz0
+  -> exit 1, err "operation not permitted"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+error    `docker compose --project-directory /data/docker exec -T -u root kkt chmod -R a+rX /tmp/kkt-lanes.AbC123xyz0` failed (exit 1: operation not permitted)
+
+== the run fails; the folder is removed
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/one.md kkt:/tmp/kkt-lanes.AbC123xyz0/one.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/two.md kkt:/tmp/kkt-lanes.AbC123xyz0/two.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt chmod -R a+rX /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"
+  -> exit 1, err "lane one.md: no title"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+error    `docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"` failed (exit 1: lane one.md: no title)
+
+== the run fails and so does the removal: said
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/one.md kkt:/tmp/kkt-lanes.AbC123xyz0/one.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/two.md kkt:/tmp/kkt-lanes.AbC123xyz0/two.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt chmod -R a+rX /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"
+  -> exit 1, err "lane one.md: no title"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 1, err "device busy"
+say      Could not remove /tmp/kkt-lanes.AbC123xyz0 in the container: `docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0` failed (exit 1: device busy)
+error    `docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"` failed (exit 1: lane one.md: no title)
+
+== the run works but the removal fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/one.md kkt:/tmp/kkt-lanes.AbC123xyz0/one.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp /home/me/lanes/two.md kkt:/tmp/kkt-lanes.AbC123xyz0/two.md
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt chmod -R a+rX /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"
+  -> exit 0, out "Imported 2 lanes.\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 1, err "device busy"
+error    `docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0` failed (exit 1: device busy)
+
+== the run fails before a copy out; the folder is removed
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"
+  -> exit 1, err "no lanes"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+error    `docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"` failed (exit 1: no lanes)
+
+== the destination cannot be made
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"
+  -> exit 0
+mkdir    /home/me/export
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+error    could not create /home/me/export: not allowed
+
+== the copy out fails
+unset    COMPOSE_ENV_FILES COMPOSE_FILE COMPOSE_PATH_SEPARATOR COMPOSE_PROFILES COMPOSE_PROJECT_NAME KKT_PORT KKT_VERSION TS_AUTHKEY TS_HOSTNAME TS_TAILNET
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt mktemp -d /tmp/kkt-lanes.XXXXXXXXXX
+  -> exit 0, out "/tmp/kkt-lanes.AbC123xyz0\n"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt lanes import /tmp/kkt-lanes.AbC123xyz0 "--note=a b"
+  -> exit 0, out "Imported 2 lanes.\n"
+mkdir    /home/me/export
+run      cwd=/data/docker  docker compose --project-directory /data/docker cp kkt:/tmp/kkt-lanes.AbC123xyz0/. /home/me/export
+  -> exit 1, err "no space left"
+run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T -u root kkt rm -rf /tmp/kkt-lanes.AbC123xyz0
+  -> exit 0
+error    `docker compose --project-directory /data/docker cp kkt:/tmp/kkt-lanes.AbC123xyz0/. /home/me/export` failed (exit 1: no space left)

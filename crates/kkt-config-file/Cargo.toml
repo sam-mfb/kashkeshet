@@ -1,0 +1,12 @@
+[package]
+name = "kkt-config-file"
+description = "kkt's config file: where it is, parsing its TOML, adding an allowed host to its text, and reading and writing it over the files the program gives"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+thiserror.workspace = true
+kkt-toml = { path = "../kkt-toml" }

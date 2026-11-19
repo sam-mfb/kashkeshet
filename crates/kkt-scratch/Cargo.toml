@@ -6,3 +6,7 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 publish = false
+
+# Never part of a release (.github/scripts/check-release-packages.sh).
+[package.metadata.kkt]
+dev-only = true

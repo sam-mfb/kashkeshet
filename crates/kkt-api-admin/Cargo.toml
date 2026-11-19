@@ -1,0 +1,13 @@
+[package]
+name = "kkt-api-admin"
+description = "What /mcp-admin's administrator does: the admin reads and creating a swarm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-api-agent = { path = "../kkt-api-agent" }
+kkt-api-operator = { path = "../kkt-api-operator" }
+serde.workspace = true

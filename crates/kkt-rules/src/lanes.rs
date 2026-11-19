@@ -9,29 +9,11 @@
 //! version of, or dropping a lane is announced by the agent in every
 //! channel it is in; registering with one announces nothing.
 use super::*;
-use kkt_config::{MAX_LANE_DESCRIPTION_CHARS, MAX_LANE_NAME_CHARS};
-use kkt_store::{
+use crate::{
     AgentLaneRecord, LaneRecord, LaneRetiredRecord, LaneSourceRecord, LaneVersionRecord,
     NewLaneVersionRecord, TakenLaneRecord,
 };
-
-/// The lane an agent holds, as others see it.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct AgentLane {
-    pub name: String,
-    /// The version the agent took.
-    pub version: i64,
-    /// The lane's newest version.
-    pub current_version: i64,
-    pub taken_at: String,
-}
-
-impl AgentLane {
-    /// Whether the lane has a newer version than the one the agent took.
-    pub fn out_of_date(&self) -> bool {
-        self.version < self.current_version
-    }
-}
+use kkt_names::MAX_LANE_NAME_CHARS;
 
 impl From<AgentLaneRecord> for AgentLane {
     fn from(l: AgentLaneRecord) -> Self {
@@ -42,96 +24,6 @@ impl From<AgentLaneRecord> for AgentLane {
             taken_at: l.taken.taken_at,
         }
     }
-}
-
-/// The lane an agent holds, with the instructions of the version it took:
-/// what the agent itself is given.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct HeldLane {
-    pub lane: AgentLane,
-    pub description: String,
-    pub text: String,
-}
-
-/// What taking a lane changed.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "snake_case", tag = "change")]
-pub enum LaneChange {
-    /// The agent held no lane and now holds one.
-    Took,
-    /// The agent held the lane `from` and now holds another.
-    Switched { from: String },
-    /// The agent moved from version `from` of its lane to the newest.
-    Updated { from: i64 },
-    /// The agent held the lane `from` and now holds none.
-    Dropped { from: String },
-    /// Nothing: the agent already held what it asked for.
-    Unchanged,
-}
-
-/// The lane an agent holds after `take_lane`, and what changed.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct LaneTaking {
-    pub held: Option<HeldLane>,
-    pub change: LaneChange,
-}
-
-/// A lane and its current version.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct Lane {
-    pub name: String,
-    pub created_at: String,
-    pub run_id: i64,
-    /// When and by whom it was retired; `None` while it can be taken.
-    pub retired: Option<LaneRetired>,
-    pub current: LaneVersion,
-}
-
-/// One saved version of a lane.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct LaneVersion {
-    pub version: i64,
-    pub description: String,
-    pub text: String,
-    pub saved_at: String,
-    pub run_id: i64,
-    /// The admin agent that saved it, acting as the operator, such as
-    /// `admin-sentinel`; `None` when the human operator saved it.
-    pub saved_by_admin: Option<String>,
-    /// Where `kkt lanes import` read it from; `None` when it was saved on the
-    /// web page or at `/mcp-admin`.
-    pub source: Option<LaneSource>,
-}
-
-/// The folder a lane version was imported from, and the git commit checked
-/// out there, if the folder was in a git checkout.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct LaneSource {
-    pub folder: String,
-    pub commit: Option<String>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct LaneRetired {
-    pub at: String,
-    pub run_id: i64,
-    /// The admin agent that retired it; `None` when the human operator did.
-    pub by_admin: Option<String>,
-}
-
-/// A lane with every version, newest first.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
-pub struct LaneHistory {
-    pub lane: Lane,
-    pub versions: Vec<LaneVersion>,
-}
-
-/// What the operator saves as a lane's next version.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct LaneSave {
-    pub name: String,
-    pub description: String,
-    pub text: String,
 }
 
 impl From<LaneVersionRecord> for LaneVersion {
@@ -152,9 +44,15 @@ impl From<LaneVersionRecord> for LaneVersion {
 }
 
 /// A save checked against the lane rules: its name, its description trimmed
-/// to one line, and its instructions as given, at most `max_text_chars`.
-pub(super) fn checked_save(save: LaneSave, max_text_chars: usize) -> Result<LaneSave> {
-    names::check_lane_name(&save.name, MAX_LANE_NAME_CHARS).map_err(RuleError::invalid)?;
+/// to one line of at most `max_description_chars`, and its instructions as
+/// given, at most `max_text_chars`.
+pub(super) fn checked_save(
+    save: LaneSave,
+    max_description_chars: usize,
+    max_text_chars: usize,
+) -> Result<LaneSave> {
+    names::check_lane_name(&save.name, MAX_LANE_NAME_CHARS)
+        .map_err(|e| RuleError::invalid(e.to_string()))?;
     let description = save.description.trim().to_string();
     if description.is_empty() {
         return Err(RuleError::invalid("the lane needs a description"));
@@ -164,9 +62,9 @@ pub(super) fn checked_save(save: LaneSave, max_text_chars: usize) -> Result<Lane
             "the lane's description must be one line",
         ));
     }
-    if description.chars().count() > MAX_LANE_DESCRIPTION_CHARS {
+    if description.chars().count() > max_description_chars {
         return Err(RuleError::invalid(format!(
-            "the lane's description must be at most {MAX_LANE_DESCRIPTION_CHARS} characters"
+            "the lane's description must be at most {max_description_chars} characters"
         )));
     }
     if save.text.trim().is_empty() {
@@ -201,11 +99,11 @@ pub(super) enum LaneWrite {
 /// `run_id` is asked for only when something is written. `save` is checked
 /// already ([`checked_save`]).
 pub(super) fn write_lane(
-    s: &dyn Writes,
+    s: &Writer<'_>,
     found: Option<LaneRecord>,
     save: LaneSave,
     at: &str,
-    run_id: impl FnOnce(&dyn Writes) -> Result<i64>,
+    run_id: impl FnOnce(&Writer<'_>) -> Result<i64>,
     saved_by_admin: Option<String>,
     source: Option<LaneSourceRecord>,
 ) -> Result<LaneWrite> {
@@ -261,35 +159,40 @@ enum LaneMustBe {
     Existing,
 }
 
-/// The admin agent's name when `actor` is the operator, or the refusal for
-/// an agent: only the operator edits lanes.
+/// The author stored for the operator's change, [`Audit::author`], or the
+/// refusal for an avatar: only the operator edits lanes.
 fn operator_name(actor: Actor, what: &str) -> Result<Option<String>> {
     match actor {
-        Actor::Human => Ok(None),
-        Actor::Admin(name) => Ok(Some(name.to_string())),
-        Actor::UnnamedAdmin => Err(super::agents::unnamed_admin()),
-        Actor::Agent(_) => Err(RuleError::operator_only(what)),
+        Actor::Operator(operator) => Ok(operator.audit.author()),
+        Actor::Avatar(_) => Err(RuleError::operator_only(what)),
     }
 }
 
 impl Rules {
     /// Every lane, retired ones included, in name order.
-    pub async fn lanes(&self) -> Result<Vec<Lane>> {
+    pub async fn lanes(&self, operator: &Operator) -> Result<Vec<Lane>> {
+        operator.may(Permission::Read)?;
         self.db()
-            .read(|s| Ok(s.lanes()?.into_iter().map(Lane::from).collect()))
+            .read(|s, _| Ok(s.lanes()?.into_iter().map(Lane::from).collect()))
             .await
     }
 
     /// One page of lanes, retired ones included, in name order: at most
     /// `limit`, after the lane named by `cursor` if given. The cursor is the
     /// name of the last lane on the previous page.
-    pub async fn lanes_page(&self, limit: usize, cursor: Option<String>) -> Result<Page<Lane>> {
+    pub async fn lanes_page(
+        &self,
+        operator: &Operator,
+        limit: usize,
+        cursor: Option<String>,
+    ) -> Result<Page<Lane>> {
+        operator.may(Permission::Read)?;
         if let Some(c) = &cursor {
             names::check_lane_name(c, MAX_LANE_NAME_CHARS)
                 .map_err(|_| RuleError::invalid("cursor is not one list_lanes gave"))?;
         }
         self.db()
-            .read(move |s| {
+            .read(move |s, _| {
                 let mut items: Vec<Lane> = s
                     .lanes_after(cursor.as_deref(), limit + 1)?
                     .into_iter()
@@ -307,9 +210,10 @@ impl Rules {
     }
 
     /// One lane, retired or not.
-    pub async fn lane(&self, name: String) -> Result<Lane> {
+    pub async fn lane(&self, operator: &Operator, name: String) -> Result<Lane> {
+        operator.may(Permission::Read)?;
         self.db()
-            .read(move |s| {
+            .read(move |s, _| {
                 s.lane(&name)?
                     .map(Lane::from)
                     .ok_or_else(|| RuleError::lane_not_found(&name))
@@ -318,9 +222,10 @@ impl Rules {
     }
 
     /// One lane, retired or not, with every version, newest first.
-    pub async fn lane_history(&self, name: String) -> Result<LaneHistory> {
+    pub async fn lane_history(&self, operator: &Operator, name: String) -> Result<LaneHistory> {
+        operator.may(Permission::Read)?;
         self.db()
-            .read(move |s| {
+            .read(move |s, _| {
                 let lane = s
                     .lane(&name)?
                     .map(Lane::from)
@@ -362,17 +267,21 @@ impl Rules {
         save: LaneSave,
         must_be: Option<LaneMustBe>,
     ) -> Result<Lane> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let saved_by_admin = operator_name(actor, "save a lane")?;
         let LaneSave {
             name,
             description,
             text,
-        } = checked_save(save, self.limits().max_lane_chars)?;
+        } = checked_save(
+            save,
+            self.settings().max_lane_description_chars,
+            self.settings().max_lane_chars,
+        )?;
         let at = self.now_text();
         let run_id = self.inner.deps.run_id;
         self.db()
-            .write(move |s| {
+            .write(move |s, _| {
                 let found = s.lane(&name)?;
                 match (&found, must_be) {
                     (Some(_), Some(LaneMustBe::New)) => {
@@ -408,12 +317,12 @@ impl Rules {
     /// Retires the lane: it stays, with its history, but can no longer be
     /// taken or changed. Retiring a retired lane changes nothing.
     pub async fn retire_lane(&self, actor: Actor, name: String) -> Result<Lane> {
-        actor.may_change()?;
+        may_change(&actor)?;
         let by_admin = operator_name(actor, "retire a lane")?;
         let at = self.now_text();
         let run_id = self.inner.deps.run_id;
         self.db()
-            .write(move |s| {
+            .write(move |s, _| {
                 let lane = s
                     .lane(&name)?
                     .ok_or_else(|| RuleError::lane_not_found(&name))?;
@@ -447,7 +356,7 @@ impl Rules {
                 .map_err(|_| RuleError::invalid("cursor is not one list_lanes gave"))?;
         }
         self.db()
-            .read(move |s| {
+            .read(move |s, _| {
                 let mut items: Vec<Lane> = s
                     .takeable_lanes_after(cursor.as_deref(), limit + 1)?
                     .into_iter()
@@ -468,7 +377,9 @@ impl Rules {
     /// or `None` if it holds none.
     pub async fn held_lane(&self, me: &Agent) -> Result<Option<HeldLane>> {
         let handle = me.handle.clone();
-        self.db().read(move |s| held_lane(s, &handle)).await
+        self.db()
+            .read(move |s, swarm| held_lane(s, swarm, &handle))
+            .await
     }
 
     /// `me` takes the lane named `lane`: a lane other than the one it holds
@@ -478,15 +389,16 @@ impl Rules {
     /// changes nothing. An agent changes only its own lane.
     pub async fn take_lane(&self, me: &Agent, lane: Option<String>) -> Result<LaneTaking> {
         if let Some(name) = &lane {
-            names::check_lane_name(name, MAX_LANE_NAME_CHARS).map_err(RuleError::invalid)?;
+            names::check_lane_name(name, MAX_LANE_NAME_CHARS)
+                .map_err(|e| RuleError::invalid(e.to_string()))?;
         }
         let rules = self.clone();
         let handle = me.handle.clone();
         let at = self.now_text();
         let (taking, notices) = self
             .db()
-            .write(move |s| {
-                rules.take_lane_in(s, &handle, lane.as_deref(), &at, "Nothing changed.")
+            .write(move |s, swarm| {
+                rules.take_lane_in(s, swarm, &handle, lane.as_deref(), &at, "Nothing changed.")
             })
             .await?;
         for notice in &notices {
@@ -501,14 +413,15 @@ impl Rules {
     /// `nothing`, which says what was left undone.
     pub(super) fn take_lane_in(
         &self,
-        store: &dyn Writes,
+        store: &Writer<'_>,
+        swarm: &SwarmId,
         handle: &str,
         wanted: Option<&str>,
         at: &str,
         nothing: &str,
     ) -> Result<(LaneTaking, Vec<Message>)> {
         let before = store
-            .agent(handle)?
+            .agent(swarm, handle)?
             .ok_or_else(|| RuleError::agent_not_found(handle))?
             .lane
             .map(AgentLane::from);
@@ -537,14 +450,14 @@ impl Rules {
                 taken_at: at.to_string(),
                 run_id: self.inner.deps.run_id,
             });
-            store.set_agent_lane(handle, taken.as_ref())?;
+            store.set_agent_lane(swarm, handle, taken.as_ref())?;
             let body = lane_announcement(handle, &change, taken.as_ref());
-            for id in store.all_channel_ids(Some(handle))? {
-                let channel = member_channel(store, handle, &id)?;
-                notices.push(self.post_notice(store, &channel, handle, body.clone())?);
+            for id in store.all_channel_ids(swarm, Some(handle))? {
+                let channel = member_channel(store, swarm, handle, &id)?;
+                notices.push(self.post_notice(store, swarm, &channel, handle, body.clone())?);
             }
         }
-        let held = held_lane(store, handle)?;
+        let held = held_lane(store, swarm, handle)?;
         Ok((LaneTaking { held, change }, notices))
     }
 }
@@ -552,7 +465,7 @@ impl Rules {
 /// The lane named `name`, if an agent may take it: it exists and is not
 /// retired. A refusal is `lane_unavailable` and ends with `nothing`, which
 /// says what was left undone.
-pub(super) fn takeable_lane(store: &dyn Reads, name: &str, nothing: &str) -> Result<LaneRecord> {
+pub(super) fn takeable_lane(store: &Reader<'_>, name: &str, nothing: &str) -> Result<LaneRecord> {
     match store.lane(name)? {
         None => Err(RuleError::new(
             Code::LaneUnavailable,
@@ -567,9 +480,13 @@ pub(super) fn takeable_lane(store: &dyn Reads, name: &str, nothing: &str) -> Res
 }
 
 /// The lane `handle` holds, with the instructions of the version it took.
-pub(super) fn held_lane(store: &dyn Reads, handle: &str) -> Result<Option<HeldLane>> {
+pub(super) fn held_lane(
+    store: &Reader<'_>,
+    swarm: &SwarmId,
+    handle: &str,
+) -> Result<Option<HeldLane>> {
     let Some(lane) = store
-        .agent(handle)?
+        .agent(swarm, handle)?
         .ok_or_else(|| RuleError::agent_not_found(handle))?
         .lane
         .map(AgentLane::from)
@@ -596,9 +513,13 @@ pub(super) fn held_lane(store: &dyn Reads, handle: &str) -> Result<Option<HeldLa
 
 /// The lane `handle` holds, if a newer version of it exists than the one
 /// it took.
-pub(super) fn newer_lane(store: &dyn Reads, handle: &str) -> Result<Option<AgentLane>> {
+pub(super) fn newer_lane(
+    store: &Reader<'_>,
+    swarm: &SwarmId,
+    handle: &str,
+) -> Result<Option<AgentLane>> {
     Ok(store
-        .agent(handle)?
+        .agent(swarm, handle)?
         .ok_or_else(|| RuleError::agent_not_found(handle))?
         .lane
         .map(AgentLane::from)

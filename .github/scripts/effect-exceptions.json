@@ -1,0 +1,7 @@
+[
+  {
+    "package": "kkt-fake-product",
+    "dependency": "kkt-agent-client-mcp",
+    "reason": "Its tests drive the running product over HTTP with kkt-agent-client-mcp's client, which the product itself does not use (Sam, 2026-11-12; msg 3474)."
+  }
+]

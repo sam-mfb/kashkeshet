@@ -5,7 +5,6 @@ mod common;
 use kkt_scratch as scratch;
 
 use common::{Client, Server, connect, connect_new, start, start_with, test_config};
-use kkt_hosts::AllowedHosts;
 use rmcp::ClientLifecycleMode;
 use rmcp::model::{CallToolRequestParams, ProtocolVersion};
 use serde_json::{Value, json};
@@ -252,10 +251,10 @@ async fn register_and_whoami_report_the_server_version_in_both_formats() {
     client.cancel().await.unwrap();
 }
 
-/// `register`'s parameter before the rename to `handle` is refused, with a
-/// message saying to use `handle`, and registers nothing. That holds for any
-/// value of `name`, `null` included, since the old optional parameter took
-/// `null`. Registering with no arguments still works.
+/// `register` with a `name` parameter is refused, with a message saying to
+/// use `handle`, and registers nothing. That holds for any value of `name`,
+/// `null` included, since agents written for older servers may send `null`.
+/// Registering with no arguments works.
 #[tokio::test]
 async fn register_with_the_old_name_parameter_is_refused_and_creates_no_avatar() {
     let server = start().await;
@@ -653,7 +652,7 @@ async fn other_host_names_are_refused_unless_allowed() {
     );
 
     let mut config = test_config();
-    config.allowed_hosts = AllowedHosts::new(&["host.docker.internal".into()]).expect("valid host");
+    config.allowed_hosts = vec!["host.docker.internal".into()];
     let server = start_with(config).await;
     assert_eq!(
         statuses_for_host(&server, "host.docker.internal").await,
@@ -975,7 +974,7 @@ async fn reconnect_and_reclaim_keeps_closed_channel_access() {
 )]
 async fn disconnect_clears_listening_without_completion_grace() {
     let mut config = test_config();
-    config.limits.waiting_grace = Duration::from_secs(30);
+    config.rules.waiting_grace = Duration::from_secs(30);
     let server = start_with(config).await;
     let observer = connect_new(&server).await;
     let (name, token) = register(&observer).await;
@@ -1161,23 +1160,34 @@ async fn the_server_announcement_reaches_both_handshakes_and_connected_agents() 
     connected.cancel().await.unwrap();
 }
 
+/// What 0.10.0 did on opening a database from 0.7.0: its migrations 16 to
+/// 21, which bring it to schema 21, the one this version adopts.
+const TO_0_10_0: [&str; 6] = [
+    include_str!("migrations/sql/0016_lanes.sql"),
+    include_str!("migrations/sql/0017_agent_lanes.sql"),
+    include_str!("migrations/sql/0018_lane_sources.sql"),
+    include_str!("migrations/sql/0019_memory.sql"),
+    include_str!("migrations/sql/0020_channel_runs.sql"),
+    include_str!("migrations/sql/0021_messages_by_agent.sql"),
+];
+
 /// The migrations v0.7.0 shipped with.
 const V0_7_0: [&str; 15] = [
-    include_str!("../crates/kkt-store/migrations/0001_init.sql"),
-    include_str!("../crates/kkt-store/migrations/0002_server_runs.sql"),
-    include_str!("../crates/kkt-store/migrations/0003_revoked_agents.sql"),
-    include_str!("../crates/kkt-store/migrations/0004_identity_recovery.sql"),
-    include_str!("../crates/kkt-store/migrations/0005_messages_by_time.sql"),
-    include_str!("../crates/kkt-store/migrations/0006_agent_descriptions.sql"),
-    include_str!("../crates/kkt-store/migrations/0007_channel_notes.sql"),
-    include_str!("../crates/kkt-store/migrations/0008_operator_messages.sql"),
-    include_str!("../crates/kkt-store/migrations/0009_handoff_notes.sql"),
-    include_str!("../crates/kkt-store/migrations/0010_hidden_entries.sql"),
-    include_str!("../crates/kkt-store/migrations/0011_operator_instructions.sql"),
-    include_str!("../crates/kkt-store/migrations/0012_operator_channels.sql"),
-    include_str!("../crates/kkt-store/migrations/0013_channel_owners.sql"),
-    include_str!("../crates/kkt-store/migrations/0014_agent_clients.sql"),
-    include_str!("../crates/kkt-store/migrations/0015_instruction_authors.sql"),
+    include_str!("migrations/sql/0001_init.sql"),
+    include_str!("migrations/sql/0002_server_runs.sql"),
+    include_str!("migrations/sql/0003_revoked_agents.sql"),
+    include_str!("migrations/sql/0004_identity_recovery.sql"),
+    include_str!("migrations/sql/0005_messages_by_time.sql"),
+    include_str!("migrations/sql/0006_agent_descriptions.sql"),
+    include_str!("migrations/sql/0007_channel_notes.sql"),
+    include_str!("migrations/sql/0008_operator_messages.sql"),
+    include_str!("migrations/sql/0009_handoff_notes.sql"),
+    include_str!("migrations/sql/0010_hidden_entries.sql"),
+    include_str!("migrations/sql/0011_operator_instructions.sql"),
+    include_str!("migrations/sql/0012_operator_channels.sql"),
+    include_str!("migrations/sql/0013_channel_owners.sql"),
+    include_str!("migrations/sql/0014_agent_clients.sql"),
+    include_str!("migrations/sql/0015_instruction_authors.sql"),
 ];
 
 #[tokio::test]
@@ -1199,11 +1209,16 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
                         ('Use #help-desk for feedback.', '2026-10-02T00:00:00Z', 1, 'admin-sentinel');",
         )
         .unwrap();
+        // Then opened by 0.10.0, which brought it to schema 21.
+        for migration in TO_0_10_0 {
+            conn.execute_batch(migration).unwrap();
+        }
+        conn.pragma_update(None, "user_version", 21).unwrap();
     }
-    let db = kkt_store::Db::open(&path).unwrap();
+    let db = kashkeshet::machine::database::open(&path).unwrap();
     let server = common::start_on(
         test_config(),
-        std::sync::Arc::new(kkt_clock::SystemClock),
+        std::sync::Arc::new(kkt_clock_system::SystemClock),
         db,
     )
     .await;
@@ -1245,4 +1260,31 @@ async fn operator_instructions_saved_by_v0_7_0_are_the_server_announcement() {
     assert!(page.contains("by the admin agent admin-sentinel"), "{page}");
     assert!(page.contains("Version 1"), "{page}");
     client.cancel().await.unwrap();
+}
+
+/// With `KKT_TEST_PROGRAM` set, the server is that program in a process of
+/// its own: it names itself, and stopping the process stops the server. Without this, a harness
+/// that ran every server in this process anyway would pass every test.
+#[tokio::test]
+async fn the_program_kkt_test_program_names_is_the_server() {
+    let Some(program) = common::program() else {
+        return;
+    };
+    let mut server = start().await;
+    // Each program names itself before its address: `kkt serve` as
+    // kashkeshet, the second program as kkt-keymode.
+    let log = server.program_log().expect("a program's output");
+    let name = if program == "kkt" {
+        "kashkeshet "
+    } else {
+        "kkt-keymode "
+    };
+    assert!(log.contains(name), "{program} printed:\n{log}");
+    let page = reqwest::get(&server.base).await.expect("the web page");
+    assert_eq!(page.status(), reqwest::StatusCode::OK, "{program}");
+    server.kill_program().await;
+    assert!(
+        reqwest::get(&server.base).await.is_err(),
+        "{program} was stopped, yet the server still answers"
+    );
 }

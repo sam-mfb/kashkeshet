@@ -7,34 +7,64 @@ use crate::{
     ServiceInstall, Task, WatchTask,
 };
 use clap::{Args, Parser, Subcommand};
-use kkt_client_config::Client;
-use kkt_config::{self as config, DEFAULT_BIND, Limits, LogLevel};
+use kashkeshet::machine::settings::ServeOptions;
+use kkt_hosts::DEFAULT_BIND;
+use kkt_llm_agent_config::Client;
+use kkt_log::Level;
 use kkt_provenance::Build;
-use kkt_settings::ServeOptions;
 use kkt_setup as setup;
 use kkt_watch as watch;
 use std::net::SocketAddr;
 use std::path::PathBuf;
 
+/// The Compose project name for kkt in Docker, so the containers and volumes
+/// are named the same whatever the folder holding the Compose files is called.
+const DOCKER_PROJECT: &str = "kkt";
+/// Log lines `kkt service logs` shows when not told how many.
+const DEFAULT_LOG_LINES: usize = 100;
+
+/// Why the command line could not be read into a command.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum CliError {
+    /// A service file's arguments do not parse as a command line: the
+    /// first line of clap's own account.
+    #[error("`kkt serve` does not take them ({0})")]
+    NotServeArgs(String),
+    #[error("they are not a `kkt serve` command")]
+    NotServeCommand,
+    #[error("give the new server's address, or --local")]
+    NoServerAddress,
+    #[error(
+        "unknown client {name:?} in --clients: use claude-code, codex, opencode, agy, muse-code \
+         or none"
+    )]
+    UnknownClient { name: String },
+    #[error("could not resolve {}: {source}", path.display())]
+    Resolve {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+}
+
 /// This run's command, from the command line, with its flags as plain
 /// values. Exits, as clap does, on a command line it cannot parse or on
 /// `--help` or `--version`. An error is a flag whose value is not usable.
-pub(crate) fn task() -> Result<Task, String> {
+pub(crate) fn task() -> Result<Task, CliError> {
     Cli::parse().command.task()
 }
 
 /// Reads `args`, the arguments a service file gives `kkt`, as a `kkt serve`
 /// command: the config file it names and the settings it gives. It parses
 /// them exactly as the command line is parsed.
-pub(crate) fn serve_args(args: &[String]) -> Result<(Option<PathBuf>, ServeOptions), String> {
+pub(crate) fn serve_args(args: &[String]) -> Result<(Option<PathBuf>, ServeOptions), CliError> {
     let words = std::iter::once("kkt".to_string()).chain(args.iter().cloned());
     let cli = Cli::try_parse_from(words).map_err(|e| {
         let said = e.to_string();
-        let first = said.lines().next().unwrap_or_default();
-        format!("`kkt serve` does not take them ({first})")
+        CliError::NotServeArgs(said.lines().next().unwrap_or_default().to_string())
     })?;
     let Command::Serve { config, flags, .. } = cli.command else {
-        return Err("they are not a `kkt serve` command".into());
+        return Err(CliError::NotServeCommand);
     };
     Ok((config, flags.options()))
 }
@@ -49,8 +79,6 @@ struct Cli {
     command: Command,
 }
 
-// Parsed once at startup, so the size of the largest variant costs nothing.
-#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand, Debug)]
 enum Command {
     /// Show the service, Docker server, or remote server this machine uses.
@@ -268,7 +296,7 @@ enum Command {
 
 impl Command {
     /// The command, with its flags as plain values.
-    fn task(self) -> Result<Task, String> {
+    fn task(self) -> Result<Task, CliError> {
         Ok(match self {
             Command::Status => Task::Status,
             Command::Upgrade { allow_downgrade } => Task::Upgrade { allow_downgrade },
@@ -320,7 +348,7 @@ impl Command {
                     (true, _) => setup::Target::Local,
                     (false, Some(url)) => setup::Target::Url(url),
                     (false, None) => {
-                        return Err("give the new server's address, or --local".into());
+                        return Err(CliError::NoServerAddress);
                     }
                 };
                 Task::Switch(setup::Switch {
@@ -469,6 +497,15 @@ struct SetupFlags {
     /// Connect every client found without asking.
     #[arg(long)]
     yes: bool,
+    /// Let the clients set up here always use kkt's tools and `kkt watch`,
+    /// without asking each time: setup adds only those rules to each
+    /// client's own settings, backing the file up first.
+    #[arg(long, conflicts_with = "no_allow_kkt")]
+    allow_kkt: bool,
+    /// Don't change the clients' permission settings. The default without a
+    /// terminal.
+    #[arg(long)]
+    no_allow_kkt: bool,
     /// Record a kkt server found installed here with no setup record (as an
     /// older kkt can leave one) without asking, and install nothing. Without
     /// a terminal, setup records one only with this.
@@ -511,7 +548,7 @@ struct SetupFlags {
     #[arg(long, hide = true, default_value = Build::CURRENT.version)]
     kkt_version: String,
     /// For testing beside a real setup: the Compose project name.
-    #[arg(long, hide = true, default_value = config::DOCKER_PROJECT)]
+    #[arg(long, hide = true, default_value = DOCKER_PROJECT)]
     docker_project: String,
     /// For testing beside a real setup: the port on 127.0.0.1 Docker
     /// publishes kkt on.
@@ -530,7 +567,7 @@ impl SetupFlags {
         }
     }
 
-    fn answers(self) -> Result<setup::Answers, String> {
+    fn answers(self) -> Result<setup::Answers, CliError> {
         let clients = clients_flag(self.clients.as_deref())?;
         let key_file = absolute_flag(self.key_file)?;
         let ts_authkey_file = absolute_flag(self.ts_authkey_file)?;
@@ -549,6 +586,11 @@ impl SetupFlags {
                 hosts => Some(hosts.to_vec()),
             },
             clients,
+            allow_kkt: match (self.allow_kkt, self.no_allow_kkt) {
+                (true, _) => Some(true),
+                (_, true) => Some(false),
+                _ => None,
+            },
             ts_hostname: self.ts_hostname,
             ts_authkey_file,
             admin_key: match (self.admin_key, self.no_admin_key) {
@@ -569,32 +611,30 @@ impl SetupFlags {
 }
 
 /// The clients `--clients` names: `None` without it, none for `none`.
-fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, String> {
+fn clients_flag(list: Option<&str>) -> Result<Option<Vec<Client>>, CliError> {
     Ok(match list {
         None => None,
         Some("none") => Some(Vec::new()),
         Some(list) => Some(
             list.split(',')
                 .map(|name| {
-                    Client::from_name(name.trim()).ok_or_else(|| {
-                        format!(
-                            "unknown client {name:?} in --clients: use claude-code, codex, \
-                             opencode, agy, muse-code or none"
-                        )
+                    Client::from_name(name.trim()).ok_or_else(|| CliError::UnknownClient {
+                        name: name.to_string(),
                     })
                 })
-                .collect::<Result<Vec<_>, String>>()?,
+                .collect::<Result<Vec<_>, CliError>>()?,
         ),
     })
 }
 
 /// A path given as a flag, made absolute, as setup and switch may record it
 /// and use it from elsewhere.
-fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, String> {
+fn absolute_flag(path: Option<PathBuf>) -> Result<Option<PathBuf>, CliError> {
     match path {
-        Some(path) => std::path::absolute(&path)
+        Some(path) => kkt_files::Files
+            .absolute(&path)
             .map(Some)
-            .map_err(|e| format!("could not resolve {}: {e}", path.display())),
+            .map_err(|source| CliError::Resolve { path, source }),
         None => Ok(None),
     }
 }
@@ -732,7 +772,7 @@ enum ServiceCommand {
     /// Show the service's log.
     Logs {
         /// How many of the last lines to show.
-        #[arg(long, default_value_t = config::DEFAULT_LOG_LINES)]
+        #[arg(long, default_value_t = DEFAULT_LOG_LINES)]
         lines: usize,
         /// Keep showing new lines as they come.
         #[arg(long, short)]
@@ -873,47 +913,47 @@ struct ServeFlags {
     allow_any_bind: bool,
     #[arg(long, help = format!(
         "Largest response, in bytes, before it is cut short [default: {}]",
-        Limits::DEFAULT.max_response_bytes
+        kkt_mcp::result_format::Settings::DEFAULT.max_response_bytes
     ))]
     max_response_bytes: Option<usize>,
     #[arg(long, help = format!(
         "Items returned when an agent gives no `limit` [default: {}]",
-        Limits::DEFAULT.default_limit
+        kkt_rules::Settings::DEFAULT.default_limit
     ))]
     default_limit: Option<usize>,
     #[arg(long, help = format!(
         "Largest `limit` an agent may ask for [default: {}]",
-        Limits::DEFAULT.max_limit
+        kkt_rules::Settings::DEFAULT.max_limit
     ))]
     max_limit: Option<usize>,
     #[arg(long, help = format!(
         "Messages one agent may send per minute [default: {}]",
-        Limits::DEFAULT.sends_per_minute
+        kkt_rules::Settings::DEFAULT.sends_per_minute
     ))]
     sends_per_minute: Option<u32>,
-    #[arg(long, help = format!("Seconds completed waits remain listening [default: {}]", Limits::DEFAULT.waiting_grace.as_secs()))]
+    #[arg(long, help = format!("Seconds completed waits remain listening [default: {}]", kkt_rules::Settings::DEFAULT.waiting_grace.as_secs()))]
     waiting_grace_seconds: Option<u32>,
     #[arg(long, help = format!(
         "Backups the server keeps of those it makes before upgrading the database [default: {}]",
-        Limits::DEFAULT.upgrade_backups_kept
+        kkt_backup::Settings::DEFAULT.upgrade_backups_kept
     ))]
     upgrade_backups_kept: Option<usize>,
     #[arg(long, help = format!(
         "Longest lane instructions, in characters [default: {}]",
-        Limits::DEFAULT.max_lane_chars
+        kkt_rules::Settings::DEFAULT.max_lane_chars
     ))]
     max_lane_chars: Option<usize>,
     #[arg(long, help = format!(
         "Longest memory entry an avatar keeps, in characters [default: {}]",
-        Limits::DEFAULT.max_memory_entry_chars
+        kkt_rules::Settings::DEFAULT.max_memory_entry_chars
     ))]
     max_memory_entry_chars: Option<usize>,
     #[arg(long, help = format!(
         "Most characters in one avatar's memory, all entries together [default: {}]",
-        Limits::DEFAULT.max_memory_chars
+        kkt_rules::Settings::DEFAULT.max_memory_chars
     ))]
     max_memory_chars: Option<usize>,
-    #[arg(long, help = format!("Word pack for new avatars' handles [default: {}]", Limits::DEFAULT.name_pack.name()))]
+    #[arg(long, help = format!("Word pack for new avatars' handles [default: {}]", kkt_rules::Settings::DEFAULT.name_pack.name()))]
     name_pack: Option<String>,
     /// A browser origin allowed to call /mcp, e.g. http://localhost:6274 for
     /// MCP Inspector. Repeat for more. By default no browser origin is allowed.
@@ -943,14 +983,14 @@ struct ServeFlags {
     log_file: Option<PathBuf>,
     /// How much kkt's own code logs: error, warn, info, debug or trace
     /// [default: info]
-    #[arg(long, value_parser = |text: &str| LogLevel::parse("log_level", text))]
-    log_level: Option<LogLevel>,
+    #[arg(long, value_parser = |text: &str| kkt_log_tracing::parse_level("log_level", text))]
+    log_level: Option<Level>,
     /// How much the libraries kkt uses (the MCP library, the web server)
     /// log: error, warn or info. At info, the MCP library logs several lines
     /// for every request; debug and trace are refused, because there it logs
     /// request contents, tokens included [default: warn]
-    #[arg(long, value_parser = |text: &str| LogLevel::parse("dependency_log_level", text))]
-    dependency_log_level: Option<LogLevel>,
+    #[arg(long, value_parser = |text: &str| kkt_log_tracing::parse_level("dependency_log_level", text))]
+    dependency_log_level: Option<Level>,
 }
 
 impl ServeFlags {
@@ -992,6 +1032,43 @@ mod tests {
         args.iter().map(|s| s.to_string()).collect()
     }
 
+    /// A flag's path that cannot be made absolute, word for word, on the
+    /// kind that words it: the failure cannot be made to happen here.
+    #[test]
+    fn an_unresolvable_path_is_pinned() {
+        assert_eq!(
+            CliError::Resolve {
+                path: PathBuf::from("lanes"),
+                source: std::io::Error::other("refused"),
+            }
+            .to_string(),
+            "could not resolve lanes: refused"
+        );
+    }
+
+    /// The command line's own refusals, word for word.
+    #[test]
+    fn the_command_lines_refusals_are_pinned() {
+        let switch = Command::Switch {
+            url: None,
+            local: false,
+            key_file: None,
+            clients: None,
+        };
+        assert_eq!(
+            switch.task().map(|_| ()).map_err(|e| e.to_string()),
+            Err("give the new server's address, or --local".to_string())
+        );
+        assert_eq!(
+            clients_flag(Some("codex,bogus")).map_err(|e| e.to_string()),
+            Err(
+                "unknown client \"bogus\" in --clients: use claude-code, codex, opencode, agy, \
+                 muse-code or none"
+                    .to_string()
+            )
+        );
+    }
+
     #[test]
     fn serve_args_reads_a_service_files_arguments() {
         let parsed = serve_args(&words(&[
@@ -1003,7 +1080,8 @@ mod tests {
             "/srv/kkt/kashkeshet.db",
             "--access-key-file",
             "/srv/kkt/access-key",
-        ]));
+        ]))
+        .map_err(|e| e.to_string());
         assert_eq!(
             parsed,
             Ok((
@@ -1015,7 +1093,8 @@ mod tests {
                 }
             ))
         );
-        let parsed = serve_args(&words(&["serve", "--ignore-setup", "--no-access-key"]));
+        let parsed = serve_args(&words(&["serve", "--ignore-setup", "--no-access-key"]))
+            .map_err(|e| e.to_string());
         assert_eq!(
             parsed,
             Ok((
@@ -1031,15 +1110,15 @@ mod tests {
     #[test]
     fn serve_args_refuses_what_serve_does_not_take() {
         assert_eq!(
-            serve_args(&words(&["serve", "--ignore-setup", "--bogus"])),
+            serve_args(&words(&["serve", "--ignore-setup", "--bogus"])).map_err(|e| e.to_string()),
             Err(
                 "`kkt serve` does not take them (error: unexpected argument '--bogus' found)"
-                    .into()
+                    .to_string()
             )
         );
         assert_eq!(
-            serve_args(&words(&["status"])),
-            Err("they are not a `kkt serve` command".into())
+            serve_args(&words(&["status"])).map_err(|e| e.to_string()),
+            Err("they are not a `kkt serve` command".to_string())
         );
     }
 }

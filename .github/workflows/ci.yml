@@ -2,9 +2,9 @@ name: CI
 
 on:
   pull_request:
-    branches: [next, main]
+    branches: [next, main, refactor]
   push:
-    branches: [next, main]
+    branches: [next, main, refactor]
 
 permissions:
   contents: read
@@ -16,7 +16,19 @@ concurrency:
 jobs:
   checks:
     name: Rust checks (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    # The macOS leg runs on the project's own Mac (the self-hosted runner
+    # labelled `kkt-mac`) for pushes and for pull requests from this
+    # repository's branches, and on GitHub's macos-15 for pull requests from
+    # forks, so this workflow never sends a fork's code to that machine.
+    # This condition keeps an unaltered fork pull request off it. A fork
+    # that edits this file is stopped by the repository setting that
+    # requires approval before an outside contributor's workflow runs, and
+    # by the Mac's own job-started hook, which refuses any job not from this
+    # repository's branches.
+    # Setting the repository variable KKT_MAC_RUNNER to `off` sends every
+    # macOS leg to macos-15, for when the Mac is offline. The job's name
+    # stays "Rust checks (macos-15)" either way.
+    runs-on: ${{ matrix.os == 'macos-15' && vars.KKT_MAC_RUNNER != 'off' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) && 'kkt-mac' || matrix.os }}
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -32,14 +44,24 @@ jobs:
         # The rustup proxy installs the toolchain and components from rust-toolchain.toml.
         run: rustc --version
 
+      # GitHub's macOS runners and the self-hosted Mac build at different
+      # paths, so each keeps a cache of its own.
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: ${{ runner.environment }}
 
       - name: Check formatting
         run: cargo fmt --check
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+
+      # The libraries and programs alone, as a release builds them: a feature
+      # only test targets turn on can hide code a plain build never uses.
+      - name: Clippy without test targets
+        if: matrix.os == 'ubuntu-24.04'
+        run: cargo clippy --workspace --locked -- -D warnings
 
       # The release scripts' own tests, also run by release.yml at tag time,
       # and the tests of check-crates.sh's rules.
@@ -58,10 +80,34 @@ jobs:
           LC_ALL=C bash .github/scripts/third-party-features.sh
           | bash .github/scripts/check-third-party-features.sh .github/third-party-features.txt
 
-      # Each package builds alone and with each of its features, and the
-      # manifests follow the rules for `real` and `testing`.
+      # No dev-only package (kkt-scratch, kkt-keymode) is part of a
+      # released program. The script covers every target platform, so one
+      # runner is enough.
+      - name: No dev-only package in a release
+        if: matrix.os == 'ubuntu-24.04'
+        run: bash .github/scripts/check-release-packages.sh
+
+      # Each package builds alone and with each of its features, only
+      # programs depend on an effect crate or (in [dependencies]) on a
+      # composition crate, no crate has a `real` feature,
+      # and the manifests follow the rules for `testing`.
       - name: Check each crate
         run: bash .github/scripts/check-crates.sh
+
+      # A platform crate knows nothing of kkt: no string or public name in
+      # its code outside tests says kkt or kashkeshet.
+      - name: Platform crates name nothing of kkt
+        run: python3 .github/scripts/check-platform-words.py
+
+      # A lint exception is an expect with a reason, never an allow
+      # (RUST.md 9), so a stale exception fails once its lint stops firing.
+      - name: Lint exceptions are expects with reasons
+        run: python3 .github/scripts/check-lint-exceptions.py
+
+      # Errors are typed (RUST.md 8): outside tests, no function's error is
+      # text, but for the exceptions the check lists.
+      - name: No text errors outside tests
+        run: python3 .github/scripts/check-text-errors.py
 
       - name: Build tests
         run: cargo test --workspace --locked --no-run
@@ -76,5 +122,122 @@ jobs:
           chmod 555 target/no-tmp
           TMPDIR="$PWD/target/no-tmp" cargo test --workspace --locked --lib --bins --tests
 
+      # The HTTP-only end-to-end tests again, against each program run as a
+      # process of its own: `kkt serve` and the second program, kkt-keymode,
+      # which assembles key mode from the same crates (tests/common).
+      - name: End-to-end tests against kkt and kkt-keymode
+        run: |
+          cargo build --locked -p kkt-keymode
+          for program in kkt kkt-keymode; do
+            echo "End-to-end tests against $program"
+            KKT_TEST_PROGRAM=$program TMPDIR="$PWD/target/no-tmp" cargo test --locked \
+              --test e2e --test admission --test web_login --test admin --test watch \
+              --test latency --test contract
+          done
+
       - name: Doc tests
         run: cargo test --workspace --locked --doc
+
+  # kkt-pro will depend on the shared crates by git. A crate outside the
+  # workspace, depending that way on kkt-api-agent, kkt-rules, kkt-server and
+  # kkt-listen at this commit, must build. Cargo fetches the commit from this repository, so a
+  # pull request from a fork, whose commit is not on one of its branches, may
+  # not be found here.
+  outside-crate:
+    name: A crate outside the workspace builds against the shared crates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: rustc --version
+
+      - name: Build a crate outside the workspace by git
+        env:
+          REPOSITORY: https://github.com/${{ github.repository }}
+          REV: ${{ github.event.pull_request.head.sha || github.sha }}
+        run: bash .github/scripts/build-outside-crate.sh "$REPOSITORY" "$REV" "$RUNNER_TEMP/outside-kkt"
+
+  # Only for a pull request into main, such as a release's: there the crate
+  # map in docs/architecture must be current. Pull requests into next and
+  # pushes do not run it, so a change to public items there does not wait
+  # on the map; regenerate it on next before the release.
+  # The programs do no machine work themselves. Builds the crate map from
+  # the code into target/tmp and fails on machine work in a composition
+  # crate's own code that the temporary-breaks table of
+  # docs/architecture/refactor-plan.md does not list. Runs on every pull request and push the
+  # workflow covers.
+  programs-do-no-machine-work:
+    name: The programs do no machine work beyond the plan's temporary breaks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: rustc --version
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      # Every test of the map's scripts: the check below, generate.py's and kinds.py's.
+      - name: Test the check and the map's scripts
+        run: python3 -m unittest discover -s docs/architecture -p 'test_*.py' -v
+
+      - name: Build the crate map from the code; check the programs, the kinds and the rules
+        run: python3 docs/architecture/check-programs.py
+
+  crate-map-page:
+    name: The crate map's page passes its headless test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      # Playwright and its Chromium, at the version the lock file pins, as
+      # the script installs them.
+      - name: Cache Playwright and its Chromium
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            target/tmp/page-test
+            ~/.cache/ms-playwright
+          key: page-test-${{ runner.os }}-${{ hashFiles('docs/architecture/page-test/package-lock.json', 'docs/architecture/run-page-test.sh') }}
+
+      # Draws the committed map-data.js in a headless Chromium, in both
+      # themes, and checks the page: routes, labels, panels and layout.
+      - name: Run the page test
+        run: docs/architecture/run-page-test.sh --with-system-deps
+
+  crate-map:
+    name: The crate map in docs/architecture is current
+    if: github.event_name == 'pull_request' && github.base_ref == 'main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        run: rustc --version
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+
+      # Rebuilds the map's data from cargo metadata, rustdoc's JSON and the
+      # sources, and fails if docs/architecture/map-data.js differs in
+      # anything but the commit it names.
+      - name: Regenerate the crate map and compare
+        run: python3 docs/architecture/generate.py --check

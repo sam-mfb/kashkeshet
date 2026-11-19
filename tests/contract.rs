@@ -8,7 +8,6 @@
 
 mod common;
 
-use kkt_config::Limits;
 use serde_json::Value;
 use std::path::PathBuf;
 use std::time::Duration;
@@ -59,7 +58,9 @@ fn admin_snapshot_path() -> PathBuf {
 async fn admin_tools_match_the_snapshot() {
     let admin_key = "admin-0123456789abcdef0123456789abcdef";
     let mut config = common::test_config();
-    config.admin_key = Some(kkt_admission::SharedKey::new(admin_key, "test").expect("admin key"));
+    // A program has an admin key only beside an access key.
+    config.access_key = Some("access-0123456789abcdef0123456789abcdef".into());
+    config.admin_key = Some(admin_key.into());
     let server = common::start_with(config).await;
     let client = common::connect_admin_with_key(&server, admin_key).await;
     let mut tools = client.list_all_tools().await.expect("list tools");
@@ -89,11 +90,14 @@ async fn admin_tools_match_the_snapshot() {
 }
 
 /// The limits in tool descriptions come from the server's settings, not from
-/// fixed text, so a server started with other limits states its own.
+/// fixed text, so a server started with other limits states its own. It runs
+/// in this process whatever `KKT_TEST_PROGRAM` says: most of these limits
+/// have no config file setting, so no program can be given them.
+/// `a_programs_config_file_limits_reach_the_descriptions` covers a program.
 #[tokio::test]
 async fn descriptions_state_the_live_limits() {
     let mut config = common::test_config();
-    config.limits = Limits {
+    config.rules = kkt_rules::Settings {
         default_limit: 7,
         max_limit: 42,
         max_body_bytes: 3000,
@@ -105,18 +109,12 @@ async fn descriptions_state_the_live_limits() {
         max_memory_chars: 54321,
         default_wait: Duration::from_secs(5),
         max_wait: Duration::from_secs(9),
-        ..Limits::DEFAULT
+        ..kkt_rules::Settings::DEFAULT
     };
-    let server = common::start_with(config).await;
+    let server = common::start_in_process(config).await;
     let client = common::connect_new(&server).await;
     let tools = client.list_all_tools().await.expect("list tools");
-    let param = |tool: &str, name: &str| -> String {
-        let tool = tools.iter().find(|t| t.name == tool).expect(tool);
-        tool.input_schema["properties"][name]["description"]
-            .as_str()
-            .expect(name)
-            .to_string()
-    };
+    let param = |tool: &str, name: &str| param_description(&tools, tool, name);
 
     assert_eq!(
         param("read", "limit"),
@@ -163,11 +161,57 @@ async fn descriptions_state_the_live_limits() {
     );
 }
 
+/// The limits a config file can set reach the tool descriptions, in
+/// whichever program `KKT_TEST_PROGRAM` names.
+#[tokio::test]
+async fn a_programs_config_file_limits_reach_the_descriptions() {
+    let mut config = common::test_config();
+    config.rules = kkt_rules::Settings {
+        default_limit: 7,
+        max_limit: 42,
+        max_memory_entry_chars: 4321,
+        max_memory_chars: 54321,
+        ..kkt_rules::Settings::DEFAULT
+    };
+    let server = common::start_with(config).await;
+    let client = common::connect_new(&server).await;
+    let tools = client.list_all_tools().await.expect("list tools");
+    let param = |tool: &str, name: &str| param_description(&tools, tool, name);
+
+    assert_eq!(
+        param("read", "limit"),
+        "How many to return (default 7, up to 42)."
+    );
+    assert_eq!(
+        param("remember", "text"),
+        "The entry's text, up to 4321 characters. It may not be empty; `forget` deletes an entry."
+    );
+    let remember = tools
+        .iter()
+        .find(|t| t.name == "remember")
+        .expect("remember");
+    let description = remember.description.as_deref().expect("description");
+    assert!(
+        description
+            .contains("at most 4321 characters, and all your entries together at most 54321"),
+        "{description}"
+    );
+}
+
+/// The description of `tool`'s parameter `name`.
+fn param_description(tools: &[rmcp::model::Tool], tool: &str, name: &str) -> String {
+    let tool = tools.iter().find(|t| t.name == tool).expect(tool);
+    tool.input_schema["properties"][name]["description"]
+        .as_str()
+        .expect(name)
+        .to_string()
+}
+
 /// The error codes are part of the contract: each one's text is fixed. A new
 /// code must be added here, as the match lists every code.
 #[test]
 fn error_codes_are_fixed() {
-    use kkt_rules::Code;
+    use kkt_api_agent::Code;
     let text = |code: Code| match code {
         Code::Unauthenticated
         | Code::NotFound
@@ -201,4 +245,23 @@ fn error_codes_are_fixed() {
     for (code, expected) in codes {
         assert_eq!(text(code), expected, "{code:?}");
     }
+}
+
+/// `kkt setup` lets OpenCode use kkt's tools by naming each one, so its
+/// list must be the tools the server offers. Adding a tool changes the
+/// snapshot above; add it to `KKT_AGENT_TOOLS` too.
+#[test]
+fn the_tools_setup_allows_are_the_snapshots_tools() {
+    let text = std::fs::read_to_string(snapshot_path()).expect("read snapshot");
+    let snapshot: Value = serde_json::from_str(&text).expect("snapshot is JSON");
+    let mut offered: Vec<&str> = snapshot
+        .as_array()
+        .expect("a list of tools")
+        .iter()
+        .map(|tool| tool["name"].as_str().expect("a name"))
+        .collect();
+    offered.sort_unstable();
+    let mut allowed = kkt_llm_agent_config::KKT_AGENT_TOOLS.to_vec();
+    allowed.sort_unstable();
+    assert_eq!(allowed, offered);
 }

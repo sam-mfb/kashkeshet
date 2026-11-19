@@ -8,16 +8,15 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+thiserror.workspace = true
+kkt-keys = { path = "../kkt-keys" }
 kkt-clock = { path = "../kkt-clock" }
-kkt-config = { path = "../kkt-config" }
-reqwest = { workspace = true, optional = true }
-serde_json.workspace = true
 url.workspace = true
 
 [dev-dependencies]
+kkt-keys = { path = "../kkt-keys", features = ["testing"] }
 kkt-clock = { path = "../kkt-clock", features = ["testing"] }
 
 [features]
-# The key file reads and the probes (probe.rs): they read files and reach a
-# server over HTTP.
-real = ["dep:reqwest"]
+# `testing::Memory`, a stand-in `Prober` with key files and answers in memory.
+testing = []

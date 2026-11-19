@@ -7,6 +7,9 @@ license.workspace = true
 repository.workspace = true
 publish = false
 
+[dependencies]
+thiserror.workspace = true
+
 [features]
-# `OsDisk`: the machine's files, and its `git`.
-real = []
+# `testing::Memory`, a stand-in `LaneCommit` with commits in memory.
+testing = []

@@ -1,0 +1,15 @@
+[package]
+name = "kkt-log-tracing"
+description = "The structured log contract over tracing, starting its subscriber, and the log level setting"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+[dependencies]
+kkt-log = { path = "../kkt-log" }
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+

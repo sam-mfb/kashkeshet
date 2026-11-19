@@ -8,4 +8,4 @@ repository.workspace = true
 publish = false
 
 [dependencies]
-kkt-config = { path = "../kkt-config" }
+thiserror.workspace = true

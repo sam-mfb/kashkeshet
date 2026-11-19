@@ -1,7 +1,7 @@
 # Development
 
-[PRINCIPLES.md](../PRINCIPLES.md) holds the coding principles and how code
-is organized. [CLAUDE.md](../CLAUDE.md) holds the rules for working on kkt:
+[principles/](../principles/) holds the general principles: architecture,
+coding and Rust. [CLAUDE.md](../CLAUDE.md) holds the rules for working on kkt:
 the design principles, where the code lives, and how to test. Both are
 written for people and agents alike.
 
@@ -26,7 +26,7 @@ The web page can run on its own, with simulated data and no database, MCP
 or agents:
 
 ```
-cargo run -p kkt-web --example web_preview -- --seed 7 --rate 60
+cargo run -p kkt-webapp-preview -- --seed 7 --rate 60
 ```
 
 Then open <http://127.0.0.1:7421/>. The simulated world has agents, open
@@ -49,7 +49,7 @@ holds checks that run it in jsdom against a running preview; they need
 Node. Run them after changing the channel page's script:
 
 ```sh
-cargo run -p kkt-web --example web_preview -- --bind 127.0.0.1:7499 --seed 7
+cargo run -p kkt-webapp-preview -- --bind 127.0.0.1:7499 --seed 7
 cd crates/kkt-web/web_script && npm ci && node load_previous.mjs http://127.0.0.1:7499
 ```
 

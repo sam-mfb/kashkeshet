@@ -6,15 +6,43 @@ use super::adopt::{AdoptSteps, Unrecorded, adoptable};
 use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
 use super::switch::SwitchSteps;
-use kkt_client_config::Client;
-use kkt_config::{
-    DEFAULT_SETUP_ADMIN_KEY, DEFAULT_SETUP_ADMIN_NAME, DEFAULT_SETUP_CONNECT_CLIENT,
-    DEFAULT_SETUP_CONTAINERS, DEFAULT_SETUP_CONTINUE, DEFAULT_SETUP_KEY, DEFAULT_SETUP_MODE_INDEX,
-    DEFAULT_SETUP_TAILSCALE, DEFAULT_SETUP_TRY_AGAIN, DEFAULT_SETUP_URL, DEFAULT_TS_HOSTNAME,
-    MAX_ADMIN_NAME_CHARS, SETUP_DOCKER_HOST,
-};
-use kkt_names::AdminName;
+use crate::StepError;
+use crate::flow_error::{ResumeFrom, SetupError, Stopped, UnfinishedAdvice};
+use kkt_llm_agent_config::Client;
+use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
+
+/// The machine name `kkt setup` asks for on the tailnet.
+pub(super) const DEFAULT_TS_HOSTNAME: &str = "kkt";
+/// The admin name `kkt setup` gives a new admin key when not asked, at a
+/// terminal (where it is offered) or without one. It becomes
+/// `admin-supervisor`.
+const DEFAULT_SETUP_ADMIN_NAME: &str = "supervisor";
+/// Whether `kkt setup` makes an admin key when it is not asked, at a
+/// terminal or without one.
+const DEFAULT_SETUP_ADMIN_KEY: bool = false;
+/// The zero-based mode option Enter accepts during interactive setup (Docker).
+const DEFAULT_SETUP_MODE_INDEX: usize = 0;
+/// Whether Enter allows agents in local containers during interactive setup.
+const DEFAULT_SETUP_CONTAINERS: bool = true;
+/// The name Docker gives containers for the machine they run on, which a
+/// server set up for agents in local containers also answers to.
+const SETUP_DOCKER_HOST: &str = "host.docker.internal";
+/// Whether Enter tries a failed step again during interactive setup.
+const DEFAULT_SETUP_TRY_AGAIN: bool = true;
+/// Whether Enter continues an unfinished setup during interactive setup.
+const DEFAULT_SETUP_CONTINUE: bool = true;
+/// Whether Enter connects a client found during interactive setup.
+const DEFAULT_SETUP_CONNECT_CLIENT: bool = true;
+/// Whether `kkt setup` lets the clients it connects always use kkt's tools
+/// and `kkt watch` when it is not asked, at a terminal or without one.
+const DEFAULT_SETUP_ALLOW_KKT: bool = false;
+/// Whether Enter shares the server over Tailscale during interactive setup.
+const DEFAULT_SETUP_TAILSCALE: bool = false;
+/// The client-only server address Enter accepts during interactive setup.
+pub(super) const DEFAULT_SETUP_URL: &str = "http://127.0.0.1:7420/mcp";
+/// The client-only access key Enter accepts (no key).
+pub(super) const DEFAULT_SETUP_KEY: &str = "";
 
 /// What this machine is for, as chosen with `--mode` or asked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -64,6 +92,11 @@ pub struct Answers {
     pub allow_hosts: Option<Vec<String>>,
     /// The clients to connect. Empty means none.
     pub clients: Option<Vec<Client>>,
+    /// Let the clients connected always use kkt's tools and `kkt watch`,
+    /// without asking each time. Asked at a terminal when a client that
+    /// has such a setting is chosen; without a terminal, or when
+    /// continuing a setup, [`DEFAULT_SETUP_ALLOW_KKT`].
+    pub allow_kkt: Option<bool>,
     /// For Docker over Tailscale: the machine name to ask for;
     /// [`DEFAULT_TS_HOSTNAME`] if not given.
     pub ts_hostname: Option<String>,
@@ -98,53 +131,62 @@ pub struct Installed {
     pub key_file: Option<PathBuf>,
 }
 
-/// What `kkt setup` does to the machine. The real implementation is in the
-/// program's `src/commands/setup/steps.rs`. It includes what `kkt switch` does ([`SwitchSteps`]) and how
-/// setup finds a server to adopt ([`AdoptSteps`]).
+/// What `kkt setup` does to the machine. It includes what `kkt switch` does
+/// ([`SwitchSteps`]) and how setup finds a server to adopt ([`AdoptSteps`]).
 pub trait Steps: SwitchSteps + AdoptSteps {
     /// Installs and starts the server as a service that also answers to
     /// `allow_hosts`.
-    fn install_service(&self, tailscale: bool, allow_hosts: &[String])
-    -> Result<Installed, String>;
+    fn install_service(
+        &self,
+        tailscale: bool,
+        allow_hosts: &[String],
+    ) -> Result<Installed, StepError>;
     /// Sets up and starts the server in Docker, shared over Tailscale with
     /// `tailscale` if given, and also answering to `allow_hosts`.
     fn install_docker(
         &self,
         tailscale: Option<&TailscaleLogin>,
         allow_hosts: &[String],
-    ) -> Result<(Installed, DockerSetup), String>;
+    ) -> Result<(Installed, DockerSetup), StepError>;
     /// Saves an access key typed in for a client-only machine where nothing
     /// uses it yet, readable only by its owner, and returns where.
-    fn stage_key(&self, key: &str) -> Result<PathBuf, String>;
+    fn stage_key(&self, key: &str) -> Result<PathBuf, StepError>;
     /// Moves a staged key to where clients of the server at `url` keep it,
     /// and returns that path. Keys for other servers are left alone.
-    fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, String>;
+    fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, StepError>;
     /// Removes a staged key that won't be kept.
-    fn discard_key(&self, staged: &Path) -> Result<(), String>;
+    fn discard_key(&self, staged: &Path) -> Result<(), StepError>;
     /// The clients installed on this machine.
     fn detect_clients(&self) -> Vec<Client>;
+    /// Lets `client`, connected to kkt, always use kkt's tools and `kkt
+    /// watch`, adding only those rules to its own files. Called only for a
+    /// client that can ([`Client::can_allow_kkt`]). Returns what it did.
+    fn allow_kkt(&self, client: Client) -> Result<String, StepError>;
     /// Checks the connection to the server `record`'s clients use. Returns
     /// the report, or the report as an error when it found problems.
-    fn doctor(&self, record: &Record) -> Result<String, String>;
+    fn doctor(&self, record: &Record) -> Result<String, StepError>;
     /// The server an earlier setup installed but did not record, if one was
     /// noted and is still installed.
-    fn unfinished(&self) -> Result<Option<Unfinished>, String>;
+    fn unfinished(&self) -> Result<Option<Unfinished>, StepError>;
     /// Notes a server just installed, until the record is written.
-    fn save_unfinished(&self, unfinished: &Unfinished) -> Result<(), String>;
+    fn save_unfinished(&self, unfinished: &Unfinished) -> Result<(), StepError>;
     /// Removes the note, if there is one, once the record covers the server.
-    fn forget_unfinished(&self) -> Result<(), String>;
+    fn forget_unfinished(&self) -> Result<(), StepError>;
     /// Gives the server installed as `record` an admin key named `name`,
     /// unless it has one, and restarts it so it serves `/mcp-admin`. Returns
     /// where this machine keeps the key.
-    fn add_admin_key(&self, record: &Record, name: &AdminName) -> Result<PathBuf, String>;
+    fn add_admin_key(&self, record: &Record, name: &AdminName) -> Result<PathBuf, StepError>;
     /// Reads the lane files in `folder` and checks every lane as `kkt lanes
     /// import` would on the `purpose` server set up here, with that server's
     /// lane text limit, changing nothing; returns how many lanes it has. An
     /// error says which file or lane is wrong.
-    fn check_lanes(&self, folder: &Path, purpose: Purpose) -> Result<usize, String>;
+    fn check_lanes(&self, folder: &Path, purpose: Purpose) -> Result<usize, StepError>;
     /// Imports the lane files in `folder` into the server installed as
     /// `record`, as `kkt lanes import` does. Returns its report.
-    fn import_lanes(&self, record: &Record, folder: &Path) -> Result<String, String>;
+    fn import_lanes(&self, record: &Record, folder: &Path) -> Result<String, StepError>;
+    /// Checks, changing nothing, that `key`, typed in for a client and
+    /// trimmed, is a valid access key. Returns why not as an error.
+    fn check_typed_key(&self, key: &str) -> Result<(), StepError>;
 }
 
 const MODE: Question = Question {
@@ -187,6 +229,12 @@ const ADMIN_NAME: Question = Question {
 };
 /// The flag that gives a folder of lanes. Setup never asks for one.
 const LANES_FLAG: &str = "--lanes";
+const ALLOW_KKT: Question = Question {
+    text: "Allow the clients set up here to always use kkt's tools and `kkt watch`, without \
+           asking each time?",
+    flag: "--allow-kkt or --no-allow-kkt",
+    default: Some(DEFAULT_SETUP_ALLOW_KKT),
+};
 const URL: Question = Question {
     text: "The server's MCP address, such as https://kkt.tail1234.ts.net/mcp:",
     flag: "--url",
@@ -231,12 +279,17 @@ const KEY: Question = Question {
 /// A folder of lanes, given with `--lanes`, is checked with the other
 /// answers and imported last, once the setup is recorded. Setup does not
 /// ask about lanes.
+///
+/// `version` is the running kkt's, written into the record, and `mcp_path`
+/// is the path of the server's MCP endpoint, which the web page's address
+/// leaves off.
 pub fn run(
     answers: &Answers,
     version: &str,
+    mcp_path: &str,
     ask: &dyn Ask,
     steps: &dyn Steps,
-) -> Result<Record, String> {
+) -> Result<Record, SetupError> {
     let offer = ask.interactive() && !answers.yes;
     let local = match steps.recorded() {
         Ok(record) => record.filter(Record::runs_server),
@@ -271,7 +324,7 @@ pub fn run(
                 false => resumed_admin_key(answers)?,
             },
         ),
-        None => match adoptable(answers, ask, steps)? {
+        None => match adoptable(answers, ask, steps).map_err(SetupError::Adopt)? {
             // Adopting installs nothing, an admin key included.
             Some(found) => (Plan::Adopt(found), None),
             None => match ask_plan(answers, ask, steps)? {
@@ -317,7 +370,11 @@ pub fn run(
                 Some(record) => (record, unfinished),
                 None => install(unfinished, version, offer, ask, steps)?,
             };
-            (record, None, unfinished.clients.clone(), Some(unfinished))
+            let chosen = Chosen {
+                allow_kkt: resumed_allow_kkt(answers, &unfinished.clients, ask),
+                clients: unfinished.clients.clone(),
+            };
+            (record, None, chosen, Some(unfinished))
         }
         Plan::Server(purpose, tailscale, allow_hosts) => {
             let tailscale_login =
@@ -328,28 +385,24 @@ pub fn run(
                         .unwrap_or_else(|| DEFAULT_TS_HOSTNAME.to_string()),
                     auth_key_file: answers.ts_authkey_file.clone(),
                 });
+            let chosen = choose(answers, ask, steps)?;
             let unfinished = Unfinished {
                 purpose,
                 tailscale,
                 allow_hosts,
-                clients: choose_clients(answers, ask, steps)?,
+                clients: chosen.clients.clone(),
                 tailscale_login,
                 record: None,
             };
             retried(offer, ask, "Noting the install", || {
                 steps.save_unfinished(&unfinished)
             })
-            .map_err(|e| {
-                format!(
-                    "{e}
-setup notes the install before starting it, so nothing was changed"
-                )
-            })?;
+            .map_err(|e| SetupError::NotNoted(Box::new(e)))?;
             let (record, unfinished) = install(unfinished, version, offer, ask, steps)?;
-            (record, None, unfinished.clients.clone(), Some(unfinished))
+            (record, None, chosen, Some(unfinished))
         }
         Plan::Client(ClientAnswers { url, key }) => {
-            let chosen = choose_clients(answers, ask, steps)?;
+            let chosen = choose(answers, ask, steps)?;
             if records_noted {
                 ask.tell(
                     "Setting up this machine's clients records that server too, so kkt manages \
@@ -391,7 +444,7 @@ setup notes the install before starting it, so nothing was changed"
             }
         }
         Plan::Adopt(found) => {
-            let chosen = choose_clients(answers, ask, steps)?;
+            let chosen = choose(answers, ask, steps)?;
             let record = found.record(version);
             // Recorded first: it says only what is installed, so a check
             // that fails below (such as one an upgrade would fix) leaves
@@ -399,14 +452,9 @@ setup notes the install before starting it, so nothing was changed"
             retried(offer, ask, "Writing the setup record", || {
                 steps.write_record(&record)
             })?;
-            let record =
-                finish(record, None, chosen, Finish::Adopted, offer, ask, steps).map_err(|e| {
-                    format!(
-                        "{e}.\nThe server is recorded, so `kkt status` and `kkt upgrade` manage \
-                         it. For a server set up by an older kkt, `kkt upgrade` may fix the \
-                         problem; then connect clients with `kkt connect <client> --write`."
-                    )
-                })?;
+            let record = finish(record, None, chosen, Finish::Adopted, offer, ask, steps)
+                .map_err(|e| SetupError::Adopted(Box::new(e)))?;
+            ask.tell(&set_up_line(&record, mcp_path));
             return import_lanes(record, lanes.as_deref(), offer, ask, steps);
         }
     };
@@ -417,7 +465,10 @@ setup notes the install before starting it, so nothing was changed"
             steps.add_admin_key(&record, name)
         })
     {
-        return Err(format!("{e}\n{}", unfinished_advice(unfinished)));
+        return Err(SetupError::Unfinished {
+            cause: Box::new(e),
+            advice: unfinished_advice(unfinished),
+        });
     }
 
     // A recorded noted server is installed, so its note goes once recorded.
@@ -427,9 +478,13 @@ setup notes the install before starting it, so nothing was changed"
     };
     let finished = finish(record, staged.as_deref(), chosen, kind, offer, ask, steps);
     let record = finished.map_err(|e| match &unfinished {
-        Some(unfinished) => format!("{e}.\n{}", unfinished_advice(unfinished)),
-        None => format!("{e}; fix that and run `kkt setup` again"),
+        Some(unfinished) => SetupError::NotRecorded {
+            cause: Box::new(e),
+            advice: unfinished_advice(unfinished),
+        },
+        None => SetupError::FixAndRerun(Box::new(e)),
     })?;
+    ask.tell(&set_up_line(&record, mcp_path));
     import_lanes(record, lanes.as_deref(), offer, ask, steps)
 }
 
@@ -442,7 +497,7 @@ fn lanes_folder(
     plan: &Plan,
     ask: &dyn Ask,
     steps: &dyn Steps,
-) -> Result<Option<PathBuf>, String> {
+) -> Result<Option<PathBuf>, SetupError> {
     let Some(Some(folder)) = &answers.lanes else {
         return Ok(None);
     };
@@ -451,15 +506,15 @@ fn lanes_folder(
         Plan::Resume(unfinished) => unfinished.purpose,
         Plan::Adopt(found) => found.purpose(),
         Plan::Client(_) => {
-            return Err(
-                "--lanes is for a server: run `kkt lanes import` on the machine where it runs"
-                    .into(),
-            );
+            return Err(SetupError::LanesForClient);
         }
     };
     let count = steps
         .check_lanes(folder, purpose)
-        .map_err(|problem| flag_failed(LANES_FLAG, &problem))?;
+        .map_err(|problem| SetupError::FlagFailed {
+            flag: LANES_FLAG,
+            problem,
+        })?;
     ask.tell(&format!(
         "Found {count} lanes in {}; setup imports them once the server is set up.",
         folder.display()
@@ -476,7 +531,7 @@ fn import_lanes(
     offer: bool,
     ask: &dyn Ask,
     steps: &dyn Steps,
-) -> Result<Record, String> {
+) -> Result<Record, SetupError> {
     let Some(folder) = folder else {
         return Ok(record);
     };
@@ -487,11 +542,10 @@ fn import_lanes(
             ask.tell(&report);
             Ok(record)
         }
-        Err(e) => Err(format!(
-            "{e}\nThe setup is recorded, but the lanes were not imported; import them with \
-             `kkt lanes import {}`",
-            folder.display()
-        )),
+        Err(e) => Err(SetupError::LanesNotImported {
+            cause: Box::new(e),
+            folder: folder.to_path_buf(),
+        }),
     }
 }
 
@@ -504,7 +558,7 @@ fn install(
     offer: bool,
     ask: &dyn Ask,
     steps: &dyn Steps,
-) -> Result<(Record, Unfinished), String> {
+) -> Result<(Record, Unfinished), SetupError> {
     let (tailscale, allow_hosts) = (unfinished.tailscale, &unfinished.allow_hosts);
     let installed = retried(offer, ask, "Installing the server", || {
         match unfinished.purpose {
@@ -518,7 +572,12 @@ fn install(
     });
     let (mode, installed) = match installed {
         Ok(done) => done,
-        Err(e) => return Err(format!("{e}\n{}", unfinished_advice(&unfinished))),
+        Err(e) => {
+            return Err(SetupError::Unfinished {
+                cause: Box::new(e),
+                advice: unfinished_advice(&unfinished),
+            });
+        }
     };
     let record = Record {
         mode,
@@ -538,16 +597,14 @@ fn install(
 
 /// What to tell the person about a server installed, or begun, but not
 /// recorded.
-fn unfinished_advice(unfinished: &Unfinished) -> String {
-    let from = match unfinished.record {
-        Some(_) => "the connection check",
-        None => "the install",
-    };
-    format!(
-        "{} Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` \
-         again to finish: it continues from {from}.",
-        unfinished.summary()
-    )
+fn unfinished_advice(unfinished: &Unfinished) -> UnfinishedAdvice {
+    UnfinishedAdvice {
+        summary: unfinished.summary(),
+        from: match unfinished.record {
+            Some(_) => ResumeFrom::TheConnectionCheck,
+            None => ResumeFrom::TheInstall,
+        },
+    }
 }
 
 /// The server an earlier setup installed, or began to, but did not record,
@@ -557,18 +614,14 @@ fn resumable(
     answers: &Answers,
     ask: &dyn Ask,
     noted: Option<Unfinished>,
-) -> Result<Option<Unfinished>, String> {
+) -> Result<Option<Unfinished>, SetupError> {
     let Some(unfinished) = noted else {
         return Ok(None);
     };
     ask.tell(&unfinished.summary());
     // Continuing it would install, and --adopt installs nothing.
     if answers.adopt && unfinished.record.is_none() {
-        return Err(
-            "--adopt installs nothing, but this setup had not finished installing its server; \
-             run `kkt setup` without --adopt to continue it"
-                .into(),
-        );
+        return Err(SetupError::AdoptUnfinishedInstall);
     }
     let login = unfinished.tailscale_login.as_ref();
     let differs = answers.purpose.is_some_and(|p| p != unfinished.purpose)
@@ -591,7 +644,7 @@ fn resumable(
         ask.tell("The answers given now are different, so setup starts over.");
         return Ok(None);
     }
-    if ask.interactive() && !answers.yes && !ask.confirm(CONTINUE)? {
+    if ask.interactive() && !answers.yes && !ask.confirm(CONTINUE).map_err(SetupError::Ask)? {
         return Ok(None);
     }
     ask.tell(match unfinished.record {
@@ -602,12 +655,14 @@ fn resumable(
 }
 
 /// Asks the questions that decide what to set up.
-fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan, String> {
+fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan, SetupError> {
     let purpose = match answers.purpose {
         Some(purpose) => purpose,
         None => {
             let options = Purpose::ALL.map(Purpose::describe);
-            Purpose::ALL[ask.choose(MODE, &options, DEFAULT_SETUP_MODE_INDEX)?]
+            Purpose::ALL[ask
+                .choose(MODE, &options, DEFAULT_SETUP_MODE_INDEX)
+                .map_err(SetupError::Ask)?]
         }
     };
     if purpose == Purpose::Client {
@@ -615,11 +670,13 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
     }
     let tailscale = match answers.tailscale {
         Some(answer) => answer,
-        None => ask.confirm(TAILSCALE)?,
+        None => ask.confirm(TAILSCALE).map_err(SetupError::Ask)?,
     };
     let allow_hosts = match &answers.allow_hosts {
         Some(hosts) => hosts.clone(),
-        None if ask.confirm(CONTAINERS)? => vec![SETUP_DOCKER_HOST.to_string()],
+        None if ask.confirm(CONTAINERS).map_err(SetupError::Ask)? => {
+            vec![SETUP_DOCKER_HOST.to_string()]
+        }
         None => Vec::new(),
     };
     Ok(Plan::Server(purpose, tailscale, allow_hosts))
@@ -629,10 +686,10 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
 /// `--admin-key` or `--no-admin-key` says, else asked at a terminal. Without
 /// a terminal it needs no flag, so setups scripted before admin keys existed
 /// run as they did.
-fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<Option<AdminName>, String> {
+fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<Option<AdminName>, SetupError> {
     let make = match answers.admin_key {
         Some(answer) => answer,
-        None if ask.interactive() => ask.confirm(ADMIN_KEY)?,
+        None if ask.interactive() => ask.confirm(ADMIN_KEY).map_err(SetupError::Ask)?,
         None => DEFAULT_SETUP_ADMIN_KEY,
     };
     if !make {
@@ -640,16 +697,20 @@ fn admin_key(answers: &Answers, ask: &dyn Ask) -> Result<Option<AdminName>, Stri
     }
     let given = match &answers.admin_name {
         Some(name) => name.clone(),
-        None if ask.interactive() => ask.text(ADMIN_NAME, DEFAULT_SETUP_ADMIN_NAME)?,
+        None if ask.interactive() => ask
+            .text(ADMIN_NAME, DEFAULT_SETUP_ADMIN_NAME)
+            .map_err(SetupError::Ask)?,
         None => DEFAULT_SETUP_ADMIN_NAME.to_string(),
     };
-    AdminName::new(&given, MAX_ADMIN_NAME_CHARS).map(Some)
+    AdminName::new(&given, MAX_ADMIN_NAME_CHARS)
+        .map(Some)
+        .map_err(SetupError::AdminName)
 }
 
 /// The admin key to add when continuing a setup: only `--admin-key` adds
 /// one, named by `--admin-name` or [`DEFAULT_SETUP_ADMIN_NAME`]. Continuing
 /// asks nothing more.
-fn resumed_admin_key(answers: &Answers) -> Result<Option<AdminName>, String> {
+fn resumed_admin_key(answers: &Answers) -> Result<Option<AdminName>, SetupError> {
     if !answers.admin_key.unwrap_or(DEFAULT_SETUP_ADMIN_KEY) {
         return Ok(None);
     }
@@ -657,7 +718,9 @@ fn resumed_admin_key(answers: &Answers) -> Result<Option<AdminName>, String> {
         .admin_name
         .as_deref()
         .unwrap_or(DEFAULT_SETUP_ADMIN_NAME);
-    AdminName::new(given, MAX_ADMIN_NAME_CHARS).map(Some)
+    AdminName::new(given, MAX_ADMIN_NAME_CHARS)
+        .map(Some)
+        .map_err(SetupError::AdminName)
 }
 
 /// What [`finish`] completes.
@@ -673,37 +736,36 @@ enum Finish {
 }
 
 /// Everything after the install: checks the connection, keeps a staged
-/// key, connects `chosen`, and writes the record, unless it was adopted and
-/// so is recorded already. An error says what failed, and that nothing was
-/// recorded.
+/// key, connects the clients `chosen`, lets them always use kkt if chosen
+/// so (a failure there is only reported), and writes the record, unless it
+/// was adopted and so is recorded already. An error says what failed, and
+/// that nothing was recorded.
 fn finish(
     mut record: Record,
     staged: Option<&Path>,
-    chosen: Vec<Client>,
+    chosen: Chosen,
     kind: Finish,
     offer: bool,
     ask: &dyn Ask,
     steps: &dyn Steps,
-) -> Result<Record, String> {
+) -> Result<Record, SetupError> {
     let stopped = match kind {
-        Finish::Adopted => "so setup stopped there",
-        Finish::Installed | Finish::Clients => "so nothing was recorded",
+        Finish::Adopted => Stopped::SetupStopped,
+        Finish::Installed | Finish::Clients => Stopped::NothingRecorded,
     };
     match retried(offer, ask, "The connection check", || steps.doctor(&record)) {
         Ok(report) => ask.tell(&report),
         Err(report) => {
             // When it offered to try again, `retried` has shown it.
             if !offer {
-                ask.tell(&report);
+                ask.tell(&report.to_string());
             }
             if let Some(staged) = staged
                 && let Err(e) = steps.discard_key(staged)
             {
                 ask.tell(&format!("Could not remove the unused key: {e}"));
             }
-            return Err(format!(
-                "the connection check found problems (see the fixes above), {stopped}"
-            ));
+            return Err(SetupError::CheckFailed { stopped });
         }
     }
     if let Some(staged) = staged {
@@ -718,7 +780,7 @@ fn finish(
     }
 
     let mut failed = Vec::new();
-    for client in chosen {
+    for &client in &chosen.clients {
         let what = format!("Connecting {}", client.display_name());
         match retried(offer, ask, &what, || steps.connect(client, &record)) {
             Ok(done) => ask.tell(&done),
@@ -731,10 +793,13 @@ fn finish(
         }
     }
     if !failed.is_empty() {
-        return Err(format!(
-            "could not connect {}, {stopped}",
-            failed.join(", ")
-        ));
+        return Err(SetupError::NotConnected {
+            clients: failed.iter().map(|c| c.to_string()).collect(),
+            stopped,
+        });
+    }
+    if chosen.allow_kkt {
+        allow_kkt(&chosen.clients, offer, ask, steps);
     }
 
     if kind != Finish::Adopted {
@@ -749,8 +814,14 @@ fn finish(
             "The setup is recorded, but the note of it as unfinished could not be removed: {e}"
         ));
     }
-    let web = record.url.strip_suffix("/mcp").unwrap_or(&record.url);
-    ask.tell(&match (&record.clients, record.local_server()) {
+    Ok(record)
+}
+
+/// The line setup ends with: who uses which server, and the web page's
+/// address, which is the server's address without `mcp_path`.
+fn set_up_line(record: &Record, mcp_path: &str) -> String {
+    let web = record.url.strip_suffix(mcp_path).unwrap_or(&record.url);
+    match (&record.clients, record.local_server()) {
         (Some(clients), Some(local)) => format!(
             "This machine's clients use {}. {local}, at {}, with the web page at {web}/.",
             clients.url, record.url
@@ -760,14 +831,46 @@ fn finish(
             record.mode.name(),
             record.url
         ),
-    });
-    Ok(record)
+    }
+}
+
+/// Lets each of `clients`, just connected, always use kkt's tools and `kkt
+/// watch`. A client with no such setting is named and passed over. A
+/// client whose settings cannot be changed is named with the reason and
+/// how to try again, and setup goes on: the server and the connections
+/// work without it.
+fn allow_kkt(clients: &[Client], offer: bool, ask: &dyn Ask, steps: &dyn Steps) {
+    for &client in clients {
+        if !client.can_allow_kkt() {
+            ask.tell(&format!(
+                "{} has no setting that lets kkt's tools and `kkt watch` run without asking, \
+                 so it still asks each time.",
+                client.display_name()
+            ));
+            continue;
+        }
+        let what = format!("Allowing kkt in {}", client.display_name());
+        match retried(offer, ask, &what, || steps.allow_kkt(client)) {
+            Ok(done) => ask.tell(&done),
+            // When it offered to try again, `retried` has shown the reason.
+            Err(e) => ask.tell(&format!(
+                "Could not allow kkt in {}{}. Setup goes on without it; \
+                 `kkt setup --allow-kkt` tries again.",
+                client.display_name(),
+                if offer {
+                    String::new()
+                } else {
+                    format!(": {e}")
+                }
+            )),
+        }
+    }
 }
 
 /// Refuses to set up a `purpose` server on a machine whose record says a
 /// `local` server of the other kind runs here: it would keep running, but
 /// kkt would no longer manage it.
-fn keeps_local_server(local: &Record, purpose: Purpose) -> Result<(), String> {
+fn keeps_local_server(local: &Record, purpose: Purpose) -> Result<(), SetupError> {
     let same = matches!(
         (&local.mode, purpose),
         (Mode::Service { .. }, Purpose::Service) | (Mode::Docker(_), Purpose::Docker)
@@ -775,39 +878,26 @@ fn keeps_local_server(local: &Record, purpose: Purpose) -> Result<(), String> {
     if same {
         return Ok(());
     }
-    let how = match purpose {
-        Purpose::Docker => "in Docker",
-        _ => "as a service",
-    };
-    Err(format!(
-        "{} (see `kkt status`). Setting kkt up {how} instead would leave that server running \
-         with nothing to manage it, so nothing was changed. Run `kkt uninstall` first to remove \
-         it, or `kkt switch <url>` to point only this machine's clients at another server",
-        local
+    Err(SetupError::KeepsLocalServer {
+        server: local
             .local_server()
-            .unwrap_or_else(|| "kkt runs here".to_string())
-    ))
+            .unwrap_or_else(|| "kkt runs here".to_string()),
+        purpose,
+    })
 }
 
 /// Refuses to set up a `purpose` server on a machine where an earlier setup
 /// installed a server of the other kind, as `noted`, but did not record it:
 /// as with a recorded one, it would keep running with nothing to manage it.
-fn keeps_noted_server(noted: &Unfinished, purpose: Purpose) -> Result<(), String> {
+fn keeps_noted_server(noted: &Unfinished, purpose: Purpose) -> Result<(), SetupError> {
     if noted.purpose == purpose {
         return Ok(());
     }
-    let how = match purpose {
-        Purpose::Docker => "in Docker",
-        _ => "as a service",
-    };
-    Err(format!(
-        "{} Setting kkt up {how} instead would leave that server running with nothing to \
-         manage it, so nothing was changed. Run `kkt setup --mode {}` to finish that setup \
-         first; then `kkt uninstall` removes it, or `kkt switch <url>` points only this \
-         machine's clients at another server",
-        noted.summary(),
-        noted.purpose.name()
-    ))
+    Err(SetupError::KeepsNotedServer {
+        summary: noted.summary(),
+        purpose,
+        noted: noted.purpose,
+    })
 }
 
 /// What setup says before it switches the clients of the `local` server's
@@ -830,21 +920,21 @@ fn retried<T>(
     offer: bool,
     ask: &dyn Ask,
     what: &str,
-    mut step: impl FnMut() -> Result<T, String>,
-) -> Result<T, String> {
+    mut step: impl FnMut() -> Result<T, StepError>,
+) -> Result<T, SetupError> {
     loop {
         let problem = match step() {
             Ok(done) => return Ok(done),
             Err(problem) => problem,
         };
         if !offer {
-            return Err(problem);
+            return Err(SetupError::Step(problem));
         }
         ask.tell(&format!("{what} did not work:\n{problem}"));
         match ask.confirm(TRY_AGAIN) {
             Ok(true) => {}
-            Ok(false) => return Err(problem),
-            Err(e) => return Err(format!("{problem}\n{e}")),
+            Ok(false) => return Err(SetupError::Step(problem)),
+            Err(ask) => return Err(SetupError::RetryUnanswered { problem, ask }),
         }
     }
 }
@@ -886,7 +976,7 @@ fn client_answers(
     answers: &Answers,
     ask: &dyn Ask,
     steps: &dyn Steps,
-) -> Result<ClientAnswers, String> {
+) -> Result<ClientAnswers, SetupError> {
     loop {
         let url = checked_address(answers, ask, steps)?;
         if let Some(key) = checked_key(&url, answers, ask, steps)? {
@@ -896,15 +986,23 @@ fn client_answers(
 }
 
 /// The server's address, once it passes its check.
-fn checked_address(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<String, String> {
+fn checked_address(
+    answers: &Answers,
+    ask: &dyn Ask,
+    steps: &dyn Steps,
+) -> Result<String, SetupError> {
     loop {
         let url = match &answers.url {
             Some(url) => url.trim().to_string(),
-            None => ask.text(URL, DEFAULT_SETUP_URL)?.trim().to_string(),
+            None => ask
+                .text(URL, DEFAULT_SETUP_URL)
+                .map_err(SetupError::Ask)?
+                .trim()
+                .to_string(),
         };
-        match check_address(&url, steps) {
+        match steps.check_address(&url) {
             Ok(()) => return Ok(url),
-            Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, &problem)),
+            Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, problem)),
             Err(problem) => ask.tell(&format!("That address did not work:\n{problem}")),
         }
     }
@@ -919,14 +1017,17 @@ fn checked_key(
     answers: &Answers,
     ask: &dyn Ask,
     steps: &dyn Steps,
-) -> Result<Option<ClientKey>, String> {
+) -> Result<Option<ClientKey>, SetupError> {
     loop {
         let key = match &answers.key_file {
             Some(path) => ClientKey::File(path.clone()),
-            None => match typed_key(&ask.text(KEY, DEFAULT_SETUP_KEY)?) {
+            None => match typed_key(
+                &ask.text(KEY, DEFAULT_SETUP_KEY).map_err(SetupError::Ask)?,
+                steps,
+            ) {
                 Ok(key) => key,
                 Err(problem) => {
-                    ask.tell(&problem);
+                    ask.tell(&problem.to_string());
                     continue;
                 }
             },
@@ -935,43 +1036,76 @@ fn checked_key(
             return Ok(Some(key));
         };
         match steps.check_address(url) {
-            Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, &problem)),
+            Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, problem)),
             Err(problem) => {
                 ask.tell(&format!("That address no longer works:\n{problem}"));
                 return Ok(None);
             }
-            Ok(()) if answers.key_file.is_some() => return Err(flag_failed(KEY.flag, &problem)),
+            Ok(()) if answers.key_file.is_some() => return Err(flag_failed(KEY.flag, problem)),
             Ok(()) => ask.tell(&format!("The server did not accept that key:\n{problem}")),
         }
     }
 }
 
-/// Checks that `url` is an address and that a server answers there.
-pub(super) fn check_address(url: &str, steps: &dyn SwitchSteps) -> Result<(), String> {
-    if !(url.starts_with("http://") || url.starts_with("https://")) {
-        return Err(format!(
-            "{url:?} is not a server address: it starts with http:// or https://"
-        ));
-    }
-    steps.check_address(url)
-}
-
-/// The key typed in answer to [`KEY`]: none when blank.
-fn typed_key(text: &str) -> Result<ClientKey, String> {
+/// The key typed in answer to [`KEY`]: none when blank. A key the steps
+/// find malformed is refused before any server is asked.
+fn typed_key(text: &str, steps: &dyn Steps) -> Result<ClientKey, SetupError> {
     match text.trim() {
         "" => Ok(ClientKey::None),
         key => {
-            kkt_config::check_access_key(key).map_err(|e| format!("that key is not valid: {e}"))?;
+            steps.check_typed_key(key).map_err(SetupError::InvalidKey)?;
             Ok(ClientKey::Typed(key.to_string()))
         }
     }
 }
 
 /// The error for an answer given as `flag` that failed its check.
-fn flag_failed(flag: &str, problem: &str) -> String {
-    format!(
-        "the answer given with {flag} did not pass its check, so nothing was changed:\n{problem}"
-    )
+fn flag_failed(flag: &'static str, problem: StepError) -> SetupError {
+    SetupError::FlagFailed { flag, problem }
+}
+
+/// The clients to connect, and whether to let them always use kkt.
+struct Chosen {
+    clients: Vec<Client>,
+    allow_kkt: bool,
+}
+
+/// The clients to connect ([`choose_clients`]), then whether to let them
+/// always use kkt: as `--allow-kkt` or `--no-allow-kkt` says, else asked at
+/// a terminal, only when a chosen client has such a setting. Without a
+/// terminal it needs no flag, so setups scripted before it existed run as
+/// they did.
+fn choose(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Chosen, SetupError> {
+    let clients = choose_clients(answers, ask, steps)?;
+    let allow_kkt = match answers.allow_kkt {
+        Some(answer) => answer,
+        None if ask.interactive() && clients.iter().any(|c| c.can_allow_kkt()) => {
+            ask.confirm(ALLOW_KKT).map_err(SetupError::Ask)?
+        }
+        None => DEFAULT_SETUP_ALLOW_KKT,
+    };
+    Ok(Chosen { clients, allow_kkt })
+}
+
+/// Whether to let `clients` always use kkt when continuing a setup:
+/// continuing asks nothing more, so only `--allow-kkt` does. An answer
+/// given to the earlier setup is not kept, so without either flag, when a
+/// client could be allowed, setup says so and names the flag.
+fn resumed_allow_kkt(answers: &Answers, clients: &[Client], ask: &dyn Ask) -> bool {
+    if !clients.iter().any(|c| c.can_allow_kkt()) {
+        return false;
+    }
+    match answers.allow_kkt {
+        Some(answer) => answer,
+        None => {
+            ask.tell(
+                "Continuing does not ask whether the clients may always use kkt's tools and \
+                 `kkt watch`, so their permissions stay as they are; `kkt setup --allow-kkt` \
+                 changes them.",
+            );
+            DEFAULT_SETUP_ALLOW_KKT
+        }
+    }
 }
 
 /// The clients to connect: those given with `--clients`, or each one found
@@ -980,7 +1114,7 @@ fn choose_clients(
     answers: &Answers,
     ask: &dyn Ask,
     steps: &dyn Steps,
-) -> Result<Vec<Client>, String> {
+) -> Result<Vec<Client>, SetupError> {
     if let Some(chosen) = &answers.clients {
         return Ok(chosen.clone());
     }
@@ -991,7 +1125,7 @@ fn choose_clients(
             flag: "--clients",
             default: Some(DEFAULT_SETUP_CONNECT_CLIENT),
         };
-        if answers.yes || ask.confirm(question)? {
+        if answers.yes || ask.confirm(question).map_err(SetupError::Ask)? {
             chosen.push(client);
         }
     }

@@ -1,57 +1,16 @@
-//! Agents' handles and channel IDs, and the random characters that IDs and
-//! tokens are made of.
-//!
-//! Randomness is injected through [`Entropy`] so the rest of the system can be
-//! tested with a predictable source.
+//! Agents' handles, channel IDs, the name packs, and the operator's and
+//! admins' names. Random handles and IDs are drawn through kkt-entropy's
+//! injected [`Entropy`].
 
-/// A source of random numbers.
-pub trait Entropy: Send + Sync {
-    /// Returns a uniformly chosen number in `0..n`. `n` is never zero.
-    fn below(&self, n: usize) -> usize;
-}
+use kkt_entropy::Entropy;
 
-/// Entropy from the operating system's cryptographic generator.
-#[cfg(feature = "real")]
-pub struct OsEntropy;
+mod error;
+pub use error::{NameError, Named, Rule};
 
-#[cfg(feature = "real")]
-impl Entropy for OsEntropy {
-    fn below(&self, n: usize) -> usize {
-        use rand::RngExt;
-        rand::rng().random_range(0..n)
-    }
-}
+/// Characters used in channel IDs.
+const ID_CHARS: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
 
-/// Entropy that repeats from a seed: the same seed gives the same numbers in
-/// the same order. For simulations such as the web preview; never for tokens
-/// or keys. (SplitMix64.)
-pub struct SeededEntropy(std::sync::atomic::AtomicU64);
-
-impl SeededEntropy {
-    pub fn new(seed: u64) -> SeededEntropy {
-        SeededEntropy(std::sync::atomic::AtomicU64::new(seed))
-    }
-}
-
-impl Entropy for SeededEntropy {
-    fn below(&self, n: usize) -> usize {
-        const GAMMA: u64 = 0x9E37_79B9_7F4A_7C15;
-        let state = self
-            .0
-            .fetch_add(GAMMA, std::sync::atomic::Ordering::Relaxed)
-            .wrapping_add(GAMMA);
-        let mut z = state;
-        z = (z ^ (z >> 30)).wrapping_mul(0xBF58_476D_1CE4_E5B9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94D0_49BB_1331_11EB);
-        z ^= z >> 31;
-        (z % n as u64) as usize
-    }
-}
-
-/// Characters used in channel IDs and tokens.
-pub const ALPHABET: &[u8] = b"abcdefghijklmnopqrstuvwxyz0123456789";
-
-pub const CHANNEL_PREFIX: &str = "ch_";
+pub(crate) const CHANNEL_PREFIX: &str = "ch_";
 
 /// A pair of word lists built into the binary. Stored handles never
 /// depend on which pack is selected for future registrations.
@@ -84,7 +43,7 @@ impl NamePack {
 /// The name the human operator's messages carry. No agent can have it as
 /// its handle: drawn handles always hold a hyphen, and [`check_proposed_handle`] refuses
 /// it. The database relies on this too
-/// (`crates/kkt-store/migrations/0008_operator_messages.sql`).
+/// (`tests/migrations/sql/0008_operator_messages.sql`).
 pub const OPERATOR: &str = "operator";
 
 /// Whether `name`, as a message's or a change's author, is the human
@@ -97,7 +56,11 @@ pub fn is_operator(name: &str) -> bool {
 /// handles come from the name packs, whose words are never `admin`, and
 /// [`check_proposed_handle`] refuses it. So an admin agent can't be taken for
 /// an agent, or for the operator.
-pub const ADMIN_PREFIX: &str = "admin-";
+pub(crate) const ADMIN_PREFIX: &str = "admin-";
+
+/// The longest handle an agent may propose at `register`. Every handle
+/// the server draws, numbered forms included, fits too (tested below).
+pub const MAX_HANDLE_CHARS: usize = 40;
 
 /// Checks a handle an agent proposes for its avatar: ASCII letters of
 /// either case, digits and underscores, in words joined by single hyphens,
@@ -105,23 +68,29 @@ pub const ADMIN_PREFIX: &str = "admin-";
 /// [`ADMIN_PREFIX`], in any case. Every drawn handle passes. Whether another
 /// avatar has it is not checked here. The error says which rule the handle
 /// breaks.
-pub fn check_proposed_handle(name: &str, max_chars: usize) -> Result<(), String> {
+pub fn check_proposed_handle(name: &str, max_chars: usize) -> Result<(), NameError> {
     if !handle_words(name) {
-        return Err(format!(
-            "the handle must be letters, digits and underscores, in words joined by single hyphens, such as `api-reviewer-2` or `Api_Reviewer-2`; got {name:?}"
-        ));
+        return Err(NameError::new(Named::Handle, words(name)));
     }
     if name.len() > max_chars {
-        return Err(format!("the handle must be at most {max_chars} characters"));
+        return Err(NameError::new(
+            Named::Handle,
+            Rule::TooLong { max: max_chars },
+        ));
     }
     // In any case, so that no handle can pass for the operator or an admin.
     let lower = name.to_ascii_lowercase();
     if lower == OPERATOR || lower.starts_with(ADMIN_PREFIX) {
-        return Err(format!(
-            "`{OPERATOR}` and handles starting `{ADMIN_PREFIX}` are reserved, in any case"
-        ));
+        return Err(NameError::new(Named::Handle, Rule::Reserved));
     }
     Ok(())
+}
+
+/// The words rule, broken by `got`.
+fn words(got: &str) -> Rule {
+    Rule::Words {
+        got: got.to_string(),
+    }
 }
 
 /// Whether `name` is ASCII letters, digits and underscores, in one or more
@@ -145,43 +114,50 @@ fn plain_words(name: &str) -> bool {
         })
 }
 
+/// The longest lane name. Lane names follow the handle rules.
+pub const MAX_LANE_NAME_CHARS: usize = MAX_HANDLE_CHARS;
+
 /// Checks a lane's name: lowercase ASCII letters and digits, in words
 /// joined by single hyphens, at most `max_chars`. That is narrower than a
 /// handle: no capitals or underscores. Lane names are separate from
 /// handles: no name is reserved, and a lane may share its name with an
 /// avatar. The error says
 /// which rule the name breaks.
-pub fn check_lane_name(name: &str, max_chars: usize) -> Result<(), String> {
+pub fn check_lane_name(name: &str, max_chars: usize) -> Result<(), NameError> {
     if !plain_words(name) {
-        return Err(format!(
-            "the lane name must be lowercase letters and digits, in words joined by single hyphens, such as `orchestrator` or `code-reviewer`; got {name:?}"
-        ));
+        return Err(NameError::new(Named::Lane, words(name)));
     }
     if name.len() > max_chars {
-        return Err(format!(
-            "the lane name must be at most {max_chars} characters"
+        return Err(NameError::new(
+            Named::Lane,
+            Rule::TooLong { max: max_chars },
         ));
     }
     Ok(())
 }
 
+/// The longest name of a memory entry. Entry names follow the handle rules.
+pub const MAX_MEMORY_NAME_CHARS: usize = MAX_HANDLE_CHARS;
+
 /// Checks the name of a memory entry: lowercase ASCII letters and digits,
 /// in words joined by single hyphens, at most `max_chars`. Unlike a
 /// handle, no capitals or underscores; no name is reserved. The error says
 /// which rule the name breaks.
-pub fn check_memory_name(name: &str, max_chars: usize) -> Result<(), String> {
+pub fn check_memory_name(name: &str, max_chars: usize) -> Result<(), NameError> {
     if !plain_words(name) {
-        return Err(format!(
-            "the entry name must be lowercase letters and digits, in words joined by single hyphens, such as `handoff` or `open-questions`; got {name:?}"
-        ));
+        return Err(NameError::new(Named::MemoryEntry, words(name)));
     }
     if name.len() > max_chars {
-        return Err(format!(
-            "the entry name must be at most {max_chars} characters"
+        return Err(NameError::new(
+            Named::MemoryEntry,
+            Rule::TooLong { max: max_chars },
         ));
     }
     Ok(())
 }
+
+/// The longest admin agent name, its `admin-` prefix included.
+pub const MAX_ADMIN_NAME_CHARS: usize = 40;
 
 /// The name of the admin agent holding the admin key, given when the key is
 /// made, such as `admin-sentinel`. Changes made with the key are announced
@@ -193,7 +169,7 @@ impl AdminName {
     /// `given`, with [`ADMIN_PREFIX`] in front unless it starts with it. The
     /// rest is lowercase letters and digits, in words joined by single
     /// hyphens; the whole name has at most `max_chars`.
-    pub fn new(given: &str, max_chars: usize) -> Result<AdminName, String> {
+    pub fn new(given: &str, max_chars: usize) -> Result<AdminName, NameError> {
         let given = given.trim();
         let rest = given.strip_prefix(ADMIN_PREFIX).unwrap_or(given);
         let plain = !rest.is_empty()
@@ -204,14 +180,13 @@ impl AdminName {
                         .all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
             });
         if !plain {
-            return Err(format!(
-                "the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `{ADMIN_PREFIX}sentinel`); got {given:?}"
-            ));
+            return Err(NameError::new(Named::AdminName, words(given)));
         }
         let name = format!("{ADMIN_PREFIX}{rest}");
         if name.chars().count() > max_chars {
-            return Err(format!(
-                "the admin name must be at most {max_chars} characters, `{ADMIN_PREFIX}` included"
+            return Err(NameError::new(
+                Named::AdminName,
+                Rule::TooLong { max: max_chars },
             ));
         }
         Ok(AdminName(name))
@@ -220,45 +195,6 @@ impl AdminName {
     pub fn as_str(&self) -> &str {
         &self.0
     }
-
-    /// The text of a name file that ties this name to the admin key `key`
-    /// alone: the name, then a line with a hash of the key (never the key).
-    /// Surrounding whitespace is not part of the key, as for `SharedKey`.
-    pub fn bound_to(&self, key: &str) -> String {
-        format!("{}\n{KEY_HASH_LABEL}{}\n", self.0, key_hash(key))
-    }
-
-    /// The name in the name file `text` if it is tied to the admin key
-    /// `key`; `None` if it is tied to another key, as when the key file was
-    /// replaced without its name. An error says what is wrong with `text`.
-    /// The name is checked as [`AdminName::new`] checks it, with at most
-    /// `max_chars`.
-    pub fn bound_in(text: &str, key: &str, max_chars: usize) -> Result<Option<AdminName>, String> {
-        let mut lines = text.lines();
-        let name = AdminName::new(lines.next().unwrap_or(""), max_chars)?;
-        let Some(hash) = lines.next().and_then(|l| l.strip_prefix(KEY_HASH_LABEL)) else {
-            return Err(format!(
-                "its second line must be `{KEY_HASH_LABEL}` and a hash of the admin key"
-            ));
-        };
-        if lines.any(|l| !l.trim().is_empty()) {
-            return Err("it must have only the name and the key's hash".into());
-        }
-        Ok((hash.trim() == key_hash(key)).then_some(name))
-    }
-}
-
-/// How a name file's line with the key's hash starts.
-const KEY_HASH_LABEL: &str = "key-sha256: ";
-
-/// A SHA-256 of `key`, without surrounding whitespace, in hex. A fixed
-/// prefix keeps it from equalling a hash of the key made for anything else.
-fn key_hash(key: &str) -> String {
-    use sha2::{Digest, Sha256};
-    Sha256::digest(format!("kkt-admin-name:{}", key.trim()).as_bytes())
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect()
 }
 
 impl std::fmt::Display for AdminName {
@@ -278,64 +214,24 @@ pub fn numbered_handle(base: &str, attempt: u32) -> String {
     format!("{base}-{}", attempt + 1)
 }
 
+/// Random characters in a channel ID, after its `ch_` prefix.
+pub const CHANNEL_RANDOM_LEN: usize = 8;
+/// How many random channel IDs to try before giving up.
+pub const MAX_CHANNEL_ID_ATTEMPTS: u32 = 100;
+
 /// A random channel ID of [`CHANNEL_PREFIX`] and `random_len` characters,
 /// such as `ch_7k2m9q4x`.
 pub fn channel_id(entropy: &dyn Entropy, random_len: usize) -> String {
-    format!("{CHANNEL_PREFIX}{}", random_chars(entropy, random_len))
-}
-
-pub fn random_chars(entropy: &dyn Entropy, len: usize) -> String {
-    (0..len)
-        .map(|_| ALPHABET[entropy.below(ALPHABET.len())] as char)
-        .collect()
-}
-
-#[cfg(any(test, feature = "testing"))]
-pub mod testing {
-    use super::Entropy;
-    use std::sync::atomic::{AtomicU64, Ordering};
-
-    /// A predictable entropy source for tests (a simple linear congruential generator).
-    pub struct SeqEntropy(AtomicU64);
-
-    impl SeqEntropy {
-        pub fn new(seed: u64) -> Self {
-            Self(AtomicU64::new(seed))
-        }
-    }
-
-    impl Entropy for SeqEntropy {
-        fn below(&self, n: usize) -> usize {
-            let next = self
-                .0
-                .load(Ordering::Relaxed)
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            self.0.store(next, Ordering::Relaxed);
-            ((next >> 33) as usize) % n
-        }
-    }
-
-    /// Picks the first word for every handle, so every handle clashes, but
-    /// draws IDs and tokens normally. Handle words come from lists longer than
-    /// the ID alphabet, which is how the two kinds of draw are told apart.
-    pub struct SameHandleEntropy(pub SeqEntropy);
-
-    impl Entropy for SameHandleEntropy {
-        fn below(&self, n: usize) -> usize {
-            if n > super::ALPHABET.len() {
-                0
-            } else {
-                self.0.below(n)
-            }
-        }
-    }
+    format!(
+        "{CHANNEL_PREFIX}{}",
+        entropy.random_chars(ID_CHARS, random_len)
+    )
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use testing::SeqEntropy;
+    use kkt_entropy::testing::SeqEntropy;
     const DEFAULT_PACK: NamePack = ANIMALS;
 
     #[test]
@@ -345,15 +241,15 @@ mod tests {
         assert!(!is_operator("Operator"));
         assert!(!is_operator("admin-sentinel"));
     }
-    /// The longest name the tests allow; the server's own limits are
-    /// config's, and its tests check them against these rules.
+    /// The longest name the tests allow. The limits above are at least
+    /// this, so what passes here passes there (checked below).
     const MAX_CHARS: usize = 40;
 
     #[test]
     fn every_pack_has_plain_unique_words_and_distinct_name_draws() {
         for pack in PACKS {
             for words in [pack.first, pack.second] {
-                assert!(words.len() > ALPHABET.len(), "{}", pack.name);
+                assert!(words.len() > ID_CHARS.len(), "{}", pack.name);
                 let mut seen = std::collections::BTreeSet::new();
                 for word in words {
                     assert!(!word.is_empty());
@@ -417,6 +313,25 @@ mod tests {
     }
 
     #[test]
+    fn drawn_handles_stay_within_the_handle_limit() {
+        // Every drawn handle, numbered up to attempt 10,000, passes the
+        // handle check at `MAX_CHARS` (tested below). The limit must stay
+        // at least that, or a drawn handle could be refused. kkt-rules
+        // checks that it tries no more than 10,000 numbers.
+        const { assert!(MAX_HANDLE_CHARS >= MAX_CHARS) };
+    }
+
+    #[test]
+    fn the_admin_name_text_keeps_its_number() {
+        let longest = "a".repeat(MAX_ADMIN_NAME_CHARS - ADMIN_PREFIX.len());
+        assert!(AdminName::new(&longest, MAX_ADMIN_NAME_CHARS).is_ok());
+        assert_eq!(
+            AdminName::new(&format!("{longest}a"), MAX_ADMIN_NAME_CHARS).map_err(|e| e.to_string()),
+            Err("the admin name must be at most 40 characters, `admin-` included".to_string())
+        );
+    }
+
+    #[test]
     fn every_drawn_handle_would_pass_as_a_proposed_one() {
         let last = 10_000;
         for pack in PACKS {
@@ -474,7 +389,9 @@ mod tests {
             ("aDmIn-x_y", "reserved"),
             ("admin-", shape),
         ] {
-            let err = check_proposed_handle(bad, MAX_CHARS).expect_err(bad);
+            let err = check_proposed_handle(bad, MAX_CHARS)
+                .expect_err(bad)
+                .to_string();
             assert!(err.contains(rule), "{bad:?}: {err}");
         }
         // Only the prefix is reserved, not every handle holding the word.
@@ -493,10 +410,42 @@ mod tests {
         }
     }
 
+    /// Every sentence a check says about a name's words, and the reserved
+    /// handles, pinned exactly: agents and the person read them.
+    #[test]
+    fn every_name_check_says_what_it_always_said() {
+        assert_eq!(
+            check_proposed_handle("two--hyphens", MAX_CHARS).map_err(|e| e.to_string()),
+            Err("the handle must be letters, digits and underscores, in words joined by single hyphens, such as `api-reviewer-2` or `Api_Reviewer-2`; got \"two--hyphens\"".to_string())
+        );
+        for reserved in ["Operator", "ADMIN-x"] {
+            assert_eq!(
+                check_proposed_handle(reserved, MAX_CHARS).map_err(|e| e.to_string()),
+                Err(
+                    "`operator` and handles starting `admin-` are reserved, in any case"
+                        .to_string()
+                ),
+                "{reserved}"
+            );
+        }
+        assert_eq!(
+            check_lane_name("Big_Lane", MAX_CHARS).map_err(|e| e.to_string()),
+            Err("the lane name must be lowercase letters and digits, in words joined by single hyphens, such as `orchestrator` or `code-reviewer`; got \"Big_Lane\"".to_string())
+        );
+        assert_eq!(
+            check_memory_name("", MAX_CHARS).map_err(|e| e.to_string()),
+            Err("the entry name must be lowercase letters and digits, in words joined by single hyphens, such as `handoff` or `open-questions`; got \"\"".to_string())
+        );
+        assert_eq!(
+            AdminName::new(" admin-Night ", MAX_CHARS).map_err(|e| e.to_string()),
+            Err("the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `admin-sentinel`); got \"admin-Night\"".to_string())
+        );
+    }
+
     #[test]
     fn each_check_takes_its_maximum_from_the_caller() {
         // At the maximum given, and one over it, with the number in the text.
-        type Check = fn(&str, usize) -> Result<(), String>;
+        type Check = fn(&str, usize) -> Result<(), NameError>;
         let checks: [(Check, &str); 3] = [
             (
                 check_proposed_handle,
@@ -513,16 +462,16 @@ mod tests {
         ];
         for (check, text) in checks {
             assert_eq!(check("abcde", 5), Ok(()));
-            assert_eq!(check("abcdef", 5), Err(text.to_string()));
+            assert_eq!(
+                check("abcdef", 5).map_err(|e| e.to_string()),
+                Err(text.to_string())
+            );
         }
         assert!(AdminName::new("abc", 9).is_ok());
         assert_eq!(
-            AdminName::new("abcd", 9),
+            AdminName::new("abcd", 9).map_err(|e| e.to_string()),
             Err("the admin name must be at most 9 characters, `admin-` included".to_string())
         );
-        let text = AdminName::new("abc", 9).unwrap().bound_to("key");
-        assert!(AdminName::bound_in(&text, "key", 9).is_ok());
-        assert!(AdminName::bound_in(&text, "key", 8).is_err());
     }
 
     #[test]
@@ -549,54 +498,6 @@ mod tests {
         }
         // Never the operator's name: it always has the prefix.
         assert_ne!(name("operator").as_deref(), Ok(OPERATOR));
-    }
-
-    #[test]
-    fn an_admin_name_belongs_only_to_the_key_it_was_written_for() {
-        let first = "0123456789abcdef0123456789abcdef";
-        let second = "fedcba9876543210fedcba9876543210";
-        let sentinel = AdminName::new("sentinel", MAX_CHARS).unwrap();
-        let text = sentinel.bound_to(first);
-        assert!(text.starts_with("admin-sentinel\nkey-sha256: "), "{text}");
-        assert!(!text.contains(first));
-
-        assert_eq!(
-            AdminName::bound_in(&text, first, MAX_CHARS),
-            Ok(Some(sentinel.clone()))
-        );
-        // A key file's final newline is not part of the key.
-        assert_eq!(
-            AdminName::bound_in(&text, &format!("{first}\n"), MAX_CHARS),
-            Ok(Some(sentinel))
-        );
-        // Another key, or the same file after the key was replaced, has none.
-        assert_eq!(AdminName::bound_in(&text, second, MAX_CHARS), Ok(None));
-
-        // A name alone, as an older or hand-written file might hold, is an
-        // error, not a name for whatever key is beside it.
-        for bad in [
-            "admin-sentinel\n",
-            "",
-            "Night Owl\nkey-sha256: 00\n",
-            "admin-sentinel\nsha: 00\n",
-            &format!("{text}extra\n"),
-        ] {
-            assert!(
-                AdminName::bound_in(bad, first, MAX_CHARS).is_err(),
-                "{bad:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn seeded_entropy_repeats_from_its_seed() {
-        let draws = |seed| {
-            let e = SeededEntropy::new(seed);
-            (0..20).map(|_| e.below(1000)).collect::<Vec<_>>()
-        };
-        assert_eq!(draws(7), draws(7));
-        assert_ne!(draws(7), draws(8));
-        assert!(draws(7).iter().all(|&n| n < 1000));
     }
 
     #[test]

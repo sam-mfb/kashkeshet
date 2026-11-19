@@ -5,7 +5,6 @@
 mod common;
 use kkt_scratch as scratch;
 
-use kkt_admission::{Admission, SharedKey};
 use kkt_watch as watch;
 use rmcp::model::CallToolRequestParams;
 use serde_json::{Value, json};
@@ -90,7 +89,7 @@ async fn call(client: &common::Client, tool: &str, args: Value) -> String {
 
 async fn start() -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    config.access_key = Some(KEY.into());
     common::start_with(config).await
 }
 
@@ -599,7 +598,7 @@ impl ManualClock {
     fn new() -> ManualClock {
         use kkt_clock::Clock;
         ManualClock(tokio::sync::watch::Sender::new(
-            kkt_clock::SystemClock.now(),
+            kkt_clock_system::SystemClock.now(),
         ))
     }
 
@@ -632,7 +631,7 @@ struct Lines {
 }
 
 impl watch::Report for Lines {
-    fn message(&mut self, line: &str) -> Result<(), String> {
+    fn message(&mut self, line: &str) -> Result<(), watch::ReportError> {
         self.lines.push(line.into());
         Ok(())
     }
@@ -660,8 +659,12 @@ async fn recovers_from(stall: Stall) {
     let before = other.send(&channel, "before").await;
     let proxy = Proxy::start(&server, stall).await;
     let clock = ManualClock::new();
-    let remote =
-        kkt_agent_client::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token.clone());
+    let remote = kkt_agent_client_mcp::Remote::new(
+        proxy.url.clone(),
+        Some(KEY.into()),
+        me.token.clone(),
+        kkt_agent_client_mcp::Settings::DEFAULT,
+    );
     let options = watch::Options {
         channels: None,
         channel_names: Vec::new(),
@@ -686,13 +689,17 @@ async fn recovers_from(stall: Stall) {
     };
     let outcome = tokio::time::timeout(TIMEOUT, async {
         tokio::select! {
-            outcome = watch::run(&remote, &clock, None, &mut report, &options) => outcome,
+            outcome = watch::run(&remote, &clock, watch::Settings::DEFAULT, None, &mut report, &options) => outcome,
             () = driving => unreachable!("the clock never stops"),
         }
     })
     .await
     .unwrap_or_else(|_| panic!("{stall:?}: the watch did not recover"));
-    assert_eq!(outcome, Ok(watch::Outcome::Received), "{stall:?}");
+    assert_eq!(
+        outcome.map_err(|e| e.to_string()),
+        Ok(watch::Outcome::Received),
+        "{stall:?}"
+    );
     let sent = sent.get().expect("a message was sent");
     assert_eq!(
         report.lines,
@@ -793,14 +800,17 @@ impl Switch {
 async fn a_key_refused_after_watching_started_ends_it() {
     let server = start().await;
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(
-        SharedKey::new("fedcba9876543210fedcba9876543210", "test").expect("key"),
-    );
+    config.access_key = Some("fedcba9876543210fedcba9876543210".into());
     let rotated = common::start_with(config).await;
     let me = Agent::new(&server).await;
     let proxy = Switch::start(&server, &rotated).await;
     let clock = ManualClock::new();
-    let remote = kkt_agent_client::Remote::new(proxy.url.clone(), Some(KEY.into()), me.token);
+    let remote = kkt_agent_client_mcp::Remote::new(
+        proxy.url.clone(),
+        Some(KEY.into()),
+        me.token,
+        kkt_agent_client_mcp::Settings::DEFAULT,
+    );
     let options = watch::Options {
         channels: None,
         channel_names: Vec::new(),
@@ -823,13 +833,16 @@ async fn a_key_refused_after_watching_started_ends_it() {
     };
     let outcome = tokio::time::timeout(TIMEOUT, async {
         tokio::select! {
-            outcome = watch::run(&remote, &clock, None, &mut report, &options) => outcome,
+            outcome = watch::run(&remote, &clock, watch::Settings::DEFAULT, None, &mut report, &options) => outcome,
             () = driving => unreachable!("the clock never stops"),
         }
     })
     .await;
     let outcome = outcome.unwrap_or_else(|_| panic!("the watch kept going: {:?}", report.notes));
-    assert_eq!(outcome, Err("the server refused the access key".into()));
+    assert_eq!(
+        outcome.map_err(|e| e.to_string()),
+        Err("the server refused the access key".into())
+    );
 }
 
 #[tokio::test]
@@ -837,7 +850,7 @@ async fn the_timeout_ends_it_with_no_library_lines() {
     // The MCP library can log errors of its own when the timeout drops a
     // call it has under way, depending on timing; they are not the
     // command's to print. (`watch_logs_only_kkts_own_lines` in
-    // src/logging.rs checks the filter that keeps them out.)
+    // kkt-log-tracing/src/lib.rs checks the filter that keeps them out.)
     let server = start().await;
     let me = Agent::new(&server).await;
     let home = home("quiet-timeout");
@@ -1026,7 +1039,7 @@ async fn full_prints_a_body_too_long_for_the_server_answer() {
     let channel = me.channel("talk", &[&other]).await;
     // Fits the body limit but not, with the rest of the answer, the
     // response cap, so the wait itself cuts it.
-    let body = "z".repeat(common::test_config().limits.max_response_bytes);
+    let body = "z".repeat(common::test_config().formatter.max_response_bytes);
     let id = other.send(&channel, &body).await;
     let waited = me
         .tool(
@@ -1136,7 +1149,7 @@ async fn mentions_fetch_the_whole_body_and_save_skipped_messages() {
     other.send(&channel, &format!("{}-helper", me.name)).await;
     let body = format!(
         "{} @{}",
-        "z".repeat(common::test_config().limits.max_response_bytes - me.name.len() - 2),
+        "z".repeat(common::test_config().formatter.max_response_bytes - me.name.len() - 2),
         me.name
     );
     let mentioned = other.send(&channel, &body).await;
@@ -1203,11 +1216,9 @@ async fn save_reviewer(server: &common::Server, text: &str) {
 #[tokio::test]
 async fn a_newer_lane_is_told_by_the_wait_and_noted_once_by_watch_apart_from_messages() {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
-    config.admin_key = Some(SharedKey::new(ADMIN_KEY, "test").expect("admin key"));
-    config.admin_name = Some(
-        kkt_names::AdminName::new("sentinel", kkt_config::MAX_ADMIN_NAME_CHARS).expect("name"),
-    );
+    config.access_key = Some(KEY.into());
+    config.admin_key = Some(ADMIN_KEY.into());
+    config.admin_name = Some("sentinel".into());
     let server = common::start_with(config).await;
     let (me, other) = (Agent::new(&server).await, Agent::new(&server).await);
     save_reviewer(&server, "Read.").await;
@@ -1267,8 +1278,8 @@ const ADMIN_KEY: &str = "admin-0123456789abcdef0123456789abcdef";
 
 async fn start_with_admin() -> common::Server {
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
-    config.admin_key = Some(SharedKey::new(ADMIN_KEY, "test").expect("admin key"));
+    config.access_key = Some(KEY.into());
+    config.admin_key = Some(ADMIN_KEY.into());
     common::start_with(config).await
 }
 
@@ -1443,7 +1454,7 @@ async fn admin_watch_refuses_other_keys_and_agent_options() {
 async fn admin_watch_checks_the_key_when_it_resumes() {
     let with_admin = start_with_admin().await;
     let mut config = common::test_config();
-    config.admission = Admission::SharedKey(SharedKey::new(KEY, "test").expect("key"));
+    config.access_key = Some(KEY.into());
     let without_admin = common::start_with(config).await;
     let home = home("admin-resume");
     let state = home.join("state");
