@@ -825,6 +825,370 @@ mod tests {
 
     use super::*;
 
+    /// Every part a step's own refusal must not reach: each one fails the
+    /// test, naming the part.
+    struct Unused;
+
+    impl kkt_containerized_service::ConfigReader for Unused {
+        fn settings(
+            &self,
+            _: &str,
+            _: &Path,
+            _: Option<&Path>,
+        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
+            unreachable!("container_configs")
+        }
+    }
+    impl kkt_containerized_service::LoginLink for Unused {
+        fn show(&self, _: &str) {
+            unreachable!("login_link")
+        }
+        fn open_requested(&self) -> bool {
+            unreachable!("login_link")
+        }
+    }
+    impl kkt_remote_access::RemoteAccess for Unused {
+        fn prepare(&self) -> Result<kkt_remote_access::Node, kkt_remote_access::SharingError> {
+            unreachable!("remote")
+        }
+        fn serve(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
+            unreachable!("remote")
+        }
+        fn served(
+            &self,
+            _: std::net::SocketAddr,
+        ) -> Result<Option<kkt_remote_access::Node>, kkt_remote_access::SharingError> {
+            unreachable!("remote")
+        }
+        fn stop(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
+            unreachable!("remote")
+        }
+    }
+    impl clients::Host for Unused {
+        fn read(&self, _: &Path) -> std::io::Result<String> {
+            unreachable!("clients")
+        }
+        fn exists(&self, _: &Path) -> bool {
+            unreachable!("clients")
+        }
+        fn create_private(&self, _: &Path, _: &str) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn restrict(&self, _: &Path) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn rename(&self, _: &Path, _: &Path) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn remove_file(&self, _: &Path) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
+            unreachable!("clients")
+        }
+        fn canonicalize(&self, _: &Path) -> std::io::Result<PathBuf> {
+            unreachable!("clients")
+        }
+        fn process_id(&self) -> u32 {
+            unreachable!("clients")
+        }
+    }
+    impl clients::ClientCommand for Unused {
+        fn remove_server(&self, _: Option<&Path>) -> Result<(), clients::CommandError> {
+            unreachable!("client_command")
+        }
+        fn add_server(&self, _: &str, _: Option<&Path>) -> Result<(), clients::CommandError> {
+            unreachable!("client_command")
+        }
+    }
+    impl crate::ImportLanes for Unused {
+        fn check(&self, _: &Path, _: setup::Purpose) -> Result<usize, crate::PartError> {
+            unreachable!("import_lanes")
+        }
+        fn import(&self, _: &setup::Record, _: &Path) -> Result<String, crate::PartError> {
+            unreachable!("import_lanes")
+        }
+    }
+    impl kkt_setup::Lines for Unused {
+        fn interactive(&self) -> bool {
+            unreachable!("lines")
+        }
+        fn say(&self, _: &str) {
+            unreachable!("lines")
+        }
+        fn read_line(&self, _: &str) -> Result<Option<String>, kkt_setup::LineError> {
+            unreachable!("lines")
+        }
+    }
+    impl ConnectionSource for Unused {
+        type KeySource = ();
+        fn recorded(&self) -> Result<Option<connection::RecordedServer>, connection::SourceError> {
+            unreachable!("connection")
+        }
+        fn serve(
+            &self,
+            _: ConnectionOptions,
+        ) -> Result<connection::ServeConnection<()>, connection::SourceError> {
+            unreachable!("connection")
+        }
+        fn make_default_key(&self, _: &kkt_keys::AccessKey) -> Result<(), connection::SourceError> {
+            unreachable!("connection")
+        }
+        fn check_key(&self, _: &Path, _: &()) -> Result<(), connection::SourceError> {
+            unreachable!("connection")
+        }
+        fn absolute(&self, _: &Path) -> Result<PathBuf, connection::SourceError> {
+            unreachable!("connection")
+        }
+    }
+    impl crate::ServiceDefaults for Unused {
+        fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
+            unreachable!("service_defaults")
+        }
+    }
+    impl crate::SetupFiles for Unused {
+        fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn read_unfinished(&self, _: &Path) -> Result<Option<setup::Unfinished>, crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn write_unfinished(
+            &self,
+            _: &Path,
+            _: &setup::Unfinished,
+        ) -> Result<(), crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn remove_unfinished(&self, _: &Path) -> Result<(), crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn kkt_path(&self) -> Result<PathBuf, crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn path_dirs(&self) -> Vec<PathBuf> {
+            unreachable!("setup_files")
+        }
+        fn on_path(&self, _: &[PathBuf], _: &str) -> bool {
+            unreachable!("setup_files")
+        }
+        fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
+            unreachable!("setup_files")
+        }
+        fn program_path(&self) -> std::io::Result<PathBuf> {
+            unreachable!("setup_files")
+        }
+        fn canonicalize(&self, _: &Path) -> std::io::Result<PathBuf> {
+            unreachable!("setup_files")
+        }
+        fn remove_record(&self, _: &Path) -> Result<(), crate::PartError> {
+            unreachable!("setup_files")
+        }
+    }
+    impl crate::Databases for Unused {
+        fn exists(&self, _: &Path) -> bool {
+            unreachable!("database")
+        }
+    }
+    impl kkt_backup::Backups for Unused {
+        fn write(
+            &self,
+            _: &Path,
+            _: &kkt_backup::Layout<'_>,
+        ) -> Result<PathBuf, kkt_backup::BackupError> {
+            unreachable!("backups")
+        }
+        fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, kkt_backup::BackupError> {
+            unreachable!("backups")
+        }
+    }
+    impl crate::Output for Unused {
+        fn output(&self, _: std::fmt::Arguments<'_>) {
+            unreachable!("output")
+        }
+        fn errors(&self, _: std::fmt::Arguments<'_>) {
+            unreachable!("output")
+        }
+    }
+    impl kkt_clock::Clock for Unused {
+        fn now(&self) -> kkt_clock::Time {
+            unreachable!("clock")
+        }
+        fn sleep_until(&self, _: kkt_clock::Time) -> futures::future::BoxFuture<'_, ()> {
+            unreachable!("clock")
+        }
+    }
+    struct NoProbes;
+    impl kkt_diagnostics::Prober for NoProbes {
+        fn key_file(&self, _: &Path) -> Result<kkt_diagnostics::KeyFile, String> {
+            unreachable!("prober")
+        }
+        fn answer<'a>(
+            &'a self,
+            _: &'a str,
+        ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Answered> {
+            unreachable!("prober")
+        }
+        fn initialize<'a>(
+            &'a self,
+            _: &'a str,
+            _: Option<&'a str>,
+        ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Initialized> {
+            unreachable!("prober")
+        }
+    }
+
+    /// Runs `step` on setup's steps over the parts given here: the home
+    /// `/h`, or none, and `key_files`; every other part is [`Unused`].
+    fn on_steps<T>(
+        home: bool,
+        key_files: &kkt_keys::testing::Memory,
+        step: impl FnOnce(&OsSteps<'_, '_, Unused, Unused>) -> T,
+    ) -> T {
+        let env = Env {
+            home: Some(PathBuf::from("/h")),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let service = kkt_bare_service::testing::Memory::installed(vec!["serve".into()], true);
+        let container = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let try_bind =
+            |_: std::net::SocketAddr| -> std::io::Result<()> { unreachable!("try_bind") };
+        let config_file = ConfigFile::holding(None);
+        let parts = crate::InstallParts {
+            container: &container,
+            container_configs: &Unused,
+            login_link: &Unused,
+            service: &service,
+            try_bind: &try_bind,
+            remote: &Unused,
+            clients: &Unused,
+            client_command: &Unused,
+            prober: &NoProbes,
+            import_lanes: &Unused,
+            lines: &Unused,
+            config_file: &config_file,
+            connection: &Unused,
+            clock: std::sync::Arc::new(Unused),
+            serve: &Home(home),
+            service_defaults: &Unused,
+            setup_files: &Unused,
+            key_files,
+            entropy: &kkt_entropy::testing::SeqEntropy::new(0),
+            database: &Unused,
+            backups: &Unused,
+            output: &Unused,
+            mcp_path: "/mcp",
+        };
+        let steps = OsSteps {
+            env: &env,
+            platform: Platform::Xdg,
+            parts: &parts,
+            options: InstallOptions {
+                kkt_version: "0.0.0".into(),
+                docker_project: "kkt".into(),
+                docker_port: 7420,
+            },
+        };
+        step(&steps)
+    }
+
+    fn record(mode: setup::Mode, key_file: Option<&str>) -> setup::Record {
+        setup::Record {
+            mode,
+            written_by: "0.0.0".into(),
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: key_file.map(PathBuf::from),
+            clients: None,
+        }
+    }
+
+    /// Each sentence a step words itself, exactly.
+    #[test]
+    fn the_steps_own_refusals_are_pinned() {
+        use setup::Steps as _;
+        fn said<T>(result: Result<T, setup::StepError>) -> String {
+            match result {
+                Ok(_) => panic!("the step was refused"),
+                Err(e) => e.to_string(),
+            }
+        }
+        let keys = kkt_keys::testing::Memory::new();
+        assert_eq!(
+            on_steps(false, &keys, |s| said(s.install_docker(None, &[]))),
+            "set HOME to keep the access key"
+        );
+        assert_eq!(
+            on_steps(false, &keys, |s| said(s.stage_key("k"))),
+            "set HOME to keep the key in ~/.config/kkt"
+        );
+        let unfinished = setup::Unfinished {
+            purpose: setup::Purpose::Service,
+            tailscale: false,
+            allow_hosts: Vec::new(),
+            clients: Vec::new(),
+            tailscale_login: None,
+            record: None,
+        };
+        assert_eq!(
+            on_steps(false, &keys, |s| said(s.save_unfinished(&unfinished))),
+            "set HOME to note the install"
+        );
+        assert_eq!(
+            on_steps(true, &keys, |s| said(
+                s.discard_key(Path::new("/h/.config/kkt/k.partial"))
+            )),
+            "could not remove /h/.config/kkt/k.partial: no such file"
+        );
+        let name =
+            AdminName::new("ops", kkt_names::MAX_ADMIN_NAME_CHARS).expect("a valid admin name");
+        assert_eq!(
+            on_steps(true, &keys, |s| said(s.add_admin_key(
+                &record(setup::Mode::Service { tailscale: false }, None),
+                &name
+            ))),
+            "an admin key needs the server to have an access key"
+        );
+        assert_eq!(
+            on_steps(true, &keys, |s| said(s.add_admin_key(
+                &record(
+                    setup::Mode::Client,
+                    Some("/h/.config/kkt/client-access-key")
+                ),
+                &name
+            ))),
+            "an admin key is made on the server's machine"
+        );
+    }
+
+    /// The doctor's lines for the checks that failed, and nothing for the
+    /// ones that passed.
+    #[test]
+    fn only_the_failed_checks_are_said() {
+        let failed = kkt_diagnostics::Check {
+            name: "server",
+            ok: false,
+            detail: "no answer at http://h/mcp".into(),
+            fix: Some("start the server".into()),
+        };
+        let passed = kkt_diagnostics::Check::ok("key", "accepted");
+        assert_eq!(only_problems(vec![passed.clone()]), Ok(()));
+        assert_eq!(
+            only_problems(vec![passed, failed.clone()]),
+            Err(kkt_diagnostics::report(vec![failed])
+                .0
+                .trim_end()
+                .to_string())
+        );
+    }
+
     fn docker(tailscale: bool) -> setup::Mode {
         setup::Mode::Docker(setup::DockerSetup {
             folder: PathBuf::from("/data/kkt docker"),
