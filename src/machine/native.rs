@@ -752,6 +752,12 @@ impl kkt_install_commands::Databases for NativeDatabases {
     fn exists(&self, path: &Path) -> bool {
         kkt_db_sqlite::SqlitePlace::exists(path)
     }
+    fn highest_message_id(
+        &self,
+        path: &Path,
+    ) -> Result<Option<i64>, kkt_install_commands::PartError> {
+        super::database::highest_message_id(path).map_err(install_part)
+    }
 }
 impl kkt_operator_commands::Databases for NativeDatabases {
     fn exists(&self, path: &Path) -> bool {

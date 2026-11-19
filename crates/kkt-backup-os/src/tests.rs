@@ -70,6 +70,7 @@ fn a_backup_holds_each_file_and_keeps_the_key_private() {
         web_key: Some(&key),
         admin_key: None,
         admin_name: None,
+        highest_message_id: None,
     };
 
     let folder = dir.join("backups");
@@ -117,6 +118,7 @@ fn the_about_file_says_the_time_to_the_second_and_the_folder_to_the_millisecond(
         web_key: None,
         admin_key: None,
         admin_name: None,
+        highest_message_id: None,
     };
     let at = at(7) + Span::milliseconds(250);
 
@@ -150,6 +152,7 @@ fn an_admin_key_is_backed_up_privately_and_named_in_about() {
         web_key: Some(&key),
         admin_key: Some(&admin),
         admin_name: None,
+        highest_message_id: None,
     };
     let written = write(&dir.join("b"), at(0), "0.6.0", &contents, copy_text).expect("backup");
     assert_eq!(
@@ -181,6 +184,7 @@ fn an_admin_keys_name_is_backed_up_beside_it() {
         web_key: None,
         admin_key: Some(&admin),
         admin_name: Some(&name),
+        highest_message_id: None,
     };
     let written = write(&dir.join("b"), at(0), "0.6.0", &contents, copy_text).expect("backup");
     assert_eq!(
@@ -206,6 +210,7 @@ fn without_config_or_key_only_the_database_is_backed_up() {
         web_key: None,
         admin_key: None,
         admin_name: None,
+        highest_message_id: None,
     };
     let written = write(&dir.join("b"), at(0), "0.3.0", &contents, copy_text).expect("backup");
     let mut files: Vec<_> = std::fs::read_dir(&written)
@@ -240,6 +245,7 @@ fn a_failed_backup_leaves_nothing_behind() {
         web_key: None,
         admin_key: None,
         admin_name: None,
+        highest_message_id: None,
     };
     let folder = dir.join("backups");
     let error = write(&folder, at(0), "0.3.0", &contents, copy_text).expect_err("fails");
@@ -309,6 +315,7 @@ fn every_backup_message_says_what_it_always_said() {
         web_key: None,
         admin_key: None,
         admin_name: None,
+        highest_message_id: None,
     };
     let backup = name(at(0), "0.3.0");
 

@@ -1106,6 +1106,9 @@ mod tests {
         fn exists(&self, _: &Path) -> bool {
             unreachable!("database")
         }
+        fn highest_message_id(&self, _: &Path) -> Result<Option<i64>, crate::PartError> {
+            unreachable!("database")
+        }
     }
     impl kkt_backup::Backups for Unused {
         fn write(

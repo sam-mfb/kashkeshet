@@ -34,6 +34,9 @@ pub enum LocalBackupError {
     Database(PartError),
     #[error(transparent)]
     Keys(#[from] backup::InspectError),
+    /// The highest message ID could not be read for the about file.
+    #[error(transparent)]
+    Highest(PartError),
     #[error(transparent)]
     Write(#[from] backup::BackupError),
 }
@@ -508,6 +511,10 @@ fn local_backup<D>(
         },
         &mut |path| parts.key_files.try_exists(path),
     )?;
+    let highest_message_id = parts
+        .database
+        .highest_message_id(&database)
+        .map_err(LocalBackupError::Highest)?;
     let contents = backup::Contents {
         database: &database,
         config: config.file.as_deref(),
@@ -515,6 +522,7 @@ fn local_backup<D>(
         web_key: web_key.as_deref(),
         admin_key: admin_key.as_deref(),
         admin_name: admin_name.as_deref(),
+        highest_message_id,
     };
     let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
     let written = parts.backups.write(folder, &layout)?;
@@ -1158,6 +1166,10 @@ mod tests {
         fn exists(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("database.exists");
             false
+        }
+        fn highest_message_id(&self, _: &Path) -> Result<Option<i64>, crate::PartError> {
+            self.0.borrow_mut().push("database.highest_message_id");
+            Ok(None)
         }
     }
 
@@ -2627,6 +2639,9 @@ mod tests {
     impl crate::Databases for Present {
         fn exists(&self, _: &Path) -> bool {
             true
+        }
+        fn highest_message_id(&self, _: &Path) -> Result<Option<i64>, crate::PartError> {
+            Ok(None)
         }
     }
 

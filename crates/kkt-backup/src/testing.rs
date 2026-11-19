@@ -139,6 +139,7 @@ mod tests {
             web_key: None,
             admin_key: None,
             admin_name: None,
+            highest_message_id: None,
         };
         let layout = layout(at("2026-11-16T10:00:00Z"), "1.0.0", &contents);
         let written = backups.write(folder, &layout).expect("written");
@@ -192,6 +193,7 @@ mod tests {
             web_key: None,
             admin_key: None,
             admin_name: None,
+            highest_message_id: None,
         };
         let layout = layout(at("2026-11-16T10:00:00Z"), "1.0.0", &contents);
         assert_eq!(

@@ -84,6 +84,58 @@ pub fn pending_upgrade(path: &Path) -> Result<Option<PendingUpgrade>, PendingErr
         }))
 }
 
+/// The highest message ID in the database at `path`, for a backup's
+/// about file. `Ok(None)` when there are no messages, and also when the
+/// database would first be upgraded by opening it: a backup must not
+/// change the database it copies, so such a database records nothing.
+/// The read runs on this runtime's blocking pool, as the database's own
+/// reads do, so it is called from inside the runtime.
+pub fn highest_message_id(path: &Path) -> Result<Option<i64>, HighestError> {
+    if pending_upgrade(path)
+        .map_err(|e| {
+            HighestError::Open(OpenError {
+                path: path.to_path_buf(),
+                source: e.source,
+            })
+        })?
+        .is_some()
+    {
+        return Ok(None);
+    }
+    let db = open(path)?;
+    let access = kkt_rules::DirectAccess::new(
+        db,
+        kkt_api_agent::SwarmId::main(),
+        std::sync::Arc::new(kkt_clock_system::SystemClock),
+    );
+    let operator = kkt_api_agent::Operator::new(
+        kkt_api_agent::Permissions::of(&[kkt_api_agent::Permission::Read]),
+        kkt_api_agent::Audit::CommandLine,
+    );
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(access.highest_message_id(&operator))
+    })
+    .map_err(|source| HighestError::Read {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// Why the highest message ID in a database could not be read.
+#[derive(Debug, thiserror::Error)]
+pub enum HighestError {
+    /// The database could not be opened.
+    #[error(transparent)]
+    Open(#[from] OpenError),
+    /// The highest ID could not be read from the opened database.
+    #[error("could not read the highest message ID in {}: {source}", path.display())]
+    Read {
+        path: PathBuf,
+        #[source]
+        source: kkt_api_agent::RuleError,
+    },
+}
+
 /// Writes a consistent copy of the database file at `from` to the new file
 /// `to`, even while a server writes to `from`. A failure is the database's
 /// own error, for the backup to give as its cause.

@@ -60,6 +60,10 @@ pub struct Contents<'a> {
     pub admin_key: Option<&'a Path>,
     /// The name tied to the admin key, if it has one.
     pub admin_name: Option<&'a Path>,
+    /// The highest message ID in the database when the backup started,
+    /// if the caller read it. Recorded in the about file, so a person
+    /// restoring the backup knows where its message IDs end.
+    pub highest_message_id: Option<i64>,
 }
 
 /// A backup's name, sorting by time and recording its writer's version.
@@ -167,6 +171,13 @@ fn about(at: Time, version: &str, contents: &Contents<'_>) -> String {
         source(contents.access_key),
         source(contents.web_key),
     );
+    // Named only when the caller read it, so backups without it (made by
+    // an older kkt, or of a database that was not opened) read as before.
+    // It is the highest ID when the backup started; the copy may hold a
+    // later one, never an earlier one.
+    if let Some(highest) = contents.highest_message_id {
+        about.push_str(&format!("highest message ID: {highest}\n"));
+    }
     // Named only when there is one, so backups without it read as before.
     if contents.admin_key.is_some() {
         about.push_str(&format!(

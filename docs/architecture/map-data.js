@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "a0eb8942",
+ "commit": "aca35cea",
  "crates": [
   {
    "bins": [
@@ -390,6 +390,15 @@ window.KKT_GRAPH = {
      "path": "machine::database"
     },
     {
+     "doc": "Why the highest message ID in a database could not be read.",
+     "kind": "enum",
+     "path": "machine::database::HighestError",
+     "variants": [
+      "Open",
+      "Read"
+     ]
+    },
+    {
      "doc": "Why the database file could not be opened.",
      "fields": [
       "path",
@@ -420,6 +429,11 @@ window.KKT_GRAPH = {
      "doc": "Writes a consistent copy of the database file at `from` to the new file `to`, even while a server writes to `from`.",
      "kind": "fn",
      "path": "machine::database::copy"
+    },
+    {
+     "doc": "The highest message ID in the database at `path`, for a backup's about file.",
+     "kind": "fn",
+     "path": "machine::database::highest_message_id"
     },
     {
      "doc": "Opens the database file at `path`, creating it if needed, and brings its tables up to date.",
@@ -4054,7 +4068,8 @@ window.KKT_GRAPH = {
       "access_key",
       "web_key",
       "admin_key",
-      "admin_name"
+      "admin_name",
+      "highest_message_id"
      ],
      "kind": "struct",
      "path": "Contents"
@@ -9234,7 +9249,8 @@ window.KKT_GRAPH = {
      "doc": "The local database chosen by the program.",
      "kind": "trait",
      "methods": [
-      "exists"
+      "exists",
+      "highest_message_id"
      ],
      "path": "Databases"
     },
@@ -9458,6 +9474,7 @@ window.KKT_GRAPH = {
       "Config",
       "Database",
       "Keys",
+      "Highest",
       "Write"
      ]
     },
@@ -16079,6 +16096,7 @@ window.KKT_GRAPH = {
      "methods": [
       "agents",
       "current_lanes",
+      "highest_message_id",
       "import_lanes",
       "new",
       "revoke"
@@ -20234,6 +20252,11 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "Audit",
+    "Operator",
+    "Permission",
+    "Permissions",
+    "RuleError",
     "SwarmId"
    ],
    "kind": "normal",
@@ -20242,6 +20265,11 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "Audit",
+      "Operator",
+      "Permission",
+      "Permissions",
+      "RuleError",
       "SwarmId"
      ],
      "role": "uses"
@@ -20250,12 +20278,8 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "Actor",
-    "Audit",
     "Code",
-    "NewChannel",
-    "Operator",
-    "Permission",
-    "Permissions"
+    "NewChannel"
    ],
    "to": "kkt-api-agent"
   },
@@ -21608,6 +21632,7 @@ window.KKT_GRAPH = {
     "CORE",
     "Db",
     "DefaultWording",
+    "DirectAccess",
     "NewServerRun",
     "Settings",
     "Startup",
@@ -21634,6 +21659,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Db",
       "DefaultWording",
+      "DirectAccess",
       "start"
      ],
      "role": "wires"
@@ -21641,7 +21667,6 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "DirectAccess",
     "Rules",
     "testing",
     "testing::Memory",
@@ -32704,6 +32729,17 @@ window.KKT_ASSEMBLY = {
      "to": [
       {
        "at": "Startup",
+       "param": "clock"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-rules",
+     "impl": "kkt-clock-system::SystemClock",
+     "note": "the highest message ID read for a backup's about file",
+     "to": [
+      {
+       "at": "DirectAccess::new",
        "param": "clock"
       }
      ]

@@ -156,6 +156,10 @@ pub trait ConfigText {
 /// The local database chosen by the program.
 pub trait Databases {
     fn exists(&self, path: &Path) -> bool;
+    /// The highest message ID in the database at `path`, for a backup's
+    /// about file; `None` when there are none, or when reading it would
+    /// change the database (for example by upgrading it first).
+    fn highest_message_id(&self, path: &Path) -> Result<Option<i64>, PartError>;
 }
 
 /// The lane folder `kkt setup --lanes` imports into the server it sets up.

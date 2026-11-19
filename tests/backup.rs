@@ -216,6 +216,56 @@ async fn backups_taken_while_agents_write_restore_to_a_working_server() {
 }
 
 #[tokio::test]
+async fn a_backups_about_file_records_the_highest_message_id() {
+    let home = temp_home("highest");
+    let config_dir = home.join(".config/kkt");
+    std::fs::create_dir_all(&config_dir).expect("config dir");
+    std::fs::write(config_dir.join("config.toml"), "no_access_key = true\n").expect("config file");
+    let mut server = start(kkt(&home, &["serve"])).await;
+    let client = common::connect_new_at(&server.base()).await;
+    let token = field(&ok(&client, "register", json!({})).await, "token");
+    let created = ok(
+        &client,
+        "create_channel",
+        json!({"token": token, "name": "counted", "open": true, "format": "json"}),
+    )
+    .await;
+    let channel: Value = serde_json::from_str(&created).expect("json");
+    let channel_id = channel["id"].as_str().expect("channel id").to_string();
+    for i in 0..3 {
+        ok(
+            &client,
+            "send",
+            json!({"token": token, "channel_id": channel_id, "body": format!("m{i}")}),
+        )
+        .await;
+    }
+    server.child.kill().await.expect("stop kkt");
+
+    let db = home.join(".local/share/kashkeshet/kashkeshet.db");
+    let folder = home.join("backups");
+    let (success, text) = finish(kkt(
+        &home,
+        &[
+            "backup",
+            &folder.display().to_string(),
+            "--db",
+            &db.display().to_string(),
+        ],
+    ))
+    .await;
+    assert!(success, "{text}");
+    let backup = backups_in(&folder).pop().expect("one backup");
+    let (count, highest) = messages_in(&backup.join("kashkeshet.db"));
+    assert_eq!((count, highest), (3, 3));
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert!(
+        about.contains(&format!("highest message ID: {highest}\n")),
+        "{about}"
+    );
+}
+
+#[tokio::test]
 async fn a_backup_keeps_both_keys_private_and_restores_them() {
     let home = temp_home("key");
     let (success, text) = finish(kkt(&home, &["key", "create"])).await;

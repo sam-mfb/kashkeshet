@@ -16,8 +16,9 @@ for the time and the kkt version that wrote it, such as
 - `web-key`: a copy of the operator web key, if it has been created
 - `admin-key`: a copy of the admin agent's key, if the server has one
 - `admin-key.name`: a copy of the admin key's name file, if it has one
-- `about.txt`: when the backup was made, by which version, and where each
-  file came from
+- `about.txt`: when the backup was made, by which version, where each
+  file came from, and the highest message ID in the database when the
+  backup started, if it was read
 
 It is safe while the server runs. The database is copied with SQLite's
 online backup, which gives the database as it was at one moment even while
@@ -83,7 +84,11 @@ A restored database gives out message IDs again from the backup's highest
 ID, so new messages can have IDs that a watcher has already seen. A
 `kkt watch` whose state file holds a higher ID will skip those messages.
 Before restarting such a watch, delete its state file, and give
-`--after-id` with the backup's highest message ID if you know it; without
+`--after-id` with the backup's highest message ID, which its `about.txt`
+records as `highest message ID` (backups made by an older kkt have no
+such line; use the highest ID you know, or none). That ID is the highest
+when the backup started, so the copy may hold a later message or two;
+the watch then shows those again rather than skipping any. Without
 `--after-id`, the watch starts after the latest message (see
 [Waiting](waiting.md)).
 

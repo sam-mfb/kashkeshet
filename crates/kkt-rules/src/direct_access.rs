@@ -56,6 +56,22 @@ impl DirectAccess {
             .await
     }
 
+    /// The highest message ID in the swarm, if it has any messages.
+    /// Needs Read.
+    pub async fn highest_message_id(&self, operator: &Operator) -> Result<Option<i64>> {
+        operator.may(Permission::Read)?;
+        self.db
+            .read(|store, swarm| {
+                let scope = access::scope(swarm, access::Viewer::Operator, Need::See);
+                Ok(store
+                    .activity(&scope, 0)?
+                    .into_iter()
+                    .map(|row| row.latest_id)
+                    .max())
+            })
+            .await
+    }
+
     /// Revokes the token of the agent with the handle `handle`, so every
     /// later call with it is refused as `unauthenticated`. The agent's
     /// handle, memberships and messages are kept. `not_found` if there is no
