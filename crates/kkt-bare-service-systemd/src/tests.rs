@@ -235,12 +235,12 @@ const START: &str = "systemctl --user start kashkeshet.service";
 fn key_maker<'a>(
     system: &'a Fake,
     made: &'a RefCell<u32>,
-) -> impl Fn(&Path) -> Result<(), String> + 'a {
+) -> impl Fn(&Path) -> Result<(), kkt_bare_service::KeyError> + 'a {
     move |path| {
         *made.borrow_mut() += 1;
         system
             .write_file(path, &format!("key-{}", made.borrow()))
-            .map_err(|e| e.to_string())
+            .map_err(|e| kkt_bare_service::KeyError(e.into()))
     }
 }
 
@@ -450,10 +450,10 @@ fn adding_a_key_again_after_a_failed_restart_restarts_without_a_new_key() {
 fn a_key_that_cannot_be_made_leaves_the_service_alone() {
     let system = Fake::default().with_file(UNIT);
     let added = linux().add_key(&system, Path::new(ADMIN_KEY), &|_| {
-        Err("could not write the key".to_string())
+        Err(kkt_bare_service::KeyError("could not write the key".into()))
     });
     assert!(
-        matches!(&added, Err(ServiceError::Key(e)) if e == "could not write the key"),
+        matches!(&added, Err(ServiceError::Key(e)) if e.to_string() == "could not write the key"),
         "{added:?}"
     );
     assert!(system.ran().is_empty());

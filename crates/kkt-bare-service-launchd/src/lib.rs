@@ -112,7 +112,7 @@ mod real {
         fn add_key(
             &self,
             key: &Path,
-            make: &dyn Fn(&Path) -> Result<(), String>,
+            make: &dyn Fn(&Path) -> Result<(), kkt_bare_service::KeyError>,
         ) -> Result<bool, ServiceError> {
             self.agent()?.add_key(&OsSystem, key, make)
         }
