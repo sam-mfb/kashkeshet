@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ca31f8d2",
+ "commit": "e14c98f5",
  "crates": [
   {
    "bins": [
@@ -5561,6 +5561,11 @@ window.KKT_GRAPH = {
       "settings"
      ],
      "path": "ConfigReader"
+    },
+    {
+     "doc": "Why a `ConfigReader` could not read a config file's settings: its own error, passed on unread.",
+     "kind": "struct",
+     "path": "ConfigUnread"
     },
     {
      "doc": "The settings of the server's config file the containerized service uses.",
@@ -20488,6 +20493,7 @@ window.KKT_GRAPH = {
     "Browser",
     "Carry",
     "ConfigReader",
+    "ConfigUnread",
     "ContainerConfig",
     "Containerized",
     "InServer",
@@ -20518,6 +20524,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Arg",
       "Carry",
+      "ConfigUnread",
       "NoWorkingDir",
       "NodeLogin",
       "NodeUnread"
@@ -21855,6 +21862,7 @@ window.KKT_GRAPH = {
     "Browser",
     "Carry",
     "ConfigReader",
+    "ConfigUnread",
     "ContainerConfig",
     "Containerized",
     "InServer",
@@ -21877,6 +21885,7 @@ window.KKT_GRAPH = {
      "detail": [
       "Arg",
       "Carry",
+      "ConfigUnread",
       "NoWorkingDir",
       "testing"
      ],
@@ -25666,6 +25675,7 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "ConfigUnread",
     "ContainerConfig",
     "Existing",
     "InServer",
@@ -26305,6 +26315,7 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "ConfigReader",
+    "ConfigUnread",
     "ContainerConfig",
     "ContainerError",
     "Existing",
@@ -26327,6 +26338,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ConfigReader",
+      "ConfigUnread",
       "ContainerError",
       "KeyCopy",
       "Login",
