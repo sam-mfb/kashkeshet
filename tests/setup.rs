@@ -149,6 +149,47 @@ async fn kkt(home: &Path, args: &[&str]) -> (bool, String) {
     )
 }
 
+#[tokio::test]
+async fn a_client_can_back_up_and_import_lanes_on_an_explicit_local_database() {
+    let home = temp_home("client-local-target");
+    starts(serve(&home, &[])).await;
+    write_record(&home, CLIENT);
+    let config = home.join("other.toml");
+    std::fs::write(&config, "db = \"kkt.db\"\nno_access_key = true\n").expect("config");
+    let lanes = home.join("lanes");
+    std::fs::create_dir(&lanes).expect("lanes");
+    let db = home.join("kkt.db");
+    for (flag, path, result) in [
+        ("--db", db.as_path(), "created work (version 1)"),
+        ("--config", config.as_path(), "updated work (version 2)"),
+    ] {
+        let target = path.to_str().expect("target");
+        let backup = home.join(flag);
+        let (ok, said) = kkt(&home, &["backup", backup.to_str().unwrap(), flag, target]).await;
+        assert!(ok && said.contains("Backed up to"), "{said}");
+        std::fs::write(
+            lanes.join("work.md"),
+            format!("---\nname: work\ndescription: local lane\n---\n\nSelected by {flag}\n"),
+        )
+        .expect("lane");
+        let (ok, said) = kkt(
+            &home,
+            &["lanes", "import", lanes.to_str().unwrap(), flag, target],
+        )
+        .await;
+        assert!(ok && said.contains(result), "{said}");
+    }
+    for args in [
+        vec!["backup", "out"],
+        vec!["lanes", "import", "lanes"],
+        vec!["lanes", "export", "lanes", "--db", db.to_str().unwrap()],
+    ] {
+        let (ok, said) = kkt(&home, &args).await;
+        assert!(!ok && said.contains("this machine is a client"), "{said}");
+    }
+    assert_eq!(record_text(&home), CLIENT);
+}
+
 /// A server with an access key, in its own home; returns the home, the
 /// server, its MCP URL and its key file. The home comes first so that, bound
 /// in that order, it is dropped (and removed) after the server.
@@ -236,7 +277,7 @@ async fn a_client_machine_is_set_up_from_flags_alone() {
     let (ok, said) = kkt(&home, &["status"]).await;
     assert!(ok, "{said}");
     assert!(
-        said.contains("Client only; the server runs on another machine."),
+        said.contains("Client only; no server is managed on this machine."),
         "{said}"
     );
     assert!(!said.contains("Name pack"), "{said}");
@@ -653,6 +694,85 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
 }
 
 #[tokio::test]
+async fn docker_setup_announces_existing_storage_before_provisioning() {
+    for (case, has_folder, has_volume) in [
+        ("fresh", false, false),
+        ("folder", true, false),
+        ("volume", false, true),
+        ("both", true, true),
+        ("unavailable", false, false),
+    ] {
+        let home = temp_home(&format!("reuse-{case}"));
+        write_record(&home, CLIENT);
+        let folder = if cfg!(target_os = "macos") {
+            home.join("Library/Application Support/kashkeshet/docker")
+        } else {
+            home.join(".local/share/kashkeshet/docker")
+        };
+        if has_folder {
+            std::fs::create_dir_all(&folder).expect("managed folder");
+        }
+        let bin = home.join("bin");
+        // Check for a volume before the first setup write. Stop at Compose
+        // so this test never needs Docker or a running server.
+        let reply = if case == "unavailable" {
+            "exit 1"
+        } else if has_volume {
+            "echo kkt_kkt-data"
+        } else {
+            "echo kkt_kkt-data-old"
+        };
+        script(
+            &bin,
+            "docker",
+            &format!(
+                "case \"$*\" in\n'volume ls --quiet --filter name=kkt_kkt-data') [ ! -e \"$HOME/.config/kkt/setup-unfinished.toml\" ] || exit 2; {reply};;\n*) exit 1;;\nesac"
+            ),
+        );
+        let (ok, said) = kkt_with_path(
+            &home,
+            &bin,
+            &[
+                "setup",
+                "--mode",
+                "docker",
+                "--no-tailscale",
+                "--allow-host",
+                "none",
+                "--clients",
+                "none",
+            ],
+        )
+        .await;
+        assert!(
+            !ok && said.contains("Docker is not available"),
+            "{case}: {said}"
+        );
+        assert_eq!(
+            said.contains("Docker could not check for volume"),
+            case == "unavailable",
+            "{said}"
+        );
+        let notice = "Docker setup will reuse existing storage.";
+        assert_eq!(
+            said.contains(notice),
+            has_folder || has_volume,
+            "{case}: {said}"
+        );
+        if has_folder || has_volume {
+            assert!(
+                said.contains("kkt_kkt-data") && said.contains(folder.to_str().unwrap()),
+                "{said}"
+            );
+            assert!(
+                said.find(notice).unwrap() < said.find("Docker is not available").unwrap(),
+                "{said}"
+            );
+        }
+    }
+}
+
+#[tokio::test]
 #[expect(
     clippy::disallowed_methods,
     reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
@@ -868,7 +988,6 @@ async fn docker_setup_with_an_admin_key_makes_it_in_the_container_and_saves_a_pr
 
 /// `kkt <args>` with `home` as its only home directory, `bin` as PATH, and
 /// no terminal.
-#[cfg(target_os = "linux")]
 #[expect(
     clippy::disallowed_methods,
     reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
@@ -2458,6 +2577,10 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     );
     assert!(record.contains("[service]\ntailscale = false"), "{record}");
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(
+        said.contains(&format!("Version: {}", env!("CARGO_PKG_VERSION"))),
+        "{said}"
+    );
     assert!(said.contains("Mode: service"), "{said}");
     assert!(!said.contains("Unrecorded"), "{said}");
 
@@ -2479,6 +2602,61 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     assert!(ok, "{said}");
     assert!(said.contains("already at kkt"), "{said}");
     server.kill().await.expect("stop kkt");
+    // A listener accepts connections but never answers MCP. Status still
+    // succeeds and prints the manager's output, within its probe deadline.
+    let stalled = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listen");
+    std::fs::write(
+        &config,
+        format!("bind = \"{}\"\n", stalled.local_addr().expect("address")),
+    )
+    .expect("config");
+    // The normal HTTP timeout alone would wait five seconds.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the real status process must finish before the HTTP client's timeout"
+    )]
+    let (ok, said) = tokio::time::timeout(
+        Duration::from_secs(4),
+        kkt_with_docker(&home, &bin, &log, &["status"]),
+    )
+    .await
+    .expect("bounded status probe");
+    assert!(
+        ok && said.contains("Mode: service") && said.contains("Version: could not be read"),
+        "{said}"
+    );
+
+    // Answer as a different build from both the CLI and its setup record.
+    tokio::join!(
+        async {
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            drop(stalled.accept().await.expect("previous request"));
+            let (mut stream, _) = stalled.accept().await.expect("next request");
+            let mut lines = BufReader::new(&mut stream).lines();
+            while let Some(line) = lines.next_line().await.expect("HTTP headers") {
+                if line.is_empty() {
+                    break;
+                }
+            }
+            let body = r#"{"result":{"serverInfo":{"name":"kkt","version":"0.10.0"}}}"#;
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .expect("reply");
+        },
+        async {
+            let (ok, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+            assert!(ok && said.contains("Version: 0.10.0"), "{said}");
+        }
+    );
 }
 
 /// A `bin` folder in `scratch` with a fake launchd and systemd that do what

@@ -138,8 +138,9 @@ pub async fn run<D>(
                 if let Some(key) = &plan.new_web_key {
                     new_key_file(parts.key_files, parts.entropy, key, false)?;
                     parts.output.output(format_args!(
-                        "Created a new web key at {}. Read it with `kkt key show --web`.\n",
-                        key.display()
+                        "Created a new web key at {}. Read it with `{}`.\n",
+                        key.display(),
+                        web_key_show_command(parts, key),
                     ));
                 }
                 if let Some(key) = &plan.new_key {
@@ -245,4 +246,33 @@ pub fn service_plan<D>(
         bind: checked.bind,
         config_file: checked.config_file,
     })
+}
+
+/// The `kkt key show` command that reads a newly created service web key.
+/// Uses the bare `--web` form only when `kkt_deployment::recorded_key`, given
+/// this machine's setup record, resolves to `key`; otherwise names the file
+/// explicitly (including when there is no record).
+pub(crate) fn web_key_show_command<D>(
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
+    key: &Path,
+) -> String {
+    let resolved = crate::record::read_setup(parts.serve, parts.setup_files)
+        .ok()
+        .flatten()
+        .and_then(|record| {
+            kkt_deployment::recorded_key(
+                &crate::deployment::server_keys(&record),
+                kkt_deployment::KeyKind::Web,
+            )
+            .ok()
+            .flatten()
+        });
+    if resolved.as_deref() == Some(key) {
+        "kkt key show --web".to_string()
+    } else {
+        format!(
+            "kkt key show --web --key-file {}",
+            kkt_diagnostics::shell_word(&key.display().to_string())
+        )
+    }
 }

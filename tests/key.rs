@@ -182,6 +182,18 @@ async fn show_without_a_key_file_is_an_error() {
 #[tokio::test]
 async fn web_key_creation_show_and_rotation_are_separate_from_access_key() {
     let home = temp_home("web");
+    let missing = kkt(&home, &["key", "show", "--web"]).await;
+    assert_eq!(missing.status.code(), Some(1));
+    assert!(
+        String::from_utf8_lossy(&missing.stdout).is_empty(),
+        "stdout: {}",
+        String::from_utf8_lossy(&missing.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&missing.stderr);
+    assert!(
+        stderr.contains("there is no web key at"),
+        "stderr: {stderr}"
+    );
     for args in [vec!["key", "create"], vec!["key", "create", "--web"]] {
         let out = kkt(&home, &args).await;
         assert!(out.status.success(), "{}", text(&out));

@@ -103,6 +103,22 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         .map_err(step_error)
     }
 
+    fn docker_data_notice(&self) -> Option<String> {
+        let folder = kkt_container::Folder(docker_folder(self.env, self.platform).ok()?);
+        let volume = format!("{}_kkt-data", self.options.docker_project);
+        let path = folder.path().display();
+        match self.parts.container.reuses_data(&folder, &volume) {
+            Ok(false) => None,
+            Ok(true) => Some(format!(
+                "Docker setup will reuse existing storage. The server will use volume {volume} \
+                 and managed folder {path} and start with any data already there."
+            )),
+            Err(_) => Some(format!(
+                "Docker could not check for volume {volume}. Setup in {path} will use its data if it exists."
+            )),
+        }
+    }
+
     fn install_docker(
         &self,
         tailscale: Option<&setup::TailscaleLogin>,
@@ -959,6 +975,12 @@ mod tests {
         fn restrict(&self, _: &Path) -> std::io::Result<()> {
             unreachable!("clients")
         }
+        fn mode(&self, _: &Path) -> std::io::Result<Option<u32>> {
+            unreachable!("clients")
+        }
+        fn set_mode(&self, _: &Path, _: u32) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
         fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
             unreachable!("clients")
         }
@@ -1027,6 +1049,13 @@ mod tests {
         }
     }
     impl crate::ServiceDefaults for Unused {
+        fn endpoint(
+            &self,
+            _: &[String],
+        ) -> Result<(std::net::SocketAddr, Option<PathBuf>), crate::PartError> {
+            unreachable!("service endpoint")
+        }
+
         fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
             unreachable!("service_defaults")
         }

@@ -94,6 +94,14 @@ impl Memory {
 }
 
 impl ServiceContainer for Memory {
+    fn reuses_data(&self, folder: &Folder, volume: &str) -> Result<bool, ContainerError> {
+        let installs = self.installs.borrow();
+        Ok(installs.contains_key(folder.path())
+            || installs
+                .values()
+                .any(|s| format!("{}_kkt-data", s.inputs.project) == volume))
+    }
+
     fn provision<'a>(
         &'a self,
         _: &'a dyn Clock,

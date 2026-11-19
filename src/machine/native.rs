@@ -272,6 +272,7 @@ pub struct HereLanes<'n, 'a, D> {
 impl<D> LaneServers for HereLanes<'_, '_, D> {
     fn here(
         &self,
+        action: &kkt_operator_commands::lanes::LanesAction,
         db: Option<PathBuf>,
         config: Option<PathBuf>,
     ) -> Result<Box<dyn LaneServer + '_>, kkt_operator_commands::PartError> {
@@ -279,6 +280,7 @@ impl<D> LaneServers for HereLanes<'_, '_, D> {
         let on = kkt_operator_commands::lanes::lanes_on(
             deployment.as_ref(),
             db.is_some() || config.is_some(),
+            action,
         )
         .map_err(operator_part)?;
         Ok(self.native.lanes_on(on, db, config))
@@ -508,6 +510,20 @@ pub struct ServiceArgs<'a> {
 }
 
 impl kkt_install_commands::ServiceDefaults for ServiceArgs<'_> {
+    fn endpoint(
+        &self,
+        args: &[String],
+    ) -> Result<(std::net::SocketAddr, Option<PathBuf>), kkt_install_commands::PartError> {
+        let installed =
+            settings::serve_settings_from_args(self.env, self.platform, self.serve_args, args)
+                .map_err(install_part)?;
+        let key = match installed.access_key {
+            AccessKey::File(path) | AccessKey::Default(path) => Some(path),
+            AccessKey::None => None,
+        };
+        Ok((installed.bind, key))
+    }
+
     fn matches_defaults(&self, args: &[String]) -> Result<bool, kkt_install_commands::PartError> {
         let parse = self.serve_args;
         let installed = settings::serve_settings_from_args(self.env, self.platform, parse, args)

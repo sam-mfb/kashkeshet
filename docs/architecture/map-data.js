@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "b43604e1",
+ "commit": "a0eb8942",
  "crates": [
   {
    "bins": [
@@ -4426,6 +4426,7 @@ window.KKT_GRAPH = {
      "kind": "enum",
      "path": "ServiceError",
      "variants": [
+      "LogConfig",
       "Unsupported",
       "NoHome",
       "NotInstalled",
@@ -4544,7 +4545,8 @@ window.KKT_GRAPH = {
      "doc": "The launchd user agent of the user whose home folder it is given, waiting for launchd as `settings` say.",
      "kind": "struct",
      "methods": [
-      "new"
+      "new",
+      "with_configured_log"
      ],
      "path": "Launchd"
     },
@@ -4568,6 +4570,7 @@ window.KKT_GRAPH = {
      "process::Command::new",
      "process::Stdio",
      "process::Stdio::null",
+     "eprintln!",
      "Path::try_exists"
     ]
    },
@@ -4575,7 +4578,17 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-bare-service-launchd",
    "produces": [],
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "Launchd::with_configured_log",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "read",
+     "traits": []
+    }
+   ],
    "testing_third_party": [],
    "third_party": []
   },
@@ -5193,6 +5206,7 @@ window.KKT_GRAPH = {
       "down",
       "exec",
       "file",
+      "has_volume",
       "inspect",
       "make_folders",
       "pull",
@@ -5260,7 +5274,8 @@ window.KKT_GRAPH = {
       "new",
       "unavailable",
       "with_config",
-      "with_file"
+      "with_file",
+      "with_volume"
      ],
      "path": "testing::MemoryProjects"
     },
@@ -5761,6 +5776,7 @@ window.KKT_GRAPH = {
       "existing",
       "has_settings",
       "provision",
+      "reuses_data",
       "run_in_server",
       "settings_file",
       "sharing_key",
@@ -7185,7 +7201,7 @@ window.KKT_GRAPH = {
      "path": "ServiceSettings"
     },
     {
-     "doc": "What `kkt status` says after the key lines, and what it does next.",
+     "doc": "What `kkt status` says about this machine, and what it does next.",
      "fields": [
       "lines",
       "then"
@@ -8589,12 +8605,14 @@ window.KKT_GRAPH = {
       "exists",
       "file_names",
       "is_file",
+      "mode",
       "read",
       "read_if_present",
       "remove_file",
       "remove_if_present",
       "rename",
       "restrict",
+      "set_mode",
       "write",
       "write_by_rename"
      ],
@@ -8609,6 +8627,7 @@ window.KKT_GRAPH = {
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
      "fs::create_dir_all",
+     "fs::metadata",
      "fs::read_dir",
      "fs::read_to_string",
      "fs::remove_file",
@@ -9293,6 +9312,7 @@ window.KKT_GRAPH = {
      "doc": "Required only by commands that inspect an unrecorded service.",
      "kind": "trait",
      "methods": [
+      "endpoint",
       "matches_defaults"
      ],
      "path": "ServiceDefaults"
@@ -12566,11 +12586,13 @@ window.KKT_GRAPH = {
       "create_dir_all",
       "create_private",
       "exists",
+      "mode",
       "process_id",
       "read",
       "remove_file",
       "rename",
-      "restrict"
+      "restrict",
+      "set_mode"
      ],
      "path": "Host"
     },
@@ -14114,6 +14136,7 @@ window.KKT_GRAPH = {
       "Collision",
       "Write",
       "NameNotWritten",
+      "NoWebKey",
       "Read",
       "Exists",
       "Resolve",
@@ -17675,6 +17698,7 @@ window.KKT_GRAPH = {
       "check_typed_key",
       "detect_clients",
       "discard_key",
+      "docker_data_notice",
       "doctor",
       "forget_unfinished",
       "import_lanes",
@@ -20301,12 +20325,19 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Service",
+    "ServiceError",
     "Unsupported"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
+    {
+     "detail": [
+      "ServiceError"
+     ],
+     "role": "uses"
+    },
     {
      "detail": [
       "Unsupported"
@@ -20315,9 +20346,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "ServiceError"
-   ],
+   "test_items": [],
    "to": "kkt-bare-service"
   },
   {
@@ -25824,6 +25853,7 @@ window.KKT_GRAPH = {
     "guard",
     "new_key_file",
     "plan",
+    "recorded_key",
     "running_version",
     "status",
     "status_looks_for_unrecorded",
@@ -25888,6 +25918,7 @@ window.KKT_GRAPH = {
       "guard",
       "new_key_file",
       "plan",
+      "recorded_key",
       "running_version",
       "status",
       "status_looks_for_unrecorded",
@@ -25909,10 +25940,12 @@ window.KKT_GRAPH = {
    "items": [
     "Check",
     "DockerKkt",
+    "Initialized",
     "Inspector",
     "KeyToCheck",
     "Plan",
     "Prober",
+    "Reply",
     "ServerLines",
     "ServiceSeen",
     "Settings",
@@ -25935,6 +25968,7 @@ window.KKT_GRAPH = {
     "server_fix",
     "service_check",
     "setup_wait",
+    "shell_word",
     "tailscale_login_check",
     "unrecorded_check",
     "until_reachable",
@@ -25947,8 +25981,10 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Check",
+      "Initialized",
       "Plan",
       "Prober",
+      "Reply",
       "ServerLines",
       "Setup",
       "SetupServer",
@@ -25969,6 +26005,7 @@ window.KKT_GRAPH = {
       "server_fix",
       "service_check",
       "setup_wait",
+      "shell_word",
       "tailscale_login_check",
       "unrecorded_check",
       "until_reachable",
@@ -25986,7 +26023,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "Answered",
-    "Initialized",
     "KeyFile",
     "KeyFileUnread",
     "Probing",
@@ -32976,6 +33012,27 @@ window.KKT_ASSEMBLY = {
       {
        "at": "InstallParts",
        "param": "container_configs"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-bare-service-launchd",
+     "note": "The default config or the config named in the plist, with relative paths resolved.",
+     "own": "Read the log path from the service config",
+     "suppliers": [
+      {
+       "crate": "kkt-config-file",
+       "item": "parse_file"
+      },
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
+     "to": [
+      {
+       "at": "Launchd::with_configured_log",
+       "param": "read"
       }
      ]
     },

@@ -10,8 +10,8 @@ curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/latest/download/kashke
 kkt --version
 ```
 
-Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
-already set up here.
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` to upgrade a
+server running here (client-only machines need no further step).
 
 The shell installer selects the native archive and installs `kkt`
 into `$CARGO_HOME/bin` (or `~/.cargo/bin`). Linux builds use GNU libc on
@@ -28,8 +28,8 @@ curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/download/v0.8.0/kashke
 kkt --version # kashkeshet 0.8.0
 ```
 
-Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
-already set up here.
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` to upgrade a
+server running here (client-only machines need no further step).
 
 ## Container image
 
@@ -51,7 +51,7 @@ it (replace the example version with a published release):
 VERSION=v0.8.0
 ARCHIVE=kashkeshet-x86_64-unknown-linux-gnu.tar.xz
 gh release download "$VERSION" -R sam-mfb/kashkeshet --pattern "$ARCHIVE" --pattern "$ARCHIVE.sha256"
-sha256sum -c "$ARCHIVE.sha256" # on macOS: shasum -a 256 -c "$ARCHIVE.sha256"
+grep . "$ARCHIVE.sha256" | sha256sum -c - # on macOS: grep . "$ARCHIVE.sha256" | shasum -a 256 -c -
 gh attestation verify "$ARCHIVE" --repo sam-mfb/kashkeshet --signer-workflow sam-mfb/kashkeshet/.github/workflows/release.yml
 tar -xf "$ARCHIVE"
 ```
@@ -106,12 +106,13 @@ the binary and its recorded provenance then report that version too.
 | `0.9.0` | `v0.9.0` | Stable |
 | `0.10.0` | `v0.10.0` | Stable; available through `releases/latest` |
 | `1.0.0-rc.1` | `v1.0.0-rc.1` | Pre-release; use its tag-specific installer |
+| `1.0.0-rc.2` | `v1.0.0-rc.2` | Pre-release; use its tag-specific installer |
 
 The validated `0.1.0-rc.1` candidate was followed by stable `0.1.0`,
 then `0.2.0`, `0.3.0`, `0.4.0`, `0.4.1`, `0.4.2`, `0.5.0`, `0.6.0`, `0.7.0`
 and `0.8.0`. The validated `0.9.0-rc.1` candidate was followed by stable
 `0.9.0`, then `0.10.0`.
-The current Cargo version is `1.0.0-rc.1`, for the tag `v1.0.0-rc.1`, a
+The current Cargo version is `1.0.0-rc.2`, for the tag `v1.0.0-rc.2`, a
 candidate for `1.0.0`; the latest stable release is `0.10.0`.
 Do not override a version mismatch with `--force-tag`.
 

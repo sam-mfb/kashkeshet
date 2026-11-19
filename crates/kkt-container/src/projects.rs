@@ -213,6 +213,8 @@ pub trait Projects {
     /// Whether the tool is installed and answers, asked anywhere but, like
     /// the project's commands, without its shielded variables.
     fn available(&self, project: &Project) -> Result<(), ProjectError>;
+    /// Whether the named volume exists, even when the project folder is absent.
+    fn has_volume(&self, project: &Project, name: &str) -> Result<bool, ProjectError>;
     /// The tool's name, as a person knows it.
     fn tool(&self) -> &str;
     /// How a person would type the tool's project command with `args`, in

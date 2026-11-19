@@ -171,18 +171,18 @@ fn assert_retire_refused(out: &Output, notes: &Path) {
     assert_eq!(
         String::from_utf8_lossy(&out.stderr),
         format!(
-            "warning: skipped {}: a README is not a lane\n",
-            notes.join("README.md").display()
+            "warning: skipped {}: a README is not a lane\n\
+             error: {} has no lane files, only skipped .md files, so --retire-missing would \
+             retire every lane; name the folder that holds the lanes\n",
+            notes.join("README.md").display(),
+            notes.display(),
         )
     );
-    let error = format!(
-        " {} has no lane files, only skipped .md files, so --retire-missing would \
-         retire every lane; name the folder that holds the lanes\n",
-        notes.display()
+    assert!(
+        out.stdout.is_empty(),
+        "stdout: {}",
+        String::from_utf8_lossy(&out.stdout)
     );
-    let stdout = String::from_utf8_lossy(&out.stdout);
-    assert!(stdout.ends_with(&error), "{stdout}");
-    assert_eq!(stdout.lines().count(), 1, "{stdout}");
 }
 
 /// A folder holding only `README.md`.

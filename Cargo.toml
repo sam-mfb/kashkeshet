@@ -144,7 +144,7 @@ resolver = "3"
 # Shared by every package: each takes these with `x.workspace = true`.
 # The release number lives here (see docs/releases.md).
 [workspace.package]
-version = "1.0.0-rc.1"
+version = "1.0.0-rc.2"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/sam-mfb/kashkeshet"
@@ -314,7 +314,7 @@ install-path = "CARGO_HOME"
 # CHANGELOG.md. Release notes go on the release page instead.
 auto-includes = false
 include = ["README.md", "LICENSE"]
-install-success-msg ="kkt installed. Next: run kkt setup to set up this machine, or kkt upgrade if kkt was already set up here."
+install-success-msg = "kkt installed. Next: run kkt setup to set up this machine, or kkt upgrade to upgrade a server running here (client-only machines need no further step)."
 github-attestations = true
 # Attest installers and checksums as well as native archives.
 github-attestations-phase = "host"
