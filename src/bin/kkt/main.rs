@@ -189,7 +189,8 @@ async fn run(
                     install.setup_files,
                     install.service,
                     install.output,
-                )?;
+                )
+                .map_err(|e| e.to_string())?;
             }
             serve::run(env, platform, config, options).await
         }
@@ -247,7 +248,9 @@ async fn run(
         } => connect::run(&agents, env, &client, connection, client_config, write)
             .map_err(|e| e.to_string()),
         Task::Doctor(connection) => {
-            kkt_install_commands::doctor::run(&install, env, platform, connection).await
+            kkt_install_commands::doctor::run(&install, env, platform, connection)
+                .await
+                .map_err(|e| e.to_string())
         }
         Task::Setup { answers, options } => {
             kkt_install_commands::setup::run(env, platform, &install, answers, options).await

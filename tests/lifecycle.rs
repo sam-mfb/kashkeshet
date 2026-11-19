@@ -329,6 +329,11 @@ fn a_docker_machine_set_up_by_0_4_2_keeps_working() {
         said.contains("ok: this machine's kkt in Docker: running"),
         "{said}"
     );
+    // No server answers at the node's address, so the doctor ends saying so.
+    assert!(
+        said.ends_with("doctor found problems; see the fixes above\n"),
+        "{said}"
+    );
     assert!(!said.contains("setup record"), "{said}");
     assert!(!said.contains("this machine's setup"), "{said}");
 

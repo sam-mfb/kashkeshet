@@ -406,7 +406,7 @@ fn an_unfinished_setup_is_a_problem_and_so_is_one_that_cannot_be_read() {
             "run `kkt setup` again to finish it"
         ))
     );
-    let checks = plan(Err("unreadable".into()), None).checks(Inspector::new(&prober));
+    let checks = plan(Err(crate::Unknown::new("unreadable")), None).checks(Inspector::new(&prober));
     assert_eq!(
         checks.last(),
         Some(&Check::problem(

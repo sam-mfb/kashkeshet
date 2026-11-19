@@ -4,7 +4,7 @@
 //! what these functions return.
 
 use super::upgrade::{Upgrade, UpgradeError, upgrade};
-use super::{Deployment, RecordedDeployment, ServerVersion, UnrecordedDeployment};
+use super::{Deployment, RecordedDeployment, ServerVersion, Unknown, UnrecordedDeployment};
 use std::path::PathBuf;
 
 /// What `kkt status` says after the key lines, and what it does next.
@@ -14,7 +14,7 @@ pub struct Status {
     pub lines: Vec<String>,
     /// What to do once the lines are printed. An error is returned after
     /// them, so the lines are still printed.
-    pub then: Result<StatusThen, String>,
+    pub then: Result<StatusThen, Unknown>,
 }
 
 /// What `kkt status` does after its lines.
@@ -31,9 +31,9 @@ pub enum StatusThen {
 /// Whether `kkt status` looks for a server kkt installed here with no
 /// record: only when there is no record and no note of an unfinished setup,
 /// readable or not.
-pub fn status_looks_for_unrecorded<R, U>(
+pub fn status_looks_for_unrecorded<R, U, E>(
     recorded: Option<&R>,
-    unfinished: &Result<Option<U>, String>,
+    unfinished: &Result<Option<U>, E>,
 ) -> bool {
     recorded.is_none() && matches!(unfinished, Ok(None))
 }
@@ -44,8 +44,8 @@ pub fn status_looks_for_unrecorded<R, U>(
 /// `Ok(None)`).
 pub fn status(
     recorded: Option<&RecordedDeployment>,
-    unfinished: &Result<Option<UnrecordedDeployment>, String>,
-    unrecorded: &Result<Option<UnrecordedDeployment>, String>,
+    unfinished: &Result<Option<UnrecordedDeployment>, Unknown>,
+    unrecorded: &Result<Option<UnrecordedDeployment>, Unknown>,
 ) -> Status {
     let mut lines = Vec::new();
     match unfinished {
@@ -231,10 +231,12 @@ mod tests {
     fn began(summary: &str, found: Result<Deployment, String>) -> UnrecordedDeployment {
         UnrecordedDeployment {
             summary: summary.into(),
-            deployment: found.map(|deployment| DeploymentEndpoint {
-                deployment,
-                url: None,
-            }),
+            deployment: found
+                .map(|deployment| DeploymentEndpoint {
+                    deployment,
+                    url: None,
+                })
+                .map_err(Unknown::new),
         }
     }
 
@@ -265,16 +267,16 @@ mod tests {
     fn status_looks_for_an_unrecorded_install_only_with_nothing_else_known() {
         let recorded = record(service());
         let nothing: Result<Option<UnrecordedDeployment>, String> = Ok(None);
-        assert!(status_looks_for_unrecorded::<RecordedDeployment, _>(
+        assert!(status_looks_for_unrecorded::<RecordedDeployment, _, _>(
             None, &nothing
         ));
         assert!(!status_looks_for_unrecorded(Some(&recorded), &nothing));
-        let noted = Ok(Some(began(BEGAN_AS_SERVICE_SUMMARY, Ok(service()))));
-        assert!(!status_looks_for_unrecorded::<RecordedDeployment, _>(
+        let noted: Result<_, String> = Ok(Some(began(BEGAN_AS_SERVICE_SUMMARY, Ok(service()))));
+        assert!(!status_looks_for_unrecorded::<RecordedDeployment, _, _>(
             None, &noted
         ));
         let unreadable: Result<Option<UnrecordedDeployment>, String> = Err("bad".into());
-        assert!(!status_looks_for_unrecorded::<RecordedDeployment, _>(
+        assert!(!status_looks_for_unrecorded::<RecordedDeployment, _, _>(
             None,
             &unreadable
         ));
@@ -384,7 +386,7 @@ mod tests {
 
     #[test]
     fn status_of_an_unreadable_note_checks_the_service() {
-        let status = status(None, &Err("bad note".into()), &Ok(None));
+        let status = status(None, &Err(Unknown::new("bad note")), &Ok(None));
         assert_eq!(
             status,
             Status {
@@ -473,7 +475,7 @@ mod tests {
             status,
             Status {
                 lines: lines(&[BEGAN_IN_DOCKER]),
-                then: Err("set HOME to keep kkt's Docker files".to_string()),
+                then: Err(Unknown::new("set HOME to keep kkt's Docker files")),
             }
         );
     }
@@ -524,7 +526,7 @@ mod tests {
 
     #[test]
     fn status_of_an_unreadable_unrecorded_install_checks_the_service() {
-        let status = status(None, &Ok(None), &Err("both found".into()));
+        let status = status(None, &Ok(None), &Err(Unknown::new("both found")));
         assert_eq!(
             status,
             Status {

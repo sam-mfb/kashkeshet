@@ -103,6 +103,30 @@ pub struct RecordedDeployment {
     pub version: ServerVersion,
 }
 
+/// Why a fact is not known: the reader's own error, passed on unread. It
+/// can be cloned with the facts that hold it.
+#[derive(Clone, Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct Unknown(pub std::sync::Arc<dyn std::error::Error + Send + Sync>);
+
+impl Unknown {
+    /// The fact is not known because of `error`.
+    pub fn new(error: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+        Unknown(std::sync::Arc::from(error.into()))
+    }
+}
+
+/// Two reasons are equal when they say the same words. The facts that hold
+/// one are compared whole in many tests of `kkt status`, and a boxed error
+/// has no equality of its own; nothing outside tests compares them.
+impl PartialEq for Unknown {
+    fn eq(&self, other: &Self) -> bool {
+        self.to_string() == other.to_string()
+    }
+}
+
+impl Eq for Unknown {}
+
 /// A deployment `kkt status` reports beside the record, or in its place: one
 /// an earlier setup began and did not finish, or one found installed with no
 /// record.
@@ -111,7 +135,7 @@ pub struct UnrecordedDeployment {
     /// One sentence saying what was noted or found.
     pub summary: String,
     /// Its deployment and endpoint, or why its deployment is not known.
-    pub deployment: Result<DeploymentEndpoint, String>,
+    pub deployment: Result<DeploymentEndpoint, Unknown>,
 }
 
 /// An [`UnrecordedDeployment`]'s kind of deployment and its MCP endpoint.
@@ -147,10 +171,15 @@ pub fn default_db(env: &Env, platform: Platform) -> Option<PathBuf> {
     Some(data_dir(env, platform)?.join(DB_FILE_NAME))
 }
 
+/// Why there is no folder for kkt's Docker files: no home to keep it in.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, thiserror::Error)]
+#[error("set HOME to keep kkt's Docker files")]
+pub struct NoDockerHome;
+
 /// The folder `kkt setup` keeps kkt's Docker files in.
-pub fn docker_folder(env: &Env, platform: Platform) -> Result<PathBuf, String> {
+pub fn docker_folder(env: &Env, platform: Platform) -> Result<PathBuf, NoDockerHome> {
     Ok(data_dir(env, platform)
-        .ok_or("set HOME to keep kkt's Docker files")?
+        .ok_or(NoDockerHome)?
         .join(DOCKER_FOLDER))
 }
 

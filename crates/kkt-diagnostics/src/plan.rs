@@ -64,7 +64,7 @@ pub struct Plan<'a> {
     pub machine: ThisMachine,
     /// An install `kkt setup` began and did not finish: none, its summary,
     /// or why its note could not be read.
-    pub unfinished: Result<Option<String>, String>,
+    pub unfinished: Result<Option<String>, crate::Unknown>,
     /// The line about a server kkt installed here with no record, if one was
     /// looked for and found.
     pub unrecorded: Option<Check>,
@@ -105,7 +105,11 @@ impl Plan<'_> {
                 summary,
                 "run `kkt setup` again to finish it",
             )),
-            Err(e) => checks.push(Check::problem(SETUP_CHECK, e, "run `kkt setup` again")),
+            Err(e) => checks.push(Check::problem(
+                SETUP_CHECK,
+                e.to_string(),
+                "run `kkt setup` again",
+            )),
         }
         checks.extend(self.unrecorded);
         checks

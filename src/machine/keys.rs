@@ -175,6 +175,7 @@ mod tests {
             unrecorded,
             kind,
         )
+        .map_err(|e| e.to_string())
     }
 
     fn unused_args(_: &[String]) -> Result<(Option<PathBuf>, ServeOptions), String> {

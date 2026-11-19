@@ -49,7 +49,7 @@ impl ConnectionSource for ConnectionReads<'_> {
             &ServeReads::new(self.env, self.platform),
             &NativeSetupFiles,
         )
-        .map_err(source_error)?
+        .map_err(|e| SourceError(Box::new(e)))?
         .map(|record| kkt_install_commands::deployment::recorded_server(&record)))
     }
 

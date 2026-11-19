@@ -7,6 +7,20 @@
 use super::{Check, SETUP_CHECK, shell_word};
 use std::path::{Path, PathBuf};
 
+/// Why a fact the doctor reports on is not known: the reader's own error,
+/// passed on unread, whose words the line gives. It can be cloned with the
+/// facts that hold it.
+#[derive(Clone, Debug, thiserror::Error)]
+#[error(transparent)]
+pub struct Unknown(pub std::sync::Arc<dyn std::error::Error + Send + Sync>);
+
+impl Unknown {
+    /// The fact is not known because of `error`.
+    pub fn new(error: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> Self {
+        Unknown(std::sync::Arc::from(error.into()))
+    }
+}
+
 /// How the server this machine's clients use is run, as the doctor checks
 /// it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -60,12 +74,12 @@ const ADOPT_FIX: &str = "run `kkt setup` to record it (`kkt setup --adopt` with 
 
 /// A server kkt installed here with no record, or why looking for one
 /// failed.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum UnrecordedServer {
     /// One was found. `summary` is one sentence saying what was found.
     Found { in_docker: bool, summary: String },
     /// Looking for one failed, for the `reason` given.
-    Unreadable { in_docker: bool, reason: String },
+    Unreadable { in_docker: bool, reason: Unknown },
 }
 
 /// The doctor's line about a server kkt installed here with no record, if
@@ -92,13 +106,13 @@ pub fn unrecorded_check(unrecorded: Option<UnrecordedServer>) -> Option<Check> {
             reason,
         } => Check::problem(
             SETUP_CHECK,
-            reason,
+            reason.to_string(),
             "run `kkt setup`, which sets it up again",
         ),
         UnrecordedServer::Unreadable {
             in_docker: false,
             reason,
-        } => Check::ok(SETUP_CHECK, reason),
+        } => Check::ok(SETUP_CHECK, reason.to_string()),
     })
 }
 
@@ -114,7 +128,7 @@ pub struct ServiceSeen {
 
 /// The doctor's line about the kkt service on this machine, or why it could
 /// not be asked.
-pub fn service_check(state: Result<ServiceSeen, String>) -> Check {
+pub fn service_check(state: Result<ServiceSeen, Unknown>) -> Check {
     match state {
         Ok(ServiceSeen {
             installed: false, ..
@@ -130,7 +144,7 @@ pub fn service_check(state: Result<ServiceSeen, String>) -> Check {
         ),
         Err(error) => Check::problem(
             SERVICE_CHECK,
-            error,
+            error.to_string(),
             "check `kkt service status` and your user service manager",
         ),
     }
@@ -172,7 +186,7 @@ pub enum WebKeyCopy {
 
 /// The doctor's line about whether the web key's host copy is the key of
 /// kkt in Docker in `folder`, or why it could not be compared.
-pub fn docker_web_key_check(compared: Result<WebKeyCopy, String>, folder: &Path) -> Check {
+pub fn docker_web_key_check(compared: Result<WebKeyCopy, Unknown>, folder: &Path) -> Check {
     match compared {
         Ok(WebKeyCopy::Same) => Check::ok(DOCKER_WEB_KEY_CHECK, "the same as the server's"),
         Ok(WebKeyCopy::Differs) => Check::problem(
@@ -242,7 +256,7 @@ pub struct DockerKkt {
 
 /// The doctor's line about kkt in Docker in the managed `folder`, or why it
 /// could not be asked.
-pub fn docker_check(state: Result<DockerKkt, String>, folder: &Path) -> Check {
+pub fn docker_check(state: Result<DockerKkt, Unknown>, folder: &Path) -> Check {
     let shown = folder.display().to_string();
     match state {
         Ok(state) if !state.files_present => Check::problem(
@@ -269,7 +283,7 @@ pub fn docker_check(state: Result<DockerKkt, String>, folder: &Path) -> Check {
         ),
         Err(error) => Check::problem(
             DOCKER_CHECK,
-            error,
+            error.to_string(),
             "check that Docker is running, then run `kkt status`",
         ),
     }
@@ -334,11 +348,11 @@ mod pins {
             }),
             Some(UnrecordedServer::Unreadable {
                 in_docker: true,
-                reason: "could not read the Docker folder".into(),
+                reason: Unknown::new("could not read the Docker folder"),
             }),
             Some(UnrecordedServer::Unreadable {
                 in_docker: false,
-                reason: "could not ask the service".into(),
+                reason: Unknown::new("could not ask the service"),
             }),
         ] {
             match unrecorded_check(unrecorded) {
@@ -351,14 +365,14 @@ mod pins {
             seen(false, false),
             seen(true, true),
             seen(true, false),
-            Err("no session".to_string()),
+            Err(Unknown::new("no session")),
         ] {
             out += &line(&service_check(state));
         }
         for compared in [
             Ok(WebKeyCopy::Same),
             Ok(WebKeyCopy::Differs),
-            Err("docker is not running".to_string()),
+            Err(Unknown::new("docker is not running")),
         ] {
             out += &line(&docker_web_key_check(compared, folder));
         }
@@ -382,7 +396,7 @@ mod pins {
             state(true, true, Some("0.10.0")),
             state(true, true, None),
             state(true, false, Some("0.10.0")),
-            Err("Docker is not available".to_string()),
+            Err(Unknown::new("Docker is not available")),
         ] {
             out += &line(&docker_check(state, folder));
         }

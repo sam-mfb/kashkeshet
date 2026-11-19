@@ -26,7 +26,9 @@ pub fn backup<D>(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    let mode = read_setup(parts.serve, parts.setup_files)?.map(|record| record.mode);
+    let mode = read_setup(parts.serve, parts.setup_files)
+        .map_err(|e| e.to_string())?
+        .map(|record| record.mode);
     match backup::backup_of(
         &server_here(mode.as_ref()),
         folder,
@@ -78,25 +80,30 @@ pub async fn status<D: ServiceDefaults>(
     env: &Env,
     platform: Platform,
 ) -> Result<(), String> {
+    // The reasons a read failed are kept as they are, to say in the lines.
     let unfinished = read_unfinished(
         parts.serve,
         parts.setup_files,
         parts.container,
         parts.service,
-    );
-    let recorded = read_setup(parts.serve, parts.setup_files)?;
+    )
+    .map_err(kkt_deployment::Unknown::new);
+    let recorded = read_setup(parts.serve, parts.setup_files).map_err(|e| e.to_string())?;
     let unrecorded = if kkt_deployment::status_looks_for_unrecorded(recorded.as_ref(), &unfinished)
     {
-        read_unrecorded(parts, env, platform).map_err(|(_, e)| e)
+        read_unrecorded(parts, env, platform).map_err(|(_, e)| kkt_deployment::Unknown::new(e))
     } else {
         Ok(None)
     };
     let found_unfinished = unfinished.as_ref().ok().and_then(Option::as_ref);
     let found_unrecorded = unrecorded.as_ref().ok().and_then(Option::as_ref);
-    if let Some(path) = local_web_key(parts, found_unfinished, found_unrecorded)? {
+    if let Some(path) =
+        local_web_key(parts, found_unfinished, found_unrecorded).map_err(|e| e.to_string())?
+    {
         parts.output.output(format_args!("{}", web_key_line(&path)));
     }
-    let admin_key = local_operator_key(parts, found_unfinished, found_unrecorded, KeyKind::Admin)?;
+    let admin_key = local_operator_key(parts, found_unfinished, found_unrecorded, KeyKind::Admin)
+        .map_err(|e| e.to_string())?;
     let admin_key = match admin_key {
         Some(path) if !key_file_there(parts.key_files, &path)? => None,
         other => other,
@@ -123,11 +130,11 @@ pub async fn status<D: ServiceDefaults>(
     for line in &said.lines {
         parts.output.output(format_args!("{line}\n"));
     }
-    match said.then? {
+    match said.then.map_err(|e| e.to_string())? {
         kkt_deployment::StatusThen::Service => {
             // Status reads local configuration, not a running server's
             // command line.
-            let config = parts.serve.config(None)?;
+            let config = parts.serve.config(None).map_err(|e| e.to_string())?;
             parts.output.output(format_args!(
                 "{}",
                 configured_name_pack_line(&config.name_pack)
@@ -163,7 +170,7 @@ pub async fn upgrade<D: ServiceDefaults>(
     platform: Platform,
     allow_downgrade: bool,
 ) -> Result<(), String> {
-    let record = recorded_setup(parts, env, platform)?;
+    let record = recorded_setup(parts, env, platform).map_err(|e| e.to_string())?;
     let recorded = deployment::recorded(&record);
     let running = match kkt_deployment::running_version(&recorded).map_err(|e| e.to_string())? {
         kkt_deployment::RunningVersion::DockerSettings(folder) => {
@@ -227,7 +234,7 @@ pub async fn upgrade<D: ServiceDefaults>(
     // The record now names the version the server runs.
     let mut record = record;
     record.written_by = Build::CURRENT.version.to_string();
-    write_setup_record(parts.serve, parts.setup_files, &record)?;
+    write_setup_record(parts.serve, parts.setup_files, &record).map_err(|e| e.to_string())?;
     parts.output.output(format_args!("{}\n", plan.said));
     Ok(())
 }
@@ -250,7 +257,7 @@ pub async fn uninstall<D: ServiceDefaults>(
     env: &Env,
     platform: Platform,
 ) -> Result<(), String> {
-    let record = recorded_setup(parts, env, platform)?;
+    let record = recorded_setup(parts, env, platform).map_err(|e| e.to_string())?;
     let stays_client = uninstall_record(&record, Build::CURRENT.version);
     match record.mode {
         setup::Mode::Docker(install) => {
@@ -266,7 +273,7 @@ pub async fn uninstall<D: ServiceDefaults>(
         setup::Mode::Client => {}
     }
     if let Some(client) = stays_client {
-        write_setup_record(parts.serve, parts.setup_files, &client)?;
+        write_setup_record(parts.serve, parts.setup_files, &client).map_err(|e| e.to_string())?;
         parts
             .output
             .output(format_args!("{}", uninstall_line(Some(&client))));
@@ -276,7 +283,10 @@ pub async fn uninstall<D: ServiceDefaults>(
         .serve
         .config_dir()
         .ok_or("set HOME to find the setup record")?;
-    parts.setup_files.remove_record(&config_dir)?;
+    parts
+        .setup_files
+        .remove_record(&config_dir)
+        .map_err(|e| e.to_string())?;
     parts
         .output
         .output(format_args!("{}", uninstall_line(None)));
@@ -292,7 +302,9 @@ fn stop_sharing(
     remote: &dyn kkt_remote_access::RemoteAccess,
 ) -> Result<(), String> {
     if shared {
-        remote.stop(serve.bind()?).map_err(|e| e.to_string())?;
+        remote
+            .stop(serve.bind().map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -304,7 +316,10 @@ fn existing_db<D>(
     db: Option<PathBuf>,
     config_db: Option<PathBuf>,
 ) -> Result<PathBuf, String> {
-    let path = parts.serve.database(db, config_db)?;
+    let path = parts
+        .serve
+        .database(db, config_db)
+        .map_err(|e| e.to_string())?;
     if !parts.database.exists(&path) {
         return Err(format!(
             "no database at {}; pass --db with the server's database file",
@@ -322,7 +337,7 @@ fn local_backup<D>(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
 ) -> Result<(), String> {
-    let config = parts.serve.config(config)?;
+    let config = parts.serve.config(config).map_err(|e| e.to_string())?;
     let database = existing_db(parts, db, config.db.clone())?;
     let default_access_key = parts.serve.default_access_key();
     let backup::BackupKeys {
@@ -624,19 +639,23 @@ mod tests {
     struct Asked(RefCell<Vec<&'static str>>);
 
     impl ServeFacts for Asked {
-        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, String> {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, crate::PartError> {
             self.0.borrow_mut().push("config");
             Err("not asked here".into())
         }
-        fn configured_access_key(&self) -> Result<Option<PathBuf>, String> {
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, crate::PartError> {
             self.0.borrow_mut().push("configured_access_key");
             Err("not asked here".into())
         }
-        fn database(&self, _: Option<PathBuf>, _: Option<PathBuf>) -> Result<PathBuf, String> {
+        fn database(
+            &self,
+            _: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<PathBuf, crate::PartError> {
             self.0.borrow_mut().push("database");
             Err("not asked here".into())
         }
-        fn bind(&self) -> Result<std::net::SocketAddr, String> {
+        fn bind(&self) -> Result<std::net::SocketAddr, crate::PartError> {
             self.0.borrow_mut().push("bind");
             Ok("127.0.0.1:7420".parse().expect("an address"))
         }
@@ -661,7 +680,7 @@ mod tests {
             &self,
             _: Option<PathBuf>,
             _: kkt_deployment::ServiceSettings,
-        ) -> Result<crate::ServiceInputs<'_>, String> {
+        ) -> Result<crate::ServiceInputs<'_>, crate::PartError> {
             self.0.borrow_mut().push("service_settings");
             Err("not asked here".into())
         }
@@ -810,11 +829,13 @@ mod tests {
     }
 
     impl crate::ImportLanes for Untouched {
-        fn check(&self, _: &Path, _: setup::Purpose) -> Result<usize, String> {
+        fn check(&self, _: &Path, _: setup::Purpose) -> Result<usize, crate::PartError> {
             self.refused("import_lanes.check")
+                .map_err(crate::PartError::from)
         }
-        fn import(&self, _: &setup::Record, _: &Path) -> Result<String, String> {
+        fn import(&self, _: &setup::Record, _: &Path) -> Result<String, crate::PartError> {
             self.refused("import_lanes.import")
+                .map_err(crate::PartError::from)
         }
     }
 
@@ -861,8 +882,9 @@ mod tests {
     }
 
     impl ServiceDefaults for Untouched {
-        fn matches_defaults(&self, _: &[String]) -> Result<bool, String> {
+        fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
             self.refused("service_defaults.matches_defaults")
+                .map_err(crate::PartError::from)
         }
     }
 
@@ -942,14 +964,17 @@ mod tests {
     }
 
     impl crate::ConfigText for Untouched {
-        fn read(&self, _: &Path) -> Result<Option<String>, String> {
+        fn read(&self, _: &Path) -> Result<Option<String>, crate::PartError> {
             self.refused("config_file.read")
+                .map_err(crate::PartError::from)
         }
-        fn write(&self, _: &Path, _: &str) -> Result<(), String> {
+        fn write(&self, _: &Path, _: &str) -> Result<(), crate::PartError> {
             self.refused("config_file.write")
+                .map_err(crate::PartError::from)
         }
-        fn with_allowed_host(&self, _: &str, _: &str) -> Result<String, String> {
+        fn with_allowed_host(&self, _: &str, _: &str) -> Result<String, crate::PartError> {
             self.refused("config_file.with_allowed_host")
+                .map_err(crate::PartError::from)
         }
     }
 
@@ -1011,7 +1036,7 @@ mod tests {
     struct UnsharedRecord(RefCell<Vec<String>>);
 
     impl crate::SetupFiles for UnsharedRecord {
-        fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, String> {
+        fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
             self.0.borrow_mut().push("read the record".into());
             Ok(Some(setup::Record {
                 mode: setup::Mode::Service { tailscale: false },
@@ -1021,25 +1046,29 @@ mod tests {
                 clients: None,
             }))
         }
-        fn read_unfinished(&self, _: &Path) -> Result<Option<setup::Unfinished>, String> {
+        fn read_unfinished(&self, _: &Path) -> Result<Option<setup::Unfinished>, crate::PartError> {
             self.0.borrow_mut().push("read the unfinished note".into());
             Err("not asked here".into())
         }
-        fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), String> {
+        fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), crate::PartError> {
             self.0.borrow_mut().push("wrote a record".into());
             Err("not asked here".into())
         }
-        fn write_unfinished(&self, _: &Path, _: &setup::Unfinished) -> Result<(), String> {
+        fn write_unfinished(
+            &self,
+            _: &Path,
+            _: &setup::Unfinished,
+        ) -> Result<(), crate::PartError> {
             self.0.borrow_mut().push("wrote an unfinished note".into());
             Err("not asked here".into())
         }
-        fn remove_unfinished(&self, _: &Path) -> Result<(), String> {
+        fn remove_unfinished(&self, _: &Path) -> Result<(), crate::PartError> {
             self.0
                 .borrow_mut()
                 .push("removed the unfinished note".into());
             Err("not asked here".into())
         }
-        fn kkt_path(&self) -> Result<PathBuf, String> {
+        fn kkt_path(&self) -> Result<PathBuf, crate::PartError> {
             self.0.borrow_mut().push("asked kkt's path".into());
             Err("not asked here".into())
         }
@@ -1060,7 +1089,7 @@ mod tests {
         fn canonicalize(&self, _: &Path) -> std::io::Result<PathBuf> {
             Err(std::io::Error::other("not asked here"))
         }
-        fn remove_record(&self, dir: &Path) -> Result<(), String> {
+        fn remove_record(&self, dir: &Path) -> Result<(), crate::PartError> {
             self.0
                 .borrow_mut()
                 .push(format!("removed the record in {}", dir.display()));
@@ -1251,7 +1280,7 @@ mod tests {
             read(&container, &untouched).expect_err("refused without the key's copy");
         assert_eq!(purpose, setup::Purpose::Docker);
         assert_eq!(
-            refused,
+            refused.to_string(),
             format!(
                 "Found a kkt server in Docker from {}, not recorded, but the copy of its access key setup saves, {}, is missing.",
                 folder.display(),
@@ -1292,6 +1321,605 @@ mod tests {
                 hostname: None,
                 tailnet: None,
             })
+        );
+    }
+
+    /// A container whose installs cannot be looked at.
+    struct Unseen;
+
+    impl kkt_containerized_service::ServiceContainer for Unseen {
+        fn provision<'a>(
+            &'a self,
+            _: &'a dyn kkt_clock::Clock,
+            _: &'a dyn kkt_containerized_service::LoginLink,
+            _: &'a kkt_container::Folder,
+            _: &'a kkt_containerized_service::Inputs,
+            _: &'a kkt_containerized_service::KeyCopies,
+        ) -> futures::future::LocalBoxFuture<
+            'a,
+            Result<
+                kkt_containerized_service::Provisioned,
+                kkt_containerized_service::ContainerError,
+            >,
+        > {
+            unreachable!("nothing is installed")
+        }
+        fn add_admin_key<'a>(
+            &'a self,
+            _: &'a dyn kkt_clock::Clock,
+            _: &'a kkt_container::Folder,
+            _: &'a kkt_containerized_service::KeyCopies,
+            _: &'a str,
+        ) -> futures::future::LocalBoxFuture<
+            'a,
+            Result<PathBuf, kkt_containerized_service::ContainerError>,
+        > {
+            unreachable!("nothing is installed")
+        }
+        fn status(
+            &self,
+            _: &kkt_container::Folder,
+            _: &dyn kkt_containerized_service::ConfigReader,
+            _: &str,
+            _: &Path,
+        ) -> Result<kkt_containerized_service::State, kkt_containerized_service::ContainerError>
+        {
+            unreachable!("no status is asked")
+        }
+        fn existing(
+            &self,
+            _: &kkt_container::Folder,
+        ) -> Result<
+            Option<kkt_containerized_service::Existing>,
+            kkt_containerized_service::ContainerError,
+        > {
+            Err(kkt_containerized_service::ContainerError::Refused {
+                what: "the project".into(),
+            })
+        }
+        fn compare_web_key(
+            &self,
+            _: &kkt_container::Folder,
+            _: &Path,
+        ) -> Result<kkt_containerized_service::KeyCopy, kkt_containerized_service::ContainerError>
+        {
+            unreachable!("no key is compared")
+        }
+        fn up(
+            &self,
+            _: &kkt_container::Folder,
+        ) -> Result<(), kkt_containerized_service::ContainerError> {
+            unreachable!("nothing is started")
+        }
+        fn down(
+            &self,
+            _: &kkt_container::Folder,
+            _: bool,
+        ) -> Result<(), kkt_containerized_service::ContainerError> {
+            unreachable!("nothing is stopped")
+        }
+        fn backup(
+            &self,
+            _: &kkt_container::Folder,
+            _: Option<&Path>,
+        ) -> Result<PathBuf, kkt_containerized_service::ContainerError> {
+            unreachable!("nothing is backed up")
+        }
+        fn upgrade<'a>(
+            &'a self,
+            _: &'a dyn kkt_clock::Clock,
+            _: &'a kkt_container::Folder,
+            _: &'a str,
+            _: Option<&'a kkt_containerized_service::KeyCopies>,
+        ) -> futures::future::LocalBoxFuture<
+            'a,
+            Result<(), kkt_containerized_service::ContainerError>,
+        > {
+            unreachable!("nothing is upgraded")
+        }
+        fn run_in_server(
+            &self,
+            _: &kkt_container::Folder,
+            _: &kkt_containerized_service::InServer<'_>,
+        ) -> Result<String, kkt_containerized_service::ContainerError> {
+            unreachable!("nothing is run")
+        }
+        fn config_home_file(
+            &self,
+            _: &kkt_container::Folder,
+            _: &Path,
+        ) -> Result<String, kkt_containerized_service::ContainerError> {
+            unreachable!("nothing is read")
+        }
+        fn has_settings(&self, _: &kkt_container::Folder) -> bool {
+            unreachable!("nothing is asked")
+        }
+        fn settings_file(&self, _: &kkt_container::Folder) -> bool {
+            unreachable!("nothing is asked")
+        }
+        fn version(
+            &self,
+            _: &kkt_container::Folder,
+        ) -> Result<String, kkt_containerized_service::ContainerError> {
+            unreachable!("nothing is asked")
+        }
+        fn sharing_key(
+            &self,
+            _: &Path,
+        ) -> Result<String, kkt_containerized_service::ContainerError> {
+            unreachable!("nothing is asked")
+        }
+    }
+
+    /// An installed service that fails at the step given.
+    struct Failing(&'static str);
+
+    impl Failing {
+        fn at(&self, step: &str) -> Result<(), kkt_bare_service::ServiceError> {
+            if self.0 == step {
+                return Err(kkt_bare_service::ServiceError::Failed {
+                    command: format!("service {step}"),
+                    detail: "refused".into(),
+                });
+            }
+            Ok(())
+        }
+    }
+
+    impl kkt_bare_service::Service for Failing {
+        fn ready(&self) -> Result<(), kkt_bare_service::ServiceError> {
+            self.at("ready")
+        }
+        fn install<'a>(
+            &'a self,
+            _: &'a dyn kkt_clock::Clock,
+            _: kkt_bare_service::Settings,
+            _: &'a kkt_bare_service::Spec,
+        ) -> kkt_bare_service::Pending<'a, Vec<String>> {
+            unreachable!("nothing is installed")
+        }
+        fn dry_run<'a>(
+            &'a self,
+            _: &'a dyn kkt_clock::Clock,
+            _: kkt_bare_service::Settings,
+            _: &'a kkt_bare_service::Spec,
+        ) -> kkt_bare_service::Pending<'a, Vec<String>> {
+            unreachable!("nothing is installed")
+        }
+        fn check_started<'a>(
+            &'a self,
+            _: &'a dyn kkt_clock::Clock,
+            _: kkt_bare_service::Settings,
+        ) -> kkt_bare_service::Pending<'a, ()> {
+            unreachable!("nothing is started")
+        }
+        fn installed_args(&self) -> Result<Option<Vec<String>>, kkt_bare_service::ServiceError> {
+            self.at("args")?;
+            if self.0 == "gone" {
+                return Ok(None);
+            }
+            Ok(Some(vec!["serve".into()]))
+        }
+        fn uninstall(&self) -> Result<Vec<String>, kkt_bare_service::ServiceError> {
+            unreachable!("nothing is uninstalled")
+        }
+        fn start(&self) -> Result<Vec<String>, kkt_bare_service::ServiceError> {
+            unreachable!("nothing is started")
+        }
+        fn stop(&self) -> Result<Vec<String>, kkt_bare_service::ServiceError> {
+            unreachable!("nothing is stopped")
+        }
+        fn add_key(
+            &self,
+            _: &Path,
+            _: &dyn Fn(&Path) -> Result<(), String>,
+        ) -> Result<bool, kkt_bare_service::ServiceError> {
+            unreachable!("no key is added")
+        }
+        fn state(&self) -> Result<kkt_bare_service::ServiceState, kkt_bare_service::ServiceError> {
+            self.at("state")?;
+            Ok(kkt_bare_service::ServiceState {
+                installed: true,
+                running: true,
+            })
+        }
+        fn status(&self) -> Result<Vec<String>, kkt_bare_service::ServiceError> {
+            unreachable!("no status is asked")
+        }
+        fn logs(&self, _: usize, _: bool) -> Result<Vec<String>, kkt_bare_service::ServiceError> {
+            unreachable!("no logs are asked")
+        }
+    }
+
+    /// Settings that run the defaults or not, or that cannot say.
+    struct Defaults(Option<bool>);
+    impl ServiceDefaults for Defaults {
+        fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
+            self.0.ok_or_else(|| "the config file is unreadable".into())
+        }
+    }
+
+    /// A server reached at a fixed address with no key, or none at all.
+    struct Reached(bool);
+    impl ConnectionSource for Reached {
+        type KeySource = ();
+        fn recorded(
+            &self,
+        ) -> Result<
+            Option<kkt_deployment::connection::RecordedServer>,
+            kkt_deployment::connection::SourceError,
+        > {
+            unreachable!("no record is read")
+        }
+        fn serve(
+            &self,
+            _: kkt_deployment::connection::ConnectionOptions,
+        ) -> Result<
+            kkt_deployment::connection::ServeConnection<()>,
+            kkt_deployment::connection::SourceError,
+        > {
+            match self.0 {
+                true => Ok(kkt_deployment::connection::ServeConnection {
+                    url: "http://127.0.0.1:7420/mcp".into(),
+                    access_key: kkt_keys::AccessKey::None,
+                    key_source: (),
+                }),
+                false => Err(kkt_deployment::connection::SourceError(
+                    "the serve settings are unreadable".into(),
+                )),
+            }
+        }
+        fn make_default_key(
+            &self,
+            _: &kkt_keys::AccessKey,
+        ) -> Result<(), kkt_deployment::connection::SourceError> {
+            unreachable!("no key is made")
+        }
+        fn check_key(
+            &self,
+            _: &Path,
+            _: &(),
+        ) -> Result<(), kkt_deployment::connection::SourceError> {
+            unreachable!("no key is checked")
+        }
+        fn absolute(&self, _: &Path) -> Result<PathBuf, kkt_deployment::connection::SourceError> {
+            unreachable!("no path is made absolute")
+        }
+    }
+
+    /// Serving facts under the home `/home/k` whose address cannot be read.
+    struct NoBind;
+    impl ServeFacts for NoBind {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, crate::PartError> {
+            unreachable!("no config is read")
+        }
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, crate::PartError> {
+            unreachable!("no config is read")
+        }
+        fn database(
+            &self,
+            _: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<PathBuf, crate::PartError> {
+            unreachable!("no database is asked")
+        }
+        fn bind(&self) -> Result<std::net::SocketAddr, crate::PartError> {
+            Err("bind is not an address".into())
+        }
+        fn default_access_key(&self) -> Option<PathBuf> {
+            unreachable!("no key is made")
+        }
+        fn default_name_pack(&self) -> String {
+            unreachable!("no name pack is asked")
+        }
+        fn config_dir(&self) -> Option<PathBuf> {
+            Some(PathBuf::from("/home/k/.config/kkt"))
+        }
+        fn config_file(&self) -> Option<PathBuf> {
+            Some(PathBuf::from("/home/k/.config/kkt/config.toml"))
+        }
+        fn config_file_in_home(&self) -> PathBuf {
+            PathBuf::from("kkt/config.toml")
+        }
+        fn service_settings(
+            &self,
+            _: Option<PathBuf>,
+            _: kkt_deployment::ServiceSettings,
+        ) -> Result<crate::ServiceInputs<'_>, crate::PartError> {
+            unreachable!("no service is planned")
+        }
+    }
+
+    /// The reasons a server installed with no record cannot be made out,
+    /// word for word, with how it runs.
+    #[test]
+    fn why_an_unrecorded_server_cannot_be_made_out_is_pinned() {
+        let env = Env {
+            home: Some(PathBuf::from("/home/k")),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let untouched = Untouched::default();
+        let empty = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let record = UnsharedRecord(RefCell::new(Vec::new()));
+        let said = Said::default();
+        let remote = Tailscale::default();
+        let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {
+            panic!("finding an install tried an address")
+        };
+        let asked = Asked::default();
+        let read = |container: &dyn kkt_containerized_service::ServiceContainer,
+                    service: &dyn kkt_bare_service::Service,
+                    defaults: &Defaults,
+                    connection: &Reached,
+                    serve: &dyn ServeFacts| {
+            let parts = InstallParts {
+                container,
+                container_configs: &untouched,
+                service,
+                try_bind: &try_bind,
+                remote: &remote,
+                clients: &untouched,
+                client_command: &untouched,
+                prober: &NoProbes,
+                import_lanes: &untouched,
+                connection,
+                clock: std::sync::Arc::new(NoClock),
+                serve,
+                service_defaults: defaults,
+                setup_files: &record,
+                key_files: &untouched,
+                entropy: &kkt_entropy::testing::SeqEntropy::new(0),
+                database: &untouched,
+                backups: &untouched,
+                output: &said,
+                mcp_path: "/mcp",
+                login_link: &untouched,
+                lines: &untouched,
+                config_file: &untouched,
+            };
+            read_unrecorded(&parts, &env, Platform::Xdg)
+                .map(|_| ())
+                .map_err(|(purpose, e)| (purpose, e.to_string()))
+        };
+        let folder = kkt_deployment::docker_folder(&env, Platform::Xdg).expect("a Docker folder");
+        let none = kkt_bare_service::testing::Memory::new();
+        let service = |why: &str| {
+            (
+                setup::Purpose::Service,
+                format!("Found a kkt service, not recorded, but {why}."),
+            )
+        };
+        let failed = |step: &str| format!("`service {step}` failed: refused");
+        assert_eq!(
+            read(
+                &Unseen,
+                &none,
+                &Defaults(Some(true)),
+                &Reached(true),
+                &asked
+            ),
+            Err((
+                setup::Purpose::Docker,
+                format!(
+                    "Found a kkt server in Docker from {}, not recorded, but the project.",
+                    folder.display()
+                )
+            ))
+        );
+        assert_eq!(
+            read(
+                &empty,
+                &Failing("ready"),
+                &Defaults(Some(true)),
+                &Reached(true),
+                &asked
+            ),
+            Err((setup::Purpose::Service, failed("ready")))
+        );
+        assert_eq!(
+            read(
+                &empty,
+                &Failing("state"),
+                &Defaults(Some(true)),
+                &Reached(true),
+                &asked
+            ),
+            Err((setup::Purpose::Service, failed("state")))
+        );
+        assert_eq!(
+            read(
+                &empty,
+                &Failing("args"),
+                &Defaults(Some(true)),
+                &Reached(true),
+                &asked
+            ),
+            Err(service(&format!(
+                "its service file could not be read: {}",
+                failed("args")
+            )))
+        );
+        assert_eq!(
+            read(
+                &empty,
+                &Failing("gone"),
+                &Defaults(Some(true)),
+                &Reached(true),
+                &asked
+            ),
+            Err(service("its service file went away while it was read"))
+        );
+        assert_eq!(
+            read(
+                &empty,
+                &Failing(""),
+                &Defaults(None),
+                &Reached(true),
+                &asked
+            ),
+            Err(service(
+                "its settings could not be read: the config file is unreadable"
+            ))
+        );
+        assert_eq!(
+            read(
+                &empty,
+                &Failing(""),
+                &Defaults(Some(true)),
+                &Reached(false),
+                &asked
+            ),
+            Err(service(
+                "its settings could not be read: the serve settings are unreadable"
+            ))
+        );
+        assert_eq!(
+            read(
+                &empty,
+                &Failing(""),
+                &Defaults(Some(true)),
+                &Reached(true),
+                &NoBind
+            ),
+            Err(service(
+                "its settings could not be read: bind is not an address"
+            ))
+        );
+        assert_eq!(
+            read(
+                &empty,
+                &Failing(""),
+                &Defaults(Some(true)),
+                &Reached(true),
+                &asked
+            ),
+            Err(service(
+                "whether it is shared over Tailscale is not known: tailscale is not here"
+            ))
+        );
+    }
+
+    /// A host where nothing is shared over Tailscale.
+    struct NotShared;
+    impl kkt_remote_access::RemoteAccess for NotShared {
+        fn prepare(&self) -> Result<kkt_remote_access::Node, kkt_remote_access::SharingError> {
+            unreachable!("nothing is shared")
+        }
+        fn serve(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
+            unreachable!("nothing is shared")
+        }
+        fn served(
+            &self,
+            _: std::net::SocketAddr,
+        ) -> Result<Option<kkt_remote_access::Node>, kkt_remote_access::SharingError> {
+            Ok(None)
+        }
+        fn stop(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
+            unreachable!("nothing is shared")
+        }
+    }
+
+    /// A service that does not run the default settings, and a server in
+    /// Docker installed beside a service: kkt-setup's refusals, passed on
+    /// word for word, with how the server runs.
+    #[test]
+    fn kkt_setups_refusals_of_an_unrecorded_server_are_passed_on() {
+        let home = PathBuf::from("/home/k");
+        let env = Env {
+            home: Some(home.clone()),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let folder = kkt_deployment::docker_folder(&env, Platform::Xdg).expect("a Docker folder");
+        let key_file = home
+            .join(".config/kkt")
+            .join(crate::record::DOCKER_KEY_FILE_NAME);
+        let untouched = Untouched::default();
+        let installed = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let inputs = kkt_containerized_service::Inputs {
+            version: "0.4.0".into(),
+            project: "kkt".into(),
+            port: 7420,
+            allow_hosts: vec![],
+            sharing: None,
+        };
+        let copies = kkt_containerized_service::KeyCopies {
+            access: key_file.clone(),
+            web: home.join("web"),
+            admin: home.join("admin"),
+        };
+        futures::executor::block_on(kkt_containerized_service::ServiceContainer::provision(
+            &installed,
+            &NoClock,
+            &untouched,
+            &kkt_container::Folder(folder.clone()),
+            &inputs,
+            &copies,
+        ))
+        .expect("installed");
+        let empty = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let key_files = kkt_keys::testing::Memory::new().with_file(key_file, "key\n");
+        let record = UnsharedRecord(RefCell::new(Vec::new()));
+        let said = Said::default();
+        let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {
+            panic!("finding an install tried an address")
+        };
+        let serve = Asked::default();
+        let read = |container: &dyn kkt_containerized_service::ServiceContainer,
+                    defaults: &Defaults| {
+            let parts = InstallParts {
+                container,
+                container_configs: &untouched,
+                service: &Failing(""),
+                try_bind: &try_bind,
+                remote: &NotShared,
+                clients: &untouched,
+                client_command: &untouched,
+                prober: &NoProbes,
+                import_lanes: &untouched,
+                connection: &Reached(true),
+                clock: std::sync::Arc::new(NoClock),
+                serve: &serve,
+                service_defaults: defaults,
+                setup_files: &record,
+                key_files: &key_files,
+                entropy: &kkt_entropy::testing::SeqEntropy::new(0),
+                database: &untouched,
+                backups: &untouched,
+                output: &said,
+                mcp_path: "/mcp",
+                login_link: &untouched,
+                lines: &untouched,
+                config_file: &untouched,
+            };
+            read_unrecorded(&parts, &env, Platform::Xdg)
+                .map(|_| ())
+                .map_err(|(purpose, e)| (purpose, e.to_string()))
+        };
+        // kkt-setup's own sentence, which its tests pin.
+        let not_defaults = setup::service_runs_defaults(&["serve".to_string()], false)
+            .expect_err("refused")
+            .to_string();
+        assert_eq!(
+            read(&empty, &Defaults(Some(false))),
+            Err((setup::Purpose::Service, not_defaults))
+        );
+        assert_eq!(
+            read(&installed, &Defaults(Some(true))),
+            Err((
+                setup::Purpose::Docker,
+                format!(
+                    "Found a kkt server in Docker from {}, for clients at \
+                     http://127.0.0.1:7420/mcp, not recorded. A kkt service is installed here \
+                     too, so which one clients use is not known; remove one (`kkt service \
+                     uninstall`, or `docker compose down` in the Docker folder) and run `kkt \
+                     setup` again",
+                    folder.display()
+                )
+            ))
         );
     }
 }
