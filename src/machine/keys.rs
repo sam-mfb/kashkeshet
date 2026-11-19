@@ -157,6 +157,7 @@ mod tests {
             path,
             kind,
         )
+        .map_err(|e| e.to_string())
     }
 
     fn local_operator_key(
