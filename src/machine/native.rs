@@ -876,4 +876,85 @@ mod tests {
             Err("set HOME to keep the setup record".to_string())
         );
     }
+
+    /// What the program's setup files and setup's lane import say when they
+    /// fail, word for word, over this program's real parts.
+    #[test]
+    fn the_setup_files_and_lane_import_refusals_are_pinned() {
+        let home = scratch::Dir::new("native-setup-file-refusals");
+        let said =
+            |done: Result<(), kkt_install_commands::PartError>| done.map_err(|e| e.to_string());
+        // A record that is a folder cannot be read.
+        let reads = home.join("reads");
+        std::fs::create_dir_all(kkt_setup::record_path(&reads)).expect("a folder");
+        assert_eq!(
+            said(NativeSetupFiles.read_record(&reads).map(|_| ())),
+            Err(format!(
+                "could not read {}: Is a directory (os error 21)",
+                kkt_setup::record_path(&reads).display()
+            ))
+        );
+        // A config folder that is a file cannot be made.
+        let blocked = home.join("blocked");
+        std::fs::write(&blocked, "").expect("a file");
+        let record = kkt_setup::Record {
+            mode: kkt_setup::Mode::Client,
+            written_by: "0.10.0".into(),
+            url: "https://kkt.example/mcp".into(),
+            key_file: None,
+            clients: None,
+        };
+        assert_eq!(
+            said(NativeSetupFiles.write_record(&blocked, &record)),
+            Err(format!(
+                "could not create {}: File exists (os error 17)",
+                blocked.display()
+            ))
+        );
+        // A record that is a folder cannot be written over.
+        assert_eq!(
+            said(NativeSetupFiles.write_record(&reads, &record)),
+            Err(format!(
+                "could not write {}: Is a directory (os error 21)",
+                kkt_setup::record_path(&reads).display()
+            ))
+        );
+        // A record that is not there cannot be removed.
+        let empty = home.join("empty");
+        std::fs::create_dir_all(&empty).expect("a folder");
+        assert_eq!(
+            said(NativeSetupFiles.remove_record(&empty)),
+            Err(format!(
+                "could not remove {}: No such file or directory (os error 2)",
+                kkt_setup::record_path(&empty).display()
+            ))
+        );
+        // A note that is a folder cannot be removed as a file.
+        std::fs::create_dir_all(kkt_setup::unfinished_path(&reads)).expect("a folder");
+        assert_eq!(
+            said(NativeSetupFiles.remove_unfinished(&reads)),
+            Err(format!(
+                "could not remove {}: Is a directory (os error 21)",
+                kkt_setup::unfinished_path(&reads).display()
+            ))
+        );
+        // Lanes are imported on the server's machine only.
+        let env = test_env(Some(&home));
+        let native = NativeParts::new(&env, TEST_PLATFORM);
+        let lanes = native.setup_lanes();
+        assert_eq!(
+            kkt_install_commands::ImportLanes::check(&lanes, &home, kkt_setup::Purpose::Client)
+                .map(|_| ())
+                .map_err(|e| e.to_string()),
+            Err("lanes are imported on the server's machine".to_string())
+        );
+        // A key path that cannot be made absolute.
+        let reads = crate::machine::connection::ConnectionReads::new(&env, TEST_PLATFORM);
+        assert_eq!(
+            kkt_deployment::connection::ConnectionSource::absolute(&reads, Path::new(""))
+                .map(|_| ())
+                .map_err(|e| e.to_string()),
+            Err("could not resolve key path: cannot make an empty path absolute".to_string())
+        );
+    }
 }
