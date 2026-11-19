@@ -2599,7 +2599,7 @@ mod tests {
         fn add_key(
             &self,
             _: &Path,
-            _: &dyn Fn(&Path) -> Result<(), String>,
+            _: &dyn Fn(&Path) -> Result<(), kkt_bare_service::KeyError>,
         ) -> Result<bool, ServiceError> {
             unreachable!("no key is added")
         }
