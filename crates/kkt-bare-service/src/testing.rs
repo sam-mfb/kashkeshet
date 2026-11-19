@@ -188,6 +188,27 @@ mod tests {
         assert!(matches!(service.start(), Err(ServiceError::NotInstalled)));
     }
 
+    /// The maker's error comes back as it was made, its type kept.
+    #[test]
+    fn a_key_the_maker_cannot_make_gives_back_its_error() {
+        let service = Memory::installed(vec!["serve".into()], true);
+        let make = |_: &Path| {
+            Err(crate::KeyError(Box::new(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "refused",
+            ))))
+        };
+        match service.add_key(Path::new("/k/admin-key"), &make) {
+            Err(ServiceError::Key(e)) => {
+                assert_eq!(e.to_string(), "refused");
+                let cause = e.0.downcast_ref::<std::io::Error>().expect("an io error");
+                assert_eq!(cause.kind(), std::io::ErrorKind::PermissionDenied);
+            }
+            other => panic!("{other:?}"),
+        }
+        assert!(service.done().is_empty(), "{:?}", service.done());
+    }
+
     #[test]
     fn a_key_is_made_once_and_the_service_restarted_each_time() {
         let service = Memory::installed(vec!["serve".into()], true);
