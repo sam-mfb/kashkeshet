@@ -281,6 +281,21 @@ as `{max_limit}`. After an intended change, run
   setting.
 - Rules return `RuleError` with a fixed code from `crates/kkt-api-agent/src/error.rs`.
   `unwrap` and `expect` are for tests only.
+- Errors are typed (RUST.md 8) everywhere outside tests: no function's
+  error is text. There are 21 exceptions, each with its reason:
+  - the development-only programs, which are never released: kkt-keymode's
+    `parse_args`, `run`, `settings`, `open`, `access`, `web`, `admin` and
+    `admin_names`, and the `run` of kkt-fake-product and kkt-webapp-preview;
+  - kkt-mcp's build script (`write_tool_text`, `tool_texts`, `tool_text`),
+    whose error stops the build;
+  - kkt-agent-client-mcp's HTTP client for a program's tests (`Http::new`,
+    `get`, `post`, `HttpReply::text` and `bytes_stream`);
+  - kkt-containerized-service's three private status helpers (`name_pack`,
+    `config_path_text`, `flag`), whose text is a status line's words, not a
+    failure passed on.
+
+  `.github/scripts/check-text-errors.py` lists them, and CI fails on any
+  other.
 - Logging happens only in side-effect and composition code (ARCHITECTURE.md 4.2.1). A
   logic crate that must log takes the shared log contract (`kkt-log`) as an
   injected dependency; it does not use `tracing` itself.
@@ -334,6 +349,9 @@ a sign the crate lines are wrong.
   `.github/scripts/check-lint-exceptions.py` fails on an `allow` attribute
   and on an `expect` with no reason: a lint exception is
   `#[expect(.., reason = "..")]` (RUST.md 9).
+  `.github/scripts/check-text-errors.py` fails on a function outside tests
+  whose error is text and that is not one of the exceptions under "kkt's
+  names for the principles", and on an exception no longer found.
   `docs/architecture/check-programs.py` builds the map from the code and
   fails on a kind that does not fit, a broken rule, and machine work in a
   program's own code that the temporary-breaks table in
