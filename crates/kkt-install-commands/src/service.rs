@@ -138,8 +138,9 @@ pub async fn run<D>(
                 if let Some(key) = &plan.new_web_key {
                     new_key_file(parts.key_files, parts.entropy, key, false)?;
                     parts.output.output(format_args!(
-                        "Created a new web key at {}. Read it with `kkt key show --web`.\n",
-                        key.display()
+                        "Created a new web key at {}. Read it with `{}`.\n",
+                        key.display(),
+                        web_key_show_command(parts, key),
                     ));
                 }
                 if let Some(key) = &plan.new_key {
@@ -245,4 +246,31 @@ pub fn service_plan<D>(
         bind: checked.bind,
         config_file: checked.config_file,
     })
+}
+
+/// The `kkt key show` command that reads a newly created service web key.
+/// Uses the bare `--web` form only when it resolves to `key`; otherwise
+/// names the file explicitly so the hint still works for custom configs or
+/// on a machine whose setup record points elsewhere.
+pub(crate) fn web_key_show_command<D>(
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
+    key: &Path,
+) -> String {
+    let default_web = parts
+        .serve
+        .default_access_key()
+        .map(|access| kkt_keys::web_key_path(&access));
+    let bare_reads_this_service = match crate::record::read_setup(parts.serve, parts.setup_files) {
+        Ok(None) => true,
+        Ok(Some(record)) => matches!(record.mode, kkt_setup::Mode::Service { .. }),
+        Err(_) => false,
+    };
+    if bare_reads_this_service && default_web.as_deref() == Some(key) {
+        "kkt key show --web".to_string()
+    } else {
+        format!(
+            "kkt key show --web --key-file {}",
+            kkt_diagnostics::shell_word(&key.display().to_string())
+        )
+    }
 }

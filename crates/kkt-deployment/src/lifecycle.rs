@@ -7,7 +7,7 @@ use super::upgrade::{Upgrade, UpgradeError, upgrade};
 use super::{Deployment, RecordedDeployment, ServerVersion, Unknown, UnrecordedDeployment};
 use std::path::PathBuf;
 
-/// What `kkt status` says after the key lines, and what it does next.
+/// What `kkt status` says about this machine, and what it does next.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Status {
     /// Lines to print, in order.
@@ -112,7 +112,7 @@ pub fn status(
         Deployment::Service { .. } => StatusThen::Service,
         Deployment::Docker { folder, .. } => StatusThen::Docker(folder),
         Deployment::Client => {
-            lines.push("Client only; the server runs on another machine.".to_string());
+            lines.push("Client only; no server is managed on this machine.".to_string());
             StatusThen::Done
         }
     };
@@ -321,7 +321,7 @@ mod tests {
             client.lines,
             [
                 "Mode: client\nServer: http://127.0.0.1:8080/mcp",
-                "Client only; the server runs on another machine."
+                "Client only; no server is managed on this machine."
             ]
         );
         assert_eq!(client.then, Ok(StatusThen::Done));
