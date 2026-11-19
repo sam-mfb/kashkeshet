@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "88115bd2",
+ "commit": "0c576c92",
  "crates": [
   {
    "bins": [
@@ -6872,6 +6872,11 @@ window.KKT_GRAPH = {
      "path": "NameNotWritten"
     },
     {
+     "doc": "Why there is no folder for kkt's Docker files: no home to keep it in.",
+     "kind": "struct",
+     "path": "NoDockerHome"
+    },
+    {
      "doc": "The plan for the service, before its arguments are written out.",
      "fields": [
       "new_key",
@@ -7010,6 +7015,14 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "UnfinishedSetup"
+    },
+    {
+     "doc": "Why a fact is not known: the reader's own error, passed on unread.",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "Unknown"
     },
     {
      "doc": "A deployment `kkt status` reports beside the record, or in its place: one an earlier setup began and did not finish, or one found installed with no record.",
@@ -7784,6 +7797,14 @@ window.KKT_GRAPH = {
       "Docker",
       "Service"
      ]
+    },
+    {
+     "doc": "Why a fact the doctor reports on is not known: the reader's own error, passed on unread, whose words the line gives.",
+     "kind": "struct",
+     "methods": [
+      "new"
+     ],
+     "path": "Unknown"
     },
     {
      "doc": "Why no request could be made at all, worded for the person.",
@@ -9043,6 +9064,11 @@ window.KKT_GRAPH = {
      "path": "Output"
     },
     {
+     "doc": "Why one of the program's parts could not answer: the implementation's own error, passed on unread.",
+     "kind": "struct",
+     "path": "PartError"
+    },
+    {
      "doc": "Questions about serving; no file is read until a command asks.",
      "kind": "trait",
      "methods": [
@@ -9151,6 +9177,19 @@ window.KKT_GRAPH = {
      "path": "doctor"
     },
     {
+     "doc": "Why `kkt doctor` failed: a source's own error, or the problems it found.",
+     "kind": "enum",
+     "path": "doctor::DoctorError",
+     "variants": [
+      "Read",
+      "Connection",
+      "Unprobed",
+      "Find",
+      "Folder",
+      "Problems"
+     ]
+    },
+    {
      "doc": "",
      "kind": "fn",
      "path": "doctor::run"
@@ -9215,6 +9254,67 @@ window.KKT_GRAPH = {
       "unrecorded"
      ],
      "path": "record::InstallReads"
+    },
+    {
+     "doc": "Why the setup record or the note of an unfinished setup could not be read.",
+     "kind": "enum",
+     "path": "record::ReadError",
+     "variants": [
+      "Files",
+      "ServiceState"
+     ]
+    },
+    {
+     "doc": "Why there is no setup record to act on.",
+     "kind": "enum",
+     "path": "record::RecordedError",
+     "variants": [
+      "Read",
+      "NoRecord"
+     ]
+    },
+    {
+     "doc": "Why `kkt serve` may not start here, or that it could not tell.",
+     "kind": "enum",
+     "path": "record::ServeCheckError",
+     "variants": [
+      "Read",
+      "Guard"
+     ]
+    },
+    {
+     "doc": "Which of an installed service's settings could not be read.",
+     "kind": "enum",
+     "path": "record::SettingsUnread",
+     "variants": [
+      "Defaults",
+      "Connection",
+      "Bind"
+     ]
+    },
+    {
+     "doc": "Why a server kkt installed here with no record cannot be made out.",
+     "kind": "enum",
+     "path": "record::UnrecordedError",
+     "variants": [
+      "DockerUnreadable",
+      "KeyCopyMissing",
+      "ServiceState",
+      "ServiceFile",
+      "ServiceFileGone",
+      "Settings",
+      "Sharing",
+      "Setup"
+     ]
+    },
+    {
+     "doc": "Why the setup record could not be written.",
+     "kind": "enum",
+     "path": "record::WriteError",
+     "variants": [
+      "NoHome",
+      "Files"
+     ]
     },
     {
      "doc": "Refuses to start a server on a machine `kkt setup` set up otherwise.",
@@ -11254,6 +11354,7 @@ window.KKT_GRAPH = {
    ],
    "testing_third_party": [],
    "third_party": [
+    "thiserror",
     "tokio"
    ]
   },
@@ -20313,6 +20414,7 @@ window.KKT_GRAPH = {
     "ImportLanes",
     "InstallParts",
     "Output",
+    "PartError",
     "ServeFacts",
     "ServiceDefaults",
     "ServiceInputs",
@@ -20356,6 +20458,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "PartError",
       "deployment::found_server_keys",
       "deployment::recorded_server",
       "deployment::server_keys",
@@ -25032,6 +25135,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
+    "Pending",
+    "ServiceState",
     "testing::Memory"
    ],
    "to": "kkt-bare-service"
@@ -25085,6 +25190,7 @@ window.KKT_GRAPH = {
    "from": "kkt-install-commands",
    "items": [
     "ConfigReader",
+    "ContainerError",
     "Inputs",
     "KeyCopy",
     "Login",
@@ -25100,6 +25206,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ConfigReader",
+      "ContainerError",
       "Inputs",
       "KeyCopy",
       "Login",
@@ -25114,7 +25221,10 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "ContainerConfig",
+    "Existing",
+    "InServer",
     "KeyCopies",
+    "Provisioned",
     "testing::Memory"
    ],
    "to": "kkt-containerized-service"
@@ -25125,8 +25235,11 @@ window.KKT_GRAPH = {
    "items": [
     "Deployment",
     "DeploymentEndpoint",
+    "FindKeyError",
+    "GuardError",
     "KeyKind",
     "KeyReadError",
+    "NoDockerHome",
     "Plan",
     "RecordedDeployment",
     "RecordedServerRead",
@@ -25139,12 +25252,14 @@ window.KKT_GRAPH = {
     "ServiceSettings",
     "StatusThen",
     "UnfinishedSetup",
+    "Unknown",
     "UnrecordedDeployment",
     "admin_key_collision",
     "admin_name_line",
     "admin_name_written",
     "check_bind",
     "connection",
+    "connection::ConnectionError",
     "connection::ConnectionOptions",
     "connection::ConnectionSource",
     "connection::RecordedServer",
@@ -25180,8 +25295,11 @@ window.KKT_GRAPH = {
      "detail": [
       "Deployment",
       "DeploymentEndpoint",
+      "FindKeyError",
+      "GuardError",
       "KeyKind",
       "KeyReadError",
+      "NoDockerHome",
       "Plan",
       "RecordedDeployment",
       "Replace",
@@ -25192,12 +25310,14 @@ window.KKT_GRAPH = {
       "ServiceSettings",
       "StatusThen",
       "UnfinishedSetup",
+      "Unknown",
       "UnrecordedDeployment",
       "admin_key_collision",
       "admin_name_line",
       "admin_name_written",
       "check_bind",
       "connection",
+      "connection::ConnectionError",
       "connection::ConnectionOptions",
       "connection::ConnectionSource",
       "connection::RecordedServer",
@@ -25245,6 +25365,8 @@ window.KKT_GRAPH = {
     "SetupServer",
     "TailscaleLogin",
     "ThisMachine",
+    "Unknown",
+    "Unprobed",
     "UnrecordedServer",
     "WebKeyCopy",
     "admin_key_fix",
@@ -25277,6 +25399,8 @@ window.KKT_GRAPH = {
       "SetupServer",
       "TailscaleLogin",
       "ThisMachine",
+      "Unknown",
+      "Unprobed",
       "UnrecordedServer",
       "WebKeyCopy",
       "admin_key_fix",
@@ -25497,7 +25621,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
-    "RemoteAccess"
+    "RemoteAccess",
+    "SharingError"
    ],
    "kind": "normal",
    "optional": false,
@@ -25505,7 +25630,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "RemoteAccess"
+      "RemoteAccess",
+      "SharingError"
      ],
      "role": "uses"
     }
@@ -25513,8 +25639,7 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "Node",
-    "Sharing",
-    "SharingError"
+    "Sharing"
    ],
    "to": "kkt-remote-access"
   },
@@ -25530,6 +25655,7 @@ window.KKT_GRAPH = {
     "Installed",
     "Lines",
     "Mode",
+    "NoRecord",
     "Purpose",
     "Record",
     "Server",
@@ -25567,6 +25693,7 @@ window.KKT_GRAPH = {
       "InstallCheck",
       "Lines",
       "Mode",
+      "NoRecord",
       "Purpose",
       "Record",
       "Unfinished",
@@ -25599,12 +25726,25 @@ window.KKT_GRAPH = {
    ],
    "from": "kkt-install-commands",
    "items": [
+    "Pending",
+    "Service",
+    "ServiceError",
+    "ServiceState",
+    "Settings",
+    "Spec",
     "testing::Memory"
    ],
    "kind": "dev",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
+    {
+     "detail": [
+      "Pending",
+      "ServiceError"
+     ],
+     "role": "uses"
+    },
     {
      "detail": [
       "testing::Memory"
@@ -25624,10 +25764,15 @@ window.KKT_GRAPH = {
    "items": [
     "ConfigReader",
     "ContainerConfig",
+    "ContainerError",
+    "Existing",
+    "InServer",
     "Inputs",
     "KeyCopies",
+    "KeyCopy",
     "Login",
     "LoginLink",
+    "Provisioned",
     "ServiceContainer",
     "Sharing",
     "State",
@@ -25640,6 +25785,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ConfigReader",
+      "ContainerError",
+      "KeyCopy",
       "Login",
       "LoginLink"
      ],
