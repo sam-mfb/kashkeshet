@@ -249,23 +249,25 @@ pub fn service_plan<D>(
 }
 
 /// The `kkt key show` command that reads a newly created service web key.
-/// Uses the bare `--web` form only when it resolves to `key`; otherwise
-/// names the file explicitly so the hint still works for custom configs or
-/// on a machine whose setup record points elsewhere.
+/// Uses the bare `--web` form only when `kkt_deployment::recorded_key`, given
+/// this machine's setup record, resolves to `key`; otherwise names the file
+/// explicitly (including when there is no record).
 pub(crate) fn web_key_show_command<D>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     key: &Path,
 ) -> String {
-    let default_web = parts
-        .serve
-        .default_access_key()
-        .map(|access| kkt_keys::web_key_path(&access));
-    let bare_reads_this_service = match crate::record::read_setup(parts.serve, parts.setup_files) {
-        Ok(None) => true,
-        Ok(Some(record)) => matches!(record.mode, kkt_setup::Mode::Service { .. }),
-        Err(_) => false,
-    };
-    if bare_reads_this_service && default_web.as_deref() == Some(key) {
+    let resolved = crate::record::read_setup(parts.serve, parts.setup_files)
+        .ok()
+        .flatten()
+        .and_then(|record| {
+            kkt_deployment::recorded_key(
+                &crate::deployment::server_keys(&record),
+                kkt_deployment::KeyKind::Web,
+            )
+            .ok()
+            .flatten()
+        });
+    if resolved.as_deref() == Some(key) {
         "kkt key show --web".to_string()
     } else {
         format!(

@@ -1,7 +1,11 @@
-//! What each `kkt` command says when it fails, and how it exits: a plain
-//! `error: ...` line on standard error (with empty standard output) and exit
-//! code 1. Each command is run with a home of its own; a failure that does
-//! not depend on the machine is chosen for each.
+//! What each `kkt` command says when it fails, and how it exits: plain text
+//! on standard error starting with `error: ` (no timestamp and no `ERROR`
+//! log level) and exit code 1. A message may span more than one line where
+//! it already did, and a command may have already printed completed work on
+//! standard output before failing; the cases here fail before printing
+//! anything else, so their standard output is empty. Each command is run
+//! with a home of its own; a failure that does not depend on the machine is
+//! chosen for each.
 
 #[path = "common/home.rs"]
 mod home;

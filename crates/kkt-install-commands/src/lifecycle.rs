@@ -2760,16 +2760,10 @@ mod tests {
             "kkt key show --web --key-file '/tmp/my keys/web-key'"
         );
 
-        struct ClientRecord;
-        impl crate::SetupFiles for ClientRecord {
+        struct Recorded(Option<setup::Record>);
+        impl crate::SetupFiles for Recorded {
             fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
-                Ok(Some(setup::Record {
-                    mode: setup::Mode::Client,
-                    written_by: "1.0.0".into(),
-                    url: "http://127.0.0.1:7420/mcp".into(),
-                    key_file: None,
-                    clients: None,
-                }))
+                Ok(self.0.clone())
             }
             fn read_unfinished(
                 &self,
@@ -2812,8 +2806,34 @@ mod tests {
                 unreachable!()
             }
         }
+        let client_record = Recorded(Some(setup::Record {
+            mode: setup::Mode::Client,
+            written_by: "1.0.0".into(),
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: None,
+            clients: None,
+        }));
         assert_eq!(
-            show_hint(&ClientRecord, "/home/k/.config/kkt/web-key"),
+            show_hint(&client_record, "/home/k/.config/kkt/web-key"),
+            "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
+        );
+        // A service record pointing at another key file: bare `kkt key show --web`
+        // would read that other key, not the new default web key.
+        let other_service_record = Recorded(Some(setup::Record {
+            mode: setup::Mode::Service { tailscale: false },
+            written_by: "1.0.0".into(),
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: Some(PathBuf::from("/other/access-key")),
+            clients: None,
+        }));
+        assert_eq!(
+            show_hint(&other_service_record, "/home/k/.config/kkt/web-key"),
+            "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
+        );
+        // With no setup record, the hint still names the explicit file.
+        let no_record = Recorded(None);
+        assert_eq!(
+            show_hint(&no_record, "/home/k/.config/kkt/web-key"),
             "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
         );
     }
