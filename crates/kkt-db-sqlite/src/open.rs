@@ -554,16 +554,36 @@ fn read_only(path: &std::path::Path) -> Result<Connection, DbError> {
     .map_err(failed)
 }
 
+/// The path's own bytes, for the URI below: on Unix a path is bytes,
+/// valid UTF-8 or not; on other platforms a path this cannot name is an
+/// error, said as such rather than assumed UTF-8.
+#[cfg(unix)]
+fn path_bytes(path: &std::path::Path) -> Result<Vec<u8>, DbError> {
+    use std::os::unix::ffi::OsStrExt;
+    Ok(path.as_os_str().as_bytes().to_vec())
+}
+
+#[cfg(not(unix))]
+fn path_bytes(path: &std::path::Path) -> Result<Vec<u8>, DbError> {
+    path.to_str()
+        .map(|text| text.as_bytes().to_vec())
+        .ok_or_else(|| {
+            DbError::Backend(format!(
+                "{} is not valid UTF-8, which this platform's SQLite URI needs",
+                path.display()
+            ))
+        })
+}
+
 /// A read-only connection that treats the file as immutable, so SQLite
 /// creates nothing beside it (no `-wal` or `-shm`): for a finished file
-/// nobody else is writing. The path is percent-encoded into the URI.
+/// nobody else is writing. The path's bytes are percent-encoded into
+/// the URI.
 fn immutable(path: &std::path::Path) -> Result<Connection, DbError> {
     use rusqlite::OpenFlags;
-    let text = path
-        .to_str()
-        .ok_or_else(|| DbError::Backend(format!("{} is not valid UTF-8", path.display())))?;
+    let bytes = path_bytes(path)?;
     let mut uri = String::from("file:");
-    for byte in text.as_bytes() {
+    for byte in &bytes {
         match byte {
             b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'.' | b'-' | b'_' | b'~' => {
                 uri.push(*byte as char)

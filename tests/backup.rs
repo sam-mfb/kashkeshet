@@ -271,6 +271,24 @@ async fn a_backups_about_file_records_the_highest_message_id() {
     );
 }
 
+/// A backup destination whose name is not valid UTF-8 still records
+/// the ID: the copied database's path is percent-encoded from its own
+/// bytes, not through UTF-8.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_backup_to_a_non_utf8_folder_records_the_highest_id() {
+    use std::os::unix::ffi::OsStringExt;
+    let (home, db) = messaged_home("non-utf8").await;
+    let folder = home.join(std::ffi::OsString::from_vec(b"backups-\xff".to_vec()));
+    let mut command = kkt(&home, &["backup"]);
+    command.arg(&folder).arg("--db").arg(&db);
+    let (success, text) = finish(command).await;
+    assert!(success, "{text}");
+    let backup = backups_in(&folder).pop().expect("one backup");
+    let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
+    assert!(about.contains("highest message ID: 3\n"), "{about}");
+}
+
 /// The highest ID is optional: a source the backup cannot read for it
 /// (locked, read-only, empty, or from before this storage) still backs
 /// up, byte for byte unchanged, with the reason printed in one line.
