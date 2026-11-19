@@ -1100,7 +1100,10 @@ mod tests {
             .settings("log_level = \"loud\"", Path::new("/"), None)
             .unwrap_err()
             .to_string();
-        assert!(err.starts_with("log_level "), "{err}");
+        assert_eq!(
+            err,
+            "log_level must be one of error, warn, info, debug, trace, not \"loud\""
+        );
     }
 
     const NO_HOME_KEY: &str = "invalid setting: access_key_file has no default without a home \
