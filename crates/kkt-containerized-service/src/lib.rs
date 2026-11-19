@@ -39,7 +39,7 @@ pub use container::{
     Arg, Carry, Existing, InServer, Inputs, KeyCopies, KeyCopy, Login, Provisioned,
     ServiceContainer, Sharing, State,
 };
-pub use error::{ContainerError, NoWorkingDir, NodeUnread};
+pub use error::{ConfigUnread, ContainerError, NoWorkingDir, NodeUnread};
 use futures::future::LocalBoxFuture;
 use kkt_clock::Clock;
 use kkt_container::{Folder, Project, Projects};

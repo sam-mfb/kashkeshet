@@ -174,7 +174,7 @@ impl ConfigReader for Reader {
         text: &str,
         dir: &Path,
         home: Option<&Path>,
-    ) -> Result<ContainerConfig, String> {
+    ) -> Result<ContainerConfig, kkt_containerized_service::ConfigUnread> {
         let mut config = ContainerConfig {
             name_pack: None,
             max_lane_chars: None,
@@ -182,10 +182,14 @@ impl ConfigReader for Reader {
         for line in text.lines().filter(|l| !l.trim().is_empty()) {
             let (key, value) = line
                 .split_once(" = ")
-                .ok_or_else(|| format!("not a setting in {} (home {home:?})", dir.display()))?;
+                .ok_or_else(|| format!("not a setting in {} (home {home:?})", dir.display()))
+                .map_err(|said| kkt_containerized_service::ConfigUnread(said.into()))?;
             if key == "name_pack" {
                 let quoted = value.strip_prefix('"').and_then(|v| v.strip_suffix('"'));
-                config.name_pack = Some(quoted.ok_or("name_pack: not a text")?.to_string());
+                let quoted = quoted.ok_or_else(|| {
+                    kkt_containerized_service::ConfigUnread("name_pack: not a text".into())
+                })?;
+                config.name_pack = Some(quoted.to_string());
             }
         }
         Ok(config)

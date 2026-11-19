@@ -848,8 +848,12 @@ mod tests {
             _: &str,
             _: &Path,
             _: Option<&Path>,
-        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
+        ) -> Result<
+            kkt_containerized_service::ContainerConfig,
+            kkt_containerized_service::ConfigUnread,
+        > {
             self.refused("container_configs.settings")
+                .map_err(|said| kkt_containerized_service::ConfigUnread(said.into()))
         }
     }
 

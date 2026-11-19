@@ -331,8 +331,11 @@ impl kkt_containerized_service::ConfigReader for ContainerConfigs {
         text: &str,
         dir: &Path,
         home: Option<&Path>,
-    ) -> Result<kkt_containerized_service::ContainerConfig, String> {
-        let options = parse_config(text, dir, home).map_err(|e| e.to_string())?;
+    ) -> Result<kkt_containerized_service::ContainerConfig, kkt_containerized_service::ConfigUnread>
+    {
+        // The setting's error is text until the program's own errors are typed.
+        let options = parse_config(text, dir, home)
+            .map_err(|e| kkt_containerized_service::ConfigUnread(e.to_string().into()))?;
         Ok(kkt_containerized_service::ContainerConfig {
             name_pack: options.name_pack,
             max_lane_chars: options.max_lane_chars,
@@ -884,7 +887,8 @@ mod tests {
         // A level kkt serve would refuse is refused here too.
         let err = ContainerConfigs
             .settings("log_level = \"loud\"", Path::new("/"), None)
-            .unwrap_err();
+            .unwrap_err()
+            .to_string();
         assert!(err.starts_with("log_level "), "{err}");
     }
 

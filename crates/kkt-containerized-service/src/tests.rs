@@ -618,7 +618,12 @@ fn the_web_keys_copy_is_compared_without_showing_either_key() {
 struct Packs;
 
 impl ConfigReader for Packs {
-    fn settings(&self, text: &str, _: &Path, _: Option<&Path>) -> Result<ContainerConfig, String> {
+    fn settings(
+        &self,
+        text: &str,
+        _: &Path,
+        _: Option<&Path>,
+    ) -> Result<ContainerConfig, crate::ConfigUnread> {
         Ok(ContainerConfig {
             name_pack: text.strip_prefix("pack=").map(|p| p.trim().to_string()),
             max_lane_chars: None,
@@ -691,8 +696,13 @@ fn status_says_what_is_there_and_running_and_the_name_pack_serve_uses() {
 struct Refuses;
 
 impl ConfigReader for Refuses {
-    fn settings(&self, _: &str, _: &Path, _: Option<&Path>) -> Result<ContainerConfig, String> {
-        Err("name_pack: no such pack".into())
+    fn settings(
+        &self,
+        _: &str,
+        _: &Path,
+        _: Option<&Path>,
+    ) -> Result<ContainerConfig, crate::ConfigUnread> {
+        Err(crate::ConfigUnread("name_pack: no such pack".into()))
     }
 }
 

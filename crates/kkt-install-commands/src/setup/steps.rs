@@ -914,7 +914,10 @@ mod tests {
             _: &str,
             _: &Path,
             _: Option<&Path>,
-        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
+        ) -> Result<
+            kkt_containerized_service::ContainerConfig,
+            kkt_containerized_service::ConfigUnread,
+        > {
             unreachable!("container_configs")
         }
     }

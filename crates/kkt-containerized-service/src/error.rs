@@ -196,6 +196,12 @@ impl std::error::Error for ContainerError {
     }
 }
 
+/// Why a [`ConfigReader`](crate::ConfigReader) could not read a config
+/// file's settings: its own error, passed on unread. Its text starts with
+/// the name of the setting that is wrong.
+#[derive(Debug)]
+pub struct ConfigUnread(pub Box<dyn std::error::Error + Send + Sync>);
+
 /// Why the folder the person ran kkt in could not be found: the caller's
 /// own error, passed on unread. Shared, since every backup is told it.
 /// Two are equal when they say the same.
@@ -230,7 +236,7 @@ macro_rules! passed_on {
         }
     )*};
 }
-passed_on!(NoWorkingDir, NodeUnread);
+passed_on!(ConfigUnread, NoWorkingDir, NodeUnread);
 
 impl PartialEq for NoWorkingDir {
     fn eq(&self, other: &Self) -> bool {

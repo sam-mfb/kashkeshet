@@ -284,7 +284,12 @@ mod tests {
         }
     }
     impl ConfigReader for Unused {
-        fn settings(&self, _: &str, _: &Path, _: Option<&Path>) -> Result<ContainerConfig, String> {
+        fn settings(
+            &self,
+            _: &str,
+            _: &Path,
+            _: Option<&Path>,
+        ) -> Result<ContainerConfig, crate::ConfigUnread> {
             panic!("the memory container parses no config file")
         }
     }
