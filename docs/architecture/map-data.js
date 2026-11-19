@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "7c98bc2e",
+ "commit": "74d4203e",
  "crates": [
   {
    "bins": [
@@ -17303,6 +17303,15 @@ window.KKT_GRAPH = {
      "path": "RenderError"
     },
     {
+     "doc": "Where a setup that did not finish continues from.",
+     "kind": "enum",
+     "path": "ResumeFrom",
+     "variants": [
+      "TheInstall",
+      "TheConnectionCheck"
+     ]
+    },
+    {
      "doc": "A server, as this machine's clients reach it.",
      "fields": [
       "url",
@@ -17310,6 +17319,32 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Server"
+    },
+    {
+     "doc": "Why `kkt setup` stopped.",
+     "kind": "enum",
+     "path": "SetupError",
+     "variants": [
+      "Step",
+      "RetryUnanswered",
+      "NotNoted",
+      "Unfinished",
+      "NotRecorded",
+      "FixAndRerun",
+      "Adopted",
+      "LanesNotImported",
+      "LanesForClient",
+      "AdoptUnfinishedInstall",
+      "CheckFailed",
+      "NotConnected",
+      "KeepsLocalServer",
+      "KeepsNotedServer",
+      "FlagFailed",
+      "InvalidKey",
+      "AdminName",
+      "Ask",
+      "Adopt"
+     ]
     },
     {
      "doc": "Which of setup's files an error is about.",
@@ -17346,6 +17381,15 @@ window.KKT_GRAPH = {
       "unfinished"
      ],
      "path": "Steps"
+    },
+    {
+     "doc": "What setup says it stopped short of, when the connection check or a client failed.",
+     "kind": "enum",
+     "path": "Stopped",
+     "variants": [
+      "NothingRecorded",
+      "SetupStopped"
+     ]
     },
     {
      "doc": "What to switch to, as given with `kkt switch`.",
@@ -17421,6 +17465,15 @@ window.KKT_GRAPH = {
       "summary"
      ],
      "path": "Unfinished"
+    },
+    {
+     "doc": "What a person is told of a server installed, or begun, but not recorded.",
+     "fields": [
+      "summary",
+      "from"
+     ],
+     "kind": "struct",
+     "path": "UnfinishedAdvice"
     },
     {
      "doc": "A server kkt installed here that neither a record nor a note of an unfinished setup covers.",
@@ -29199,7 +29252,8 @@ window.KKT_GRAPH = {
    "from": "kkt-setup",
    "items": [
     "AdminName",
-    "MAX_ADMIN_NAME_CHARS"
+    "MAX_ADMIN_NAME_CHARS",
+    "NameError"
    ],
    "kind": "normal",
    "optional": false,
@@ -29208,7 +29262,8 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AdminName",
-      "MAX_ADMIN_NAME_CHARS"
+      "MAX_ADMIN_NAME_CHARS",
+      "NameError"
      ],
      "role": "uses"
     }
