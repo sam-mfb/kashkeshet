@@ -62,8 +62,16 @@ async fn main() -> std::process::ExitCode {
     };
     let result = match (logging, task) {
         (Err(e), _) => Err(e),
-        (Ok(()), Err(e)) => Err(e),
-        (Ok(()), Ok(task)) => run(&env, platform, cli::serve_args, task).await,
+        (Ok(()), Err(e)) => Err(e.to_string()),
+        (Ok(()), Ok(task)) => {
+            run(
+                &env,
+                platform,
+                |args| cli::serve_args(args).map_err(Into::into),
+                task,
+            )
+            .await
+        }
     };
     match result {
         Ok(code) => code,
@@ -192,7 +200,9 @@ async fn run(
                 )
                 .map_err(|e| e.to_string())?;
             }
-            serve::run(env, platform, config, options).await
+            serve::run(env, platform, config, options)
+                .await
+                .map_err(|e| e.to_string())
         }
         Task::KeyCreate {
             path,

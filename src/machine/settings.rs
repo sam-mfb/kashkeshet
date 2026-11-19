@@ -3,7 +3,7 @@
 //! the startup checks, and each part's own settings filled from them.
 
 use super::config_disk::ConfigDisk;
-use crate::machine::keys::read_server_keys;
+use crate::machine::keys::{ServerKeysError, read_server_keys};
 pub use crate::machine::serve_options::{BadValue, ServeOptions, ServeSettings, server_settings};
 use kkt_admission::AdminAdmission;
 use kkt_admission::server_keys::ServerKeys;
@@ -41,7 +41,12 @@ pub fn check_dependency_log_level(level: Level) -> Result<(), kkt_log_tracing::S
 
 /// Why the log file `kkt serve` writes to could not be opened, worded with
 /// the settings it comes from.
-pub fn log_file_refusal(refusal: kkt_rolling_file::OpenError) -> String {
+#[derive(Debug, thiserror::Error)]
+#[error("{}", log_file_words(.0))]
+pub struct LogFileError(#[source] pub kkt_rolling_file::OpenError);
+
+/// [`LogFileError`]'s words: the setting the refusal comes from.
+fn log_file_words(refusal: &kkt_rolling_file::OpenError) -> String {
     use kkt_rolling_file::{OpenError, PolicyValue};
     match refusal {
         OpenError::Policy(problem) => {
@@ -61,8 +66,11 @@ pub fn log_file_refusal(refusal: kkt_rolling_file::OpenError) -> String {
 
 /// Reads the arguments a service file gives `kkt` as a `kkt serve` command:
 /// the config file it names and the settings it gives. The command line is
-/// `cli`'s, so `cli` supplies it ([`cli::serve_args`]).
-pub type ServeArgs = fn(&[String]) -> Result<(Option<PathBuf>, ServeOptions), String>;
+/// `cli`'s, so `cli` supplies it ([`cli::serve_args`]), with its own error.
+pub type ServeArgs =
+    fn(
+        &[String],
+    ) -> Result<(Option<PathBuf>, ServeOptions), Box<dyn std::error::Error + Send + Sync>>;
 
 /// Why a command that keeps or runs a server refuses when no database is
 /// given and there is no home directory for the default one.
@@ -73,18 +81,93 @@ pub(crate) const NO_HOME_TO_KEEP_DB: &str =
 pub(crate) const NO_HOME_TO_FIND_DB: &str =
     "no home directory to find the database in: set HOME or pass --db";
 
+/// What a command needs the database for, when there is no home directory
+/// for the default one: to keep it, or to find an existing one.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DbHome {
+    Keep,
+    Find,
+}
+
+impl std::fmt::Display for DbHome {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            DbHome::Keep => NO_HOME_TO_KEEP_DB,
+            DbHome::Find => NO_HOME_TO_FIND_DB,
+        })
+    }
+}
+
 /// What [`database`] does when no database is given.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum DefaultDb {
     /// The per-user default, or an empty path when there is no home
     /// directory: for callers that use the other settings, not the database.
     OrEmpty,
-    /// The per-user default; with no home directory, refused with this
-    /// message.
-    Required(&'static str),
+    /// The per-user default; with no home directory, refused as `DbHome`
+    /// says.
+    Required(DbHome),
     /// As `Required`, and the default's folder is made if missing, as
     /// `kkt serve` does. A given database's folder is never made.
-    Made(&'static str),
+    Made(DbHome),
+}
+
+/// Why the settings `kkt serve` would run with could not be worked out.
+#[derive(Debug, thiserror::Error)]
+pub enum SettingsError {
+    /// No database was given, and there is no home directory for the
+    /// default one.
+    #[error("{0}")]
+    NoHome(DbHome),
+    /// The default database's folder could not be made.
+    #[error("could not create {}: {source}", path.display())]
+    CreateFolder {
+        path: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+    #[error(
+        "invalid setting: config could not be read from {}: {}",
+        .0.path.display(),
+        .0.cause
+    )]
+    ConfigUnread(#[source] config_files::ReadError),
+    #[error("invalid setting: {source} (in {})", path.display())]
+    ConfigInvalid {
+        path: PathBuf,
+        #[source]
+        source: BadValue,
+    },
+    /// A bad setting, naming the config file when it set it.
+    #[error(transparent)]
+    Invalid(#[from] Invalid),
+    /// A bad setting, alone, as the key finders say it.
+    #[error(transparent)]
+    Bare(BadValue),
+    /// The instructions file could not be read.
+    #[error(transparent)]
+    Instructions(config_files::ReadError),
+    #[error(transparent)]
+    Keys(#[from] ServerKeysError),
+    /// A service file's arguments are not a `kkt serve` command: the
+    /// command line's own refusal.
+    #[error(transparent)]
+    ServeArgs(Box<dyn std::error::Error + Send + Sync>),
+}
+
+/// A setting an owner's check refused: "invalid setting: …", naming the
+/// config file when that is where it was set.
+#[derive(Debug, thiserror::Error)]
+#[error(
+    "invalid setting: {problem}{}",
+    set_in.as_ref().map(|path| format!(" (set in {})", path.display())).unwrap_or_default()
+)]
+pub struct Invalid {
+    /// The owner's own error, which names the setting.
+    #[source]
+    pub problem: Box<dyn std::error::Error + Send + Sync>,
+    /// The config file that set it, if it was set there and not by a flag.
+    pub set_in: Option<PathBuf>,
 }
 
 /// How [`resolve`] says a setting is bad.
@@ -103,20 +186,23 @@ pub(crate) fn database(
     platform: Platform,
     given: Option<PathBuf>,
     default: DefaultDb,
-) -> Result<PathBuf, String> {
+) -> Result<PathBuf, SettingsError> {
     if let Some(given) = given {
         return Ok(given);
     }
     let found = kkt_deployment::default_db(env, platform);
     match default {
         DefaultDb::OrEmpty => Ok(found.unwrap_or_default()),
-        DefaultDb::Required(without_home) => found.ok_or_else(|| without_home.to_string()),
-        DefaultDb::Made(without_home) => {
-            let db = found.ok_or_else(|| without_home.to_string())?;
+        DefaultDb::Required(home) => found.ok_or(SettingsError::NoHome(home)),
+        DefaultDb::Made(home) => {
+            let db = found.ok_or(SettingsError::NoHome(home))?;
             if let Some(dir) = db.parent() {
-                kkt_files::Files
-                    .create_dir_all(dir)
-                    .map_err(|e| format!("could not create {}: {e}", dir.display()))?;
+                kkt_files::Files.create_dir_all(dir).map_err(|source| {
+                    SettingsError::CreateFolder {
+                        path: dir.to_path_buf(),
+                        source,
+                    }
+                })?;
             }
             Ok(db)
         }
@@ -133,13 +219,13 @@ pub(crate) fn resolve(
     options: ServeOptions,
     db: DefaultDb,
     report: Report,
-) -> Result<ServeSettings, String> {
+) -> Result<ServeSettings, SettingsError> {
     let db = database(env, platform, options.db.clone(), db)?;
     options
         .resolve(db, default_access_key(env))
         .map_err(|e| match report {
-            Report::Traced(sources) => sources.invalid(e),
-            Report::Bare => e.to_string(),
+            Report::Traced(sources) => SettingsError::Invalid(sources.invalid(e)),
+            Report::Bare => SettingsError::Bare(e),
         })
 }
 
@@ -151,7 +237,7 @@ pub(crate) fn default_access_key(env: &Env) -> Option<PathBuf> {
 }
 
 /// The address `kkt serve` would listen on with the default config file.
-pub fn serve_bind(env: &Env, platform: Platform) -> Result<SocketAddr, String> {
+pub fn serve_bind(env: &Env, platform: Platform) -> Result<SocketAddr, SettingsError> {
     Ok(serve_settings(env, platform, None, ServeOptions::NONE)?.bind)
 }
 
@@ -163,7 +249,7 @@ pub(crate) fn serve_settings(
     platform: Platform,
     config: Option<PathBuf>,
     flags: ServeOptions,
-) -> Result<ServeSettings, String> {
+) -> Result<ServeSettings, SettingsError> {
     Ok(serve_settings_and_sources(env, platform, config, flags)?.0)
 }
 
@@ -173,7 +259,7 @@ pub(crate) fn serve_settings_and_sources(
     platform: Platform,
     config: Option<PathBuf>,
     flags: ServeOptions,
-) -> Result<(ServeSettings, Sources), String> {
+) -> Result<(ServeSettings, Sources), SettingsError> {
     let loaded = load_serve_options(env, config, flags)?;
     let sources = loaded.sources();
     let settings = resolve(
@@ -193,8 +279,8 @@ pub(crate) fn serve_settings_from_args(
     platform: Platform,
     serve_args: ServeArgs,
     args: &[String],
-) -> Result<ServeSettings, String> {
-    let (config, options) = serve_args(args)?;
+) -> Result<ServeSettings, SettingsError> {
+    let (config, options) = serve_args(args).map_err(SettingsError::ServeArgs)?;
     serve_settings(env, platform, config, options)
 }
 
@@ -235,7 +321,7 @@ pub fn load_serve_options(
     env: &Env,
     config: Option<PathBuf>,
     flags: ServeOptions,
-) -> Result<Loaded, String> {
+) -> Result<Loaded, SettingsError> {
     let (config_file, from_file) = read_config(env, config)?;
     Ok(Loaded {
         config_file,
@@ -249,14 +335,8 @@ pub fn load_serve_options(
 pub fn read_config(
     env: &Env,
     config: Option<PathBuf>,
-) -> Result<(Option<PathBuf>, ServeOptions), String> {
-    let unreadable = |e: config_files::ReadError| {
-        format!(
-            "invalid setting: config could not be read from {}: {}",
-            e.path.display(),
-            e.cause
-        )
-    };
+) -> Result<(Option<PathBuf>, ServeOptions), SettingsError> {
+    let unreadable = SettingsError::ConfigUnread;
     // A file named must be there; the default one is read only if it is.
     let found = match config {
         Some(path) => {
@@ -273,8 +353,12 @@ pub fn read_config(
     match found {
         Some((path, text)) => {
             let dir = path.parent().unwrap_or(Path::new("."));
-            let from_file = parse_config(&text, dir, env.home.as_deref())
-                .map_err(|e| format!("invalid setting: {e} (in {})", path.display()))?;
+            let from_file = parse_config(&text, dir, env.home.as_deref()).map_err(|source| {
+                SettingsError::ConfigInvalid {
+                    path: path.clone(),
+                    source,
+                }
+            })?;
             Ok((Some(path), from_file))
         }
         None => Ok((None, ServeOptions::NONE)),
@@ -349,12 +433,12 @@ pub struct Sources {
 }
 
 impl Sources {
-    /// The message for a bad setting, naming the config file if the setting
-    /// came from there.
-    pub fn invalid(&self, e: impl BadSetting) -> String {
-        match self.set_in(e.setting()) {
-            Some(path) => format!("invalid setting: {e} (set in {})", path.display()),
-            None => format!("invalid setting: {e}"),
+    /// A bad setting, naming the config file if the setting came from
+    /// there.
+    pub fn invalid(&self, e: impl BadSetting) -> Invalid {
+        Invalid {
+            set_in: self.set_in(e.setting()).map(Path::to_path_buf),
+            problem: Box::new(e),
         }
     }
 
@@ -370,7 +454,7 @@ impl Sources {
 
 /// A bad setting, as each part that checks settings reports it in its own
 /// error type: the setting's name, and a message that starts with it.
-pub trait BadSetting: std::fmt::Display {
+pub trait BadSetting: std::error::Error + Send + Sync + 'static {
     /// The setting's name, as the config file and the flags name it.
     fn setting(&self) -> &'static str;
 }
@@ -479,7 +563,10 @@ fn first_problem(
 
 /// Runs the startup checks on `settings` and reads the files they name.
 /// The errors name the bad setting, and the config file if it set it.
-pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Checked, String> {
+pub fn check_settings(
+    settings: ServeSettings,
+    sources: &Sources,
+) -> Result<Checked, SettingsError> {
     let ServeSettings {
         db: db_path,
         bind,
@@ -514,13 +601,15 @@ pub fn check_settings(settings: ServeSettings, sources: &Sources) -> Result<Chec
     }
     problems.extend(server_settings.problems());
     if let Some(problem) = first_problem(problems) {
-        return Err(sources.invalid(problem));
+        return Err(sources.invalid(problem).into());
     }
     let server_settings = server_settings.check([]).map_err(|e| sources.invalid(e))?;
     // None configured: the server sends its built-in instructions.
     let instructions = instructions
         .as_ref()
-        .map(|path| config_files::read_instructions(&ConfigDisk, path).map_err(|e| e.to_string()))
+        .map(|path| {
+            config_files::read_instructions(&ConfigDisk, path).map_err(SettingsError::Instructions)
+        })
         .transpose()?;
     let ServerKeys {
         admission,
@@ -587,6 +676,128 @@ mod tests {
     use super::*;
     use crate::scratch;
     use kkt_server::ServerSettings;
+
+    /// The sentences the program words itself when a config file, the
+    /// database's folder, a key file or the database file cannot be used,
+    /// word for word up to the source's own error, which the platform words.
+    #[test]
+    fn the_programs_own_refusals_are_pinned() {
+        let home = scratch::Dir::new("program-refusals");
+        let env = test_env(Some(&home));
+
+        // A config file named that cannot be read.
+        let missing = home.join("missing.toml");
+        let said = read_config(&env, Some(missing.clone()))
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused");
+        assert!(
+            said.starts_with(&format!(
+                "invalid setting: config could not be read from {}: ",
+                missing.display()
+            )),
+            "{said}"
+        );
+
+        // A config file with a bad value.
+        let bad = home.join("bad.toml");
+        std::fs::write(&bad, "max_limit = \"many\"\n").expect("config file");
+        let value = parse_config("max_limit = \"many\"\n", &home, Some(&home))
+            .map(|_| ())
+            .expect_err("a bad value")
+            .to_string();
+        assert_eq!(
+            read_config(&env, Some(bad.clone()))
+                .map(|_| ())
+                .map_err(|e| e.to_string()),
+            Err(format!("invalid setting: {value} (in {})", bad.display()))
+        );
+
+        // The default database's folder cannot be made: the data home is a
+        // file.
+        let file = home.join("data-is-a-file");
+        std::fs::write(&file, "").expect("a file");
+        let blocked = Env {
+            xdg_data_home: Some(file.clone()),
+            ..test_env(Some(&home))
+        };
+        let said = database(&blocked, TEST_PLATFORM, None, DefaultDb::Made(DbHome::Keep))
+            .map_err(|e| e.to_string())
+            .expect_err("refused");
+        assert!(said.starts_with("could not create "), "{said}");
+        assert!(said.contains(&file.display().to_string()), "{said}");
+
+        // Key files that cannot be read: a folder where each file should be.
+        let folder = home.join("a-folder");
+        std::fs::create_dir_all(&folder).expect("a folder");
+        let sources = Sources {
+            flags: ServeOptions::NONE,
+            file: None,
+        };
+        let unreadable = |setting: &str| {
+            format!(
+                "invalid setting: {setting} could not be read from {}: ",
+                folder.display()
+            )
+        };
+        let said = crate::machine::keys::read_key(&folder, &sources)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused");
+        assert!(said.starts_with(&unreadable("access_key_file")), "{said}");
+        let access = home.join("access-key");
+        std::fs::write(&access, "0123456789abcdef0123456789abcdef\n").expect("access key");
+        let keys = |web: &Path, admin: Option<&Path>| {
+            crate::machine::keys::read_server_keys(
+                &AccessKey::File(access.clone()),
+                &AccessKey::File(web.to_path_buf()),
+                admin,
+                &sources,
+            )
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused")
+        };
+        let said = keys(&folder, None);
+        assert!(said.starts_with(&unreadable("web_key_file")), "{said}");
+        let web = home.join("web-key");
+        std::fs::write(&web, "fedcba9876543210fedcba9876543210\n").expect("web key");
+        let said = keys(&web, Some(&folder));
+        assert!(said.starts_with(&unreadable("admin_key_file")), "{said}");
+        let admin = home.join("admin-key");
+        std::fs::write(&admin, "abcdefabcdefabcdefabcdefabcdefab\n").expect("admin key");
+        let names = kkt_keys::admin_name_path(&admin);
+        std::fs::create_dir_all(&names).expect("a folder for the name file");
+        let said = keys(&web, Some(&admin));
+        assert!(
+            said.starts_with(&format!(
+                "invalid setting: the admin name could not be read from {}: ",
+                names.display()
+            )),
+            "{said}"
+        );
+
+        // A database file that cannot be opened, and one whose upgrade
+        // cannot be read.
+        let said = crate::machine::database::open(&folder)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused");
+        assert!(
+            said.starts_with(&format!("could not open {}: ", folder.display())),
+            "{said}"
+        );
+        let not_a_db = home.join("not-a-database");
+        std::fs::write(&not_a_db, "this is not a database file, only text\n").expect("a file");
+        let said = crate::machine::database::pending_upgrade(&not_a_db)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
+            .expect_err("refused");
+        assert!(
+            said.starts_with(&format!("could not read {}: ", not_a_db.display())),
+            "{said}"
+        );
+    }
 
     /// Which bad setting the startup checks report, of all those given, as
     /// `check_settings` asks it.
@@ -683,7 +894,7 @@ mod tests {
             .err()
             .expect("refused");
         assert_eq!(
-            log_file_refusal(refused),
+            LogFileError(refused).to_string(),
             "invalid setting: log_max_bytes must be at least 65536"
         );
         for (policy, said) in [
@@ -705,7 +916,7 @@ mod tests {
             let refused = open_log_file(&home.join("kkt.log"), policy, clock.clone())
                 .err()
                 .expect("refused");
-            assert_eq!(log_file_refusal(refused), said);
+            assert_eq!(LogFileError(refused).to_string(), said);
         }
         let blocker = home.join("not-a-folder");
         std::fs::write(&blocker, "").expect("write");
@@ -714,7 +925,7 @@ mod tests {
             .err()
             .expect("refused");
         assert!(matches!(refused, OpenError::File { .. }));
-        let said = log_file_refusal(refused);
+        let said = LogFileError(refused).to_string();
         let start = format!(
             "invalid setting: log_file could not be opened at {}: ",
             path.display()
@@ -912,11 +1123,13 @@ mod tests {
     fn without_a_home_or_a_key_setting_the_key_has_no_default() {
         let env = test_env(None);
         assert_eq!(
-            serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE).map(|s| s.db),
+            serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE)
+                .map(|s| s.db)
+                .map_err(|e| e.to_string()),
             Err(NO_HOME_KEY.to_string())
         );
         assert_eq!(
-            serve_bind(&env, TEST_PLATFORM),
+            serve_bind(&env, TEST_PLATFORM).map_err(|e| e.to_string()),
             Err(NO_HOME_KEY.to_string())
         );
     }
@@ -948,7 +1161,9 @@ mod tests {
         assert_eq!(settings.bind.to_string(), "127.0.0.1:9000");
         assert_eq!(settings.rules.max_limit, 50);
         assert_eq!(
-            serve_bind(&env, TEST_PLATFORM).map(|b| b.to_string()),
+            serve_bind(&env, TEST_PLATFORM)
+                .map(|b| b.to_string())
+                .map_err(|e| e.to_string()),
             Ok("127.0.0.1:8000".into())
         );
     }
@@ -958,8 +1173,9 @@ mod tests {
         let home = scratch::Dir::new("settings-bad-setting");
         let env = test_env(Some(&home));
         let path = write_default_config(&home, "name_pack = \"missing\"");
-        let err =
-            serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE).expect_err("bad pack");
+        let err = serve_settings(&env, TEST_PLATFORM, None, ServeOptions::NONE)
+            .expect_err("bad pack")
+            .to_string();
         assert!(
             err.starts_with("invalid setting: name_pack must be one of: "),
             "{err}"
@@ -972,7 +1188,9 @@ mod tests {
             name_pack: Some("also-missing".into()),
             ..ServeOptions::NONE
         };
-        let err = serve_settings(&env, TEST_PLATFORM, None, flags).expect_err("bad pack");
+        let err = serve_settings(&env, TEST_PLATFORM, None, flags)
+            .expect_err("bad pack")
+            .to_string();
         assert!(!err.contains("(set in"), "{err}");
     }
 
@@ -1130,7 +1348,7 @@ mod tests {
         for (expected, fix) in fixes {
             let err = match check_settings(settings.clone(), &sources) {
                 Ok(_) => panic!("{expected} is still bad, but the check passed"),
-                Err(e) => e,
+                Err(e) => e.to_string(),
             };
             let rest = err
                 .strip_prefix("invalid setting: ")

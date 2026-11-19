@@ -2,12 +2,13 @@
 //! files its settings name, checked as kkt-admission checks them, and the
 //! default key made if it is missing. (The key finders and writers are
 //! kkt-setup's.)
-use crate::machine::settings::Sources;
+use crate::machine::settings::{Invalid, Sources};
+use kkt_admission::server_keys::KeyRefusal;
 use kkt_admission::server_keys::{self, KeyTexts, ServerKeys};
 use kkt_admission::{ServerKey, SharedKey};
 use kkt_entropy::Entropy;
 use kkt_entropy_os::OsEntropy;
-use kkt_keys::{AccessKey, KeyFiles, KeyText, ReadError, SelectedKeys};
+use kkt_keys::{AccessKey, KeyFileError, KeyFiles, KeyText, ReadError, SelectedKeys};
 use kkt_keys_os::OsKeyFiles;
 use kkt_log::{Level, Log};
 use kkt_log_tracing::TracingLog;
@@ -15,13 +16,10 @@ use std::path::Path;
 
 /// Makes the default key file if it is the one in use and does not exist
 /// yet, and logs where it is (never the key).
-pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), String> {
+pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(), KeyFileError> {
     let mut generate =
         || OsEntropy.random_chars(kkt_keys::NEW_KEY_ALPHABET, kkt_keys::NEW_KEY_CHARS);
-    if let Some(path) = OsKeyFiles
-        .make_default_key(access_key, &mut generate)
-        .map_err(|e| e.to_string())?
-    {
+    if let Some(path) = OsKeyFiles.make_default_key(access_key, &mut generate)? {
         TracingLog.record(
             Level::Info,
             module_path!(),
@@ -30,6 +28,66 @@ pub(crate) fn make_default_key(access_key: &AccessKey, kind: &str) -> Result<(),
         );
     }
     Ok(())
+}
+
+/// A key setting whose file the server reads.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KeySetting {
+    Access,
+    Web,
+    Admin,
+}
+
+impl std::fmt::Display for KeySetting {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            KeySetting::Access => "access_key_file",
+            KeySetting::Web => "web_key_file",
+            KeySetting::Admin => "admin_key_file",
+        })
+    }
+}
+
+/// Why the text of a key file or of the admin name file could not be read.
+#[derive(Debug, thiserror::Error)]
+pub enum KeyTextError {
+    #[error(
+        "invalid setting: {setting} could not be read from {}: {}",
+        source.path.display(),
+        source.error
+    )]
+    Key {
+        setting: KeySetting,
+        #[source]
+        source: ReadError,
+    },
+    #[error(
+        "invalid setting: the admin name could not be read from {}: {}",
+        .0.path.display(),
+        .0.error
+    )]
+    AdminName(#[source] ReadError),
+}
+
+/// Why the server's keys were refused: a file that could not be read, or
+/// kkt-admission's refusal of what it holds, in kkt-admission's words.
+#[derive(Debug, thiserror::Error)]
+pub enum ServerKeysError {
+    #[error(transparent)]
+    Text(#[from] KeyTextError),
+    /// kkt-admission's `key_refusal` gives its words as text, until that
+    /// contract gives a type.
+    #[error("{0}")]
+    Refused(String),
+}
+
+/// Why the access key in a file could not be used.
+#[derive(Debug, thiserror::Error)]
+pub enum ReadKeyError {
+    #[error(transparent)]
+    Text(#[from] KeyTextError),
+    #[error(transparent)]
+    Invalid(#[from] Invalid),
 }
 
 /// The server's keys from the files that `access`, `web` and `admin` name,
@@ -42,7 +100,7 @@ pub(crate) fn read_server_keys(
     web: &AccessKey,
     admin: Option<&Path>,
     sources: &Sources,
-) -> Result<ServerKeys, String> {
+) -> Result<ServerKeys, ServerKeysError> {
     let mut files = ServerKeyFiles(SelectedKeys {
         access: key_path(access),
         web: key_path(web),
@@ -55,11 +113,20 @@ pub(crate) fn read_server_keys(
         let set_in = sources
             .set_in("access_key_file")
             .map(|p| p.display().to_string());
-        kkt_admission::key_refusal(
+        let refusal = match refusal {
+            KeyRefusal::Text(e) => return ServerKeysError::Text(e),
+            KeyRefusal::AccessKey(e) => KeyRefusal::AccessKey(e),
+            KeyRefusal::WebKeyReused => KeyRefusal::WebKeyReused,
+            KeyRefusal::WebKey(e) => KeyRefusal::WebKey(e),
+            KeyRefusal::AdminKeyReused => KeyRefusal::AdminKeyReused,
+            KeyRefusal::AdminKey(e) => KeyRefusal::AdminKey(e),
+            KeyRefusal::AdminName(e) => KeyRefusal::AdminName(e),
+        };
+        ServerKeysError::Refused(kkt_admission::key_refusal(
             refusal,
             set_in.as_deref(),
             Some(&names.display().to_string()),
-        )
+        ))
     })
 }
 
@@ -75,57 +142,45 @@ fn key_path(key: &AccessKey) -> Option<&Path> {
 /// wording.
 struct ServerKeyFiles<'a>(SelectedKeys<'a>);
 
-fn key_read_error(setting: &str, e: ReadError) -> String {
-    format!(
-        "invalid setting: {setting} could not be read from {}: {}",
-        e.path.display(),
-        e.error
-    )
-}
-fn name_read_error(e: ReadError) -> String {
-    format!(
-        "invalid setting: the admin name could not be read from {}: {}",
-        e.path.display(),
-        e.error
-    )
-}
-impl KeyTexts for ServerKeyFiles<'_> {
-    type Error = String;
-    // Serve makes a missing default first; service installation only reads.
-    fn access(&mut self) -> Result<Option<KeyText>, String> {
-        OsKeyFiles
-            .read_access(&self.0)
-            .map_err(|e| key_read_error("access_key_file", e))
-    }
-    fn web(&mut self) -> Result<Option<KeyText>, String> {
-        OsKeyFiles
-            .read_web(&self.0)
-            .map_err(|e| key_read_error("web_key_file", e))
-    }
-    fn admin(&mut self) -> Result<Option<KeyText>, String> {
-        OsKeyFiles
-            .read_admin(&self.0)
-            .map_err(|e| key_read_error("admin_key_file", e))
-    }
-    fn admin_names(&mut self) -> Result<Option<String>, String> {
-        OsKeyFiles
-            .read_admin_names(&self.0)
-            .map_err(name_read_error)
-    }
+/// The key `setting` names could not be read.
+fn key_read_error(setting: KeySetting) -> impl Fn(ReadError) -> KeyTextError {
+    move |source| KeyTextError::Key { setting, source }
 }
 
-/// The text of the key file at `path`, which `setting` names.
-fn read_key_text(path: &Path, setting: &str) -> Result<String, String> {
-    OsKeyFiles
-        .read_key(path)
-        .map_err(|e| key_read_error(setting, e))
+impl KeyTexts for ServerKeyFiles<'_> {
+    type Error = KeyTextError;
+    // Serve makes a missing default first; service installation only reads.
+    fn access(&mut self) -> Result<Option<KeyText>, KeyTextError> {
+        OsKeyFiles
+            .read_access(&self.0)
+            .map_err(key_read_error(KeySetting::Access))
+    }
+    fn web(&mut self) -> Result<Option<KeyText>, KeyTextError> {
+        OsKeyFiles
+            .read_web(&self.0)
+            .map_err(key_read_error(KeySetting::Web))
+    }
+    fn admin(&mut self) -> Result<Option<KeyText>, KeyTextError> {
+        OsKeyFiles
+            .read_admin(&self.0)
+            .map_err(key_read_error(KeySetting::Admin))
+    }
+    fn admin_names(&mut self) -> Result<Option<String>, KeyTextError> {
+        OsKeyFiles
+            .read_admin_names(&self.0)
+            .map_err(KeyTextError::AdminName)
+    }
 }
 
 /// The access key in the file at `path`.
-pub(crate) fn read_key(path: &Path, sources: &Sources) -> Result<SharedKey, String> {
-    let text = read_key_text(path, "access_key_file")?;
-    SharedKey::new(ServerKey::Access, &text, path.display().to_string())
-        .map_err(|e| sources.invalid(e))
+pub(crate) fn read_key(path: &Path, sources: &Sources) -> Result<SharedKey, ReadKeyError> {
+    let text = OsKeyFiles
+        .read_key(path)
+        .map_err(key_read_error(KeySetting::Access))?;
+    Ok(
+        SharedKey::new(ServerKey::Access, &text, path.display().to_string())
+            .map_err(|e| sources.invalid(e))?,
+    )
 }
 
 #[cfg(test)]
@@ -178,7 +233,9 @@ mod tests {
         .map_err(|e| e.to_string())
     }
 
-    fn unused_args(_: &[String]) -> Result<(Option<PathBuf>, ServeOptions), String> {
+    fn unused_args(
+        _: &[String],
+    ) -> Result<(Option<PathBuf>, ServeOptions), Box<dyn std::error::Error + Send + Sync>> {
         Err("not used".into())
     }
 

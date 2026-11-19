@@ -162,14 +162,16 @@ fn a_database_from_before_0_10_0_is_refused_and_left_alone() {
     let before = std::fs::read(&path).expect("read the file");
     let err = match kashkeshet::machine::database::open(&path) {
         Ok(_) => panic!("a database from before 0.10.0 opened"),
-        Err(e) => e,
+        Err(e) => e.to_string(),
     };
     assert!(
         err.contains("older than 0.10.0") && err.contains("upgrade it with kkt 0.10 first"),
         "{err}"
     );
     assert_eq!(
-        kashkeshet::machine::database::pending_upgrade(&path).map(|_| ()),
+        kashkeshet::machine::database::pending_upgrade(&path)
+            .map(|_| ())
+            .map_err(|e| e.to_string()),
         Err(format!(
             "could not read {}: database error: this database is from a kkt version older than 0.10.0; upgrade it with kkt 0.10 first, then with this version",
             path.display()
