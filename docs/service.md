@@ -43,14 +43,17 @@ does not keep failing and starting again every 5 seconds, and fails,
 pointing to `kkt service logs`. The service stays installed; once the cause
 is fixed, `kkt service start` starts it.
 
+`kkt status` asks the local service for its running version. If the service
+cannot answer within two seconds, status reports that it could not read the
+version and still shows the service manager’s status.
+
 ## Where things go
 
 - **macOS:** `~/Library/LaunchAgents/com.sam-mfb.kashkeshet.plist`, with the
-  log in `~/Library/Logs/kashkeshet/kashkeshet.log`. launchd never rotates
-  a log, so the service runs the server with `--log-file` and the server
-  keeps that file under about 60 MB itself (see
-  [Logs](configuration.md#logs)). Anything printed before logging starts,
-  such as a crash, goes to `kashkeshet.crash.log` beside it.
+  log at the path set by `log_file` in the service config. Its default is
+  `~/Library/Logs/kashkeshet/kashkeshet.log`. The server keeps that file
+  under about 60 MB (see [Logs](configuration.md#logs)). launchd sends
+  startup errors and crashes to `~/Library/Logs/kashkeshet/kashkeshet.crash.log`.
 - **Linux:** `~/.config/systemd/user/kashkeshet.service` (or
   `$XDG_CONFIG_HOME/systemd/user/`), with the log in the systemd journal.
   The journal is bounded by the system's journald settings: by default at

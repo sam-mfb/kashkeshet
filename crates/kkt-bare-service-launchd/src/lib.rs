@@ -61,6 +61,18 @@ mod real {
             }
         }
 
+        /// Read the configured log path for the service’s config file, or the
+        /// default config file when the service names none.
+        pub fn with_configured_log(
+            mut self,
+            read: impl Fn(Option<&Path>) -> Result<Option<std::path::PathBuf>, ServiceError> + 'static,
+        ) -> Self {
+            if let Some(agent) = &mut self.agent {
+                agent.configured_log = Box::new(read);
+            }
+            self
+        }
+
         fn agent(&self) -> Result<&Agent, ServiceError> {
             self.agent.as_ref().ok_or(ServiceError::NoHome)
         }

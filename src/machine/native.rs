@@ -508,6 +508,20 @@ pub struct ServiceArgs<'a> {
 }
 
 impl kkt_install_commands::ServiceDefaults for ServiceArgs<'_> {
+    fn endpoint(
+        &self,
+        args: &[String],
+    ) -> Result<(std::net::SocketAddr, Option<PathBuf>), kkt_install_commands::PartError> {
+        let installed =
+            settings::serve_settings_from_args(self.env, self.platform, self.serve_args, args)
+                .map_err(install_part)?;
+        let key = match installed.access_key {
+            AccessKey::File(path) | AccessKey::Default(path) => Some(path),
+            AccessKey::None => None,
+        };
+        Ok((installed.bind, key))
+    }
+
     fn matches_defaults(&self, args: &[String]) -> Result<bool, kkt_install_commands::PartError> {
         let parse = self.serve_args;
         let installed = settings::serve_settings_from_args(self.env, self.platform, parse, args)

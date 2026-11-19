@@ -9,10 +9,18 @@ use kkt_machine::Env;
 /// under the home folder on macOS, systemd under the config base on Linux.
 pub(crate) fn for_this_os(env: &Env) -> Box<dyn Service> {
     if cfg!(target_os = "macos") {
-        Box::new(kkt_bare_service_launchd::Launchd::new(
-            env.home.as_deref(),
-            kkt_bare_service_launchd::Settings::DEFAULT,
-        ))
+        let config_env = env.clone();
+        Box::new(
+            kkt_bare_service_launchd::Launchd::new(
+                env.home.as_deref(),
+                kkt_bare_service_launchd::Settings::DEFAULT,
+            )
+            .with_configured_log(move |file| {
+                super::settings::read_config(&config_env, file.map(std::path::Path::to_owned))
+                    .map(|(_, options)| options.log_file)
+                    .map_err(|error| kkt_bare_service::ServiceError::LogConfig(Box::new(error)))
+            }),
+        )
     } else if cfg!(target_os = "linux") {
         Box::new(kkt_bare_service_systemd::Systemd::new(
             env.config_home().as_deref(),

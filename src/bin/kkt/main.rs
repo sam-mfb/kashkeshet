@@ -140,6 +140,7 @@ enum Task {
     Serve {
         config: Option<PathBuf>,
         ignore_setup: bool,
+        default_log_file: Option<PathBuf>,
         options: ServeOptions,
     },
     KeyCreate {
@@ -223,6 +224,7 @@ async fn run(
         Task::Serve {
             config,
             ignore_setup,
+            default_log_file,
             options,
         } => {
             if !ignore_setup {
@@ -234,7 +236,7 @@ async fn run(
                 )
                 .map_err(CommandError::from)?;
             }
-            serve::run(env, platform, config, options)
+            serve::run(env, platform, config, options, default_log_file)
                 .await
                 .map_err(CommandError::from)
         }

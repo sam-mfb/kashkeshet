@@ -110,6 +110,9 @@ enum Command {
         /// passes it, since it is the server setup meant.
         #[arg(long)]
         ignore_setup: bool,
+        /// The service manager’s fallback when the config file names no log.
+        #[arg(long, hide = true)]
+        default_log_file: Option<PathBuf>,
         #[command(flatten)]
         flags: ServeFlags,
     },
@@ -304,10 +307,12 @@ impl Command {
             Command::Serve {
                 config,
                 ignore_setup,
+                default_log_file,
                 flags,
             } => Task::Serve {
                 config,
                 ignore_setup,
+                default_log_file,
                 options: flags.options(),
             },
             Command::Key { command } => command.task(),

@@ -2458,6 +2458,10 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     );
     assert!(record.contains("[service]\ntailscale = false"), "{record}");
     let (_, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+    assert!(
+        said.contains(&format!("Version: {}", env!("CARGO_PKG_VERSION"))),
+        "{said}"
+    );
     assert!(said.contains("Mode: service"), "{said}");
     assert!(!said.contains("Unrecorded"), "{said}");
 
@@ -2479,6 +2483,61 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     assert!(ok, "{said}");
     assert!(said.contains("already at kkt"), "{said}");
     server.kill().await.expect("stop kkt");
+    // A listener accepts connections but never answers MCP. Status still
+    // succeeds and prints the manager's output, within its probe deadline.
+    let stalled = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("listen");
+    std::fs::write(
+        &config,
+        format!("bind = \"{}\"\n", stalled.local_addr().expect("address")),
+    )
+    .expect("config");
+    // The normal HTTP timeout alone would wait five seconds.
+    #[expect(
+        clippy::disallowed_methods,
+        reason = "the real status process must finish before the HTTP client's timeout"
+    )]
+    let (ok, said) = tokio::time::timeout(
+        Duration::from_secs(4),
+        kkt_with_docker(&home, &bin, &log, &["status"]),
+    )
+    .await
+    .expect("bounded status probe");
+    assert!(
+        ok && said.contains("Mode: service") && said.contains("Version: could not be read"),
+        "{said}"
+    );
+
+    // Answer as a different build from both the CLI and its setup record.
+    tokio::join!(
+        async {
+            use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+            drop(stalled.accept().await.expect("previous request"));
+            let (mut stream, _) = stalled.accept().await.expect("next request");
+            let mut lines = BufReader::new(&mut stream).lines();
+            while let Some(line) = lines.next_line().await.expect("HTTP headers") {
+                if line.is_empty() {
+                    break;
+                }
+            }
+            let body = r#"{"result":{"serverInfo":{"name":"kkt","version":"0.10.0"}}}"#;
+            stream
+                .write_all(
+                    format!(
+                        "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                        body.len()
+                    )
+                    .as_bytes(),
+                )
+                .await
+                .expect("reply");
+        },
+        async {
+            let (ok, said) = kkt_with_docker(&home, &bin, &log, &["status"]).await;
+            assert!(ok && said.contains("Version: 0.10.0"), "{said}");
+        }
+    );
 }
 
 /// A `bin` folder in `scratch` with a fake launchd and systemd that do what

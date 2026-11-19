@@ -14,7 +14,7 @@
     <string>/Users/sam/.config/kkt/config.toml</string>
     <string>--db</string>
     <string>/Users/sam/Library/Application Support/kashkeshet/kashkeshet.db</string>
-    <string>--log-file</string>
+    <string>--default-log-file</string>
     <string>/Users/sam/Library/Logs/kashkeshet/kashkeshet.log</string>
   </array>
   <key>WorkingDirectory</key>

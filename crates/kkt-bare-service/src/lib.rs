@@ -228,6 +228,9 @@ pub struct KeyError(pub Box<dyn std::error::Error + Send + Sync>);
 
 #[derive(Debug, thiserror::Error)]
 pub enum ServiceError {
+    /// The program could not read the service’s configured log path.
+    #[error(transparent)]
+    LogConfig(Box<dyn std::error::Error + Send + Sync>),
     /// No service manager kkt works with on this system. The text is the
     /// program's, given to [`Unsupported::new`].
     #[error("{0}")]
