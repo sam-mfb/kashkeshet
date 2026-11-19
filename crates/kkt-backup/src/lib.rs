@@ -24,6 +24,12 @@ pub use source::{BackupOf, ServerHere, backup_of};
 use kkt_clock::Time;
 use std::path::{Path, PathBuf};
 
+/// The about file's line recording the highest message ID in the copied
+/// database, as [`Backups::record_highest`] writes it.
+pub fn highest_line(highest: i64) -> String {
+    format!("highest message ID: {highest}\n")
+}
+
 /// Where backups are written and pruned.
 pub trait Backups {
     /// Writes `layout` into `folder`, making the folder if needed: the
@@ -32,6 +38,10 @@ pub trait Backups {
     /// Refuses if a backup of that name is already there; a failed write
     /// leaves no partial folder. Returns the backup written.
     fn write(&self, folder: &Path, layout: &Layout<'_>) -> Result<PathBuf, BackupError>;
+    /// Adds the [`highest_line`] for `highest` to the about file of the
+    /// finished backup at `backup`, which the caller read from its copied
+    /// database. The backup itself is already complete without it.
+    fn record_highest(&self, backup: &Path, highest: i64) -> Result<(), BackupError>;
     /// Removes the backups in `folder` that [`old_names`] picks to go,
     /// keeping the newest `keep`. A missing folder has no backups. Returns
     /// the backups removed, oldest first.
@@ -45,7 +55,8 @@ const ACCESS_KEY_FILE: &str = "access-key";
 const WEB_KEY_FILE: &str = "web-key";
 const ADMIN_KEY_FILE: &str = "admin-key";
 const ADMIN_NAME_FILE: &str = "admin-key.name";
-const ABOUT_FILE: &str = "about.txt";
+/// The about file's name within a backup folder.
+pub const ABOUT_FILE: &str = "about.txt";
 const PREFIX: &str = "kkt-";
 const PARTIAL: &str = ".partial";
 const FOLDER_MODE: u32 = 0o700;

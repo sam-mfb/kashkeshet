@@ -196,6 +196,110 @@ async fn a_copy_is_one_consistent_file() {
     );
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn a_read_only_open_reads_without_changing_the_file() {
+    let place = file_place();
+    let set = Set {
+        name: "notes",
+        migrations: vec![vec![Step::AddTable(kkt_db::Table::new(
+            "notes",
+            vec![kkt_db::Column::key("id"), kkt_db::Column::text("text")],
+            vec!["id"],
+        ))]],
+    };
+    let db = place.place.open(std::slice::from_ref(&set)).expect("open");
+    BackendExt::write(db.as_ref(), |c| {
+        c.insert(&kkt_db::Insert::new("notes").value("text", "kept"))
+            .map(drop)
+    })
+    .await
+    .map_err(|e: DbError| e)
+    .expect("a note");
+    drop(db);
+    let before = std::fs::read(&place.place.path).expect("bytes before");
+    let read = place
+        .place
+        .open_read_only(std::slice::from_ref(&set))
+        .expect("read-only open");
+    let n = BackendExt::read(read.as_ref(), |c| {
+        c.count(&kkt_db::Count {
+            table: "notes",
+            filter: kkt_db::Condition::True,
+        })
+    })
+    .await
+    .map_err(|e: DbError| e)
+    .expect("count");
+    assert_eq!(n, 1);
+    drop(read);
+    assert_eq!(
+        std::fs::read(&place.place.path).expect("bytes after"),
+        before
+    );
+    // A finished copy with no sidecars gains none from the read, and its
+    // bytes are unchanged: its folder is listed before and after. The
+    // copy is a closed WAL database: checkpointed, with its sidecars
+    // removed, as a backup's copy is left.
+    let copy = place._dir.join("copy.db");
+    copy_database(&place.place.path, &copy, Duration::from_secs(5)).expect("copy");
+    {
+        let conn = Connection::open(&copy).expect("open the copy");
+        conn.pragma_update(None, "journal_mode", "WAL")
+            .expect("WAL mode");
+        let mode: String = conn
+            .pragma_query_value(None, "journal_mode", |r| r.get(0))
+            .expect("journal mode");
+        assert_eq!(mode.to_lowercase(), "wal", "the copy is not in WAL mode");
+        conn.pragma_update(None, "wal_checkpoint", "TRUNCATE")
+            .expect("checkpoint");
+    }
+    for sidecar in ["copy.db-wal", "copy.db-shm"] {
+        let path = place._dir.join(sidecar);
+        if path.exists() {
+            std::fs::remove_file(path).expect("remove sidecar");
+        }
+    }
+    let listing = |dir: &std::path::Path| {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .expect("list")
+            .map(|e| e.expect("entry").file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    };
+    let dir = copy.parent().expect("folder").to_path_buf();
+    let listed_before = listing(&dir);
+    let bytes_before = std::fs::read(&copy).expect("copy bytes before");
+    let read = SqlitePlace::new(&copy, options())
+        .open_read_only(std::slice::from_ref(&set))
+        .expect("read-only open of the copy");
+    let n = BackendExt::read(read.as_ref(), |c| {
+        c.count(&kkt_db::Count {
+            table: "notes",
+            filter: kkt_db::Condition::True,
+        })
+    })
+    .await
+    .map_err(|e: DbError| e)
+    .expect("count the copy");
+    assert_eq!(n, 1);
+    drop(read);
+    assert_eq!(listing(&dir), listed_before);
+    assert_eq!(
+        std::fs::read(&copy).expect("copy bytes after"),
+        bytes_before
+    );
+    // An empty file is refused, and stays empty.
+    let empty = place._dir.join("empty.db");
+    std::fs::write(&empty, "").expect("empty file");
+    assert!(
+        SqlitePlace::new(&empty, options())
+            .open_read_only(&[set])
+            .is_err()
+    );
+    assert_eq!(std::fs::read(&empty).expect("still empty").len(), 0);
+}
+
 /// FTS5's own tokenizer, `unicode61` with its defaults, for comparing.
 struct Fts5 {
     conn: Connection,

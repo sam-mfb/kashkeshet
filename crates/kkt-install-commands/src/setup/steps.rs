@@ -1106,6 +1106,9 @@ mod tests {
         fn exists(&self, _: &Path) -> bool {
             unreachable!("database")
         }
+        fn highest_message_id(&self, _: &Path) -> Result<Option<i64>, crate::PartError> {
+            unreachable!("database")
+        }
     }
     impl kkt_backup::Backups for Unused {
         fn write(
@@ -1113,6 +1116,9 @@ mod tests {
             _: &Path,
             _: &kkt_backup::Layout<'_>,
         ) -> Result<PathBuf, kkt_backup::BackupError> {
+            unreachable!("backups")
+        }
+        fn record_highest(&self, _: &Path, _: i64) -> Result<(), kkt_backup::BackupError> {
             unreachable!("backups")
         }
         fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, kkt_backup::BackupError> {

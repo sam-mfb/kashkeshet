@@ -84,6 +84,59 @@ pub fn pending_upgrade(path: &Path) -> Result<Option<PendingUpgrade>, PendingErr
         }))
 }
 
+/// The highest message ID in the database at `path`, for a backup's
+/// about file, read read-only: the file is not created, initialised,
+/// migrated or put into a journal mode by this read, and any of those
+/// being needed (or the file being locked, read-only or from before
+/// kkt-db) is an error the caller may simply omit the line for.
+/// `Ok(None)` when there are no messages. The read runs on this
+/// runtime's blocking pool, as the database's own reads do, so it is
+/// called from inside the runtime, on the finished copy a backup made.
+pub fn highest_message_id(path: &Path) -> Result<Option<i64>, HighestError> {
+    let backend = place(path)
+        .open_read_only(&[kkt_rules::schema()])
+        .map_err(|source| HighestError::Open {
+            path: path.to_path_buf(),
+            source,
+        })?;
+    let db = kkt_rules::Db::new(backend);
+    let access = kkt_rules::DirectAccess::new(
+        db,
+        kkt_api_agent::SwarmId::main(),
+        std::sync::Arc::new(kkt_clock_system::SystemClock),
+    );
+    let operator = kkt_api_agent::Operator::new(
+        kkt_api_agent::Permissions::of(&[kkt_api_agent::Permission::Read]),
+        kkt_api_agent::Audit::CommandLine,
+    );
+    tokio::task::block_in_place(|| {
+        tokio::runtime::Handle::current().block_on(access.highest_message_id(&operator))
+    })
+    .map_err(|source| HighestError::Read {
+        path: path.to_path_buf(),
+        source,
+    })
+}
+
+/// Why the highest message ID in a database could not be read.
+#[derive(Debug, thiserror::Error)]
+pub enum HighestError {
+    /// The database could not be opened read-only.
+    #[error("could not open {} read-only: {source}", path.display())]
+    Open {
+        path: PathBuf,
+        #[source]
+        source: DbError,
+    },
+    /// The highest ID could not be read from the opened database.
+    #[error("could not read the highest message ID in {}: {source}", path.display())]
+    Read {
+        path: PathBuf,
+        #[source]
+        source: kkt_api_agent::RuleError,
+    },
+}
+
 /// Writes a consistent copy of the database file at `from` to the new file
 /// `to`, even while a server writes to `from`. A failure is the database's
 /// own error, for the backup to give as its cause.

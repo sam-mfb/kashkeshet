@@ -571,6 +571,25 @@ fn a_backup_stays_in_the_managed_folder_or_is_copied_where_the_person_asks() {
 }
 
 #[test]
+fn a_backup_forwards_the_line_saying_the_highest_id_was_not_recorded() {
+    let (managed, said) = working_in(
+        backing_up(
+            "Backed up to /backups/kkt-backup-1\n\
+             Highest message ID not recorded in about.txt: the copy is empty\n",
+        ),
+        Ok(PathBuf::from("/home/me")),
+    );
+    assert_eq!(
+        managed.backup(&folder(), None),
+        Ok(at("backups/kkt-backup-1"))
+    );
+    assert_eq!(
+        said.0.borrow().as_slice(),
+        ["Highest message ID not recorded in about.txt: the copy is empty"]
+    );
+}
+
+#[test]
 fn a_backup_says_what_went_wrong() {
     let (lost, _) = working_in(
         backing_up("Backed up to /backups/x\n"),

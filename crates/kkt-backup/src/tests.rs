@@ -6,6 +6,11 @@ fn at(seconds: u32) -> Time {
 }
 
 #[test]
+fn the_highest_line_names_the_id() {
+    assert_eq!(highest_line(41), "highest message ID: 41\n");
+}
+
+#[test]
 fn names_say_the_version_and_sort_by_time() {
     assert_eq!(name(at(0), "0.3.0"), "kkt-20261028T131500.000Z-v0.3.0");
     let later = at(0) + Span::milliseconds(1);

@@ -101,6 +101,24 @@ impl Backups for Memory {
         Ok(done)
     }
 
+    fn record_highest(&self, backup: &Path, highest: i64) -> Result<(), BackupError> {
+        self.check()?;
+        let mut folders = self.folders.borrow_mut();
+        for (folder, backups) in folders.iter_mut() {
+            for (name, written) in backups.iter_mut() {
+                if folder.join(name) == backup {
+                    written.about.push_str(&crate::highest_line(highest));
+                    return Ok(());
+                }
+            }
+        }
+        Err(BackupError::file(
+            crate::FileAction::Write,
+            backup,
+            std::io::Error::from(std::io::ErrorKind::NotFound),
+        ))
+    }
+
     fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {
         self.check()?;
         let mut folders = self.folders.borrow_mut();
