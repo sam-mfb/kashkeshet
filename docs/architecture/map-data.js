@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "4f41f6ea",
+ "commit": "73507e03",
  "crates": [
   {
    "bins": [
@@ -17788,6 +17788,7 @@ window.KKT_GRAPH = {
      "path": "SwitchError",
      "variants": [
       "NotSetUp",
+      "InvalidArgument",
       "ClientSetup",
       "LocalOnClient",
       "CheckFailed",
@@ -17807,6 +17808,7 @@ window.KKT_GRAPH = {
       "connect",
       "connected_clients",
       "recorded",
+      "validate_address",
       "write_record"
      ],
      "path": "SwitchSteps"
@@ -29848,7 +29850,8 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-setup",
    "items": [
-    "Client"
+    "Client",
+    "Text"
    ],
    "kind": "normal",
    "optional": false,
@@ -29856,7 +29859,8 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
-      "Client"
+      "Client",
+      "Text"
      ],
      "role": "uses"
     }

@@ -753,6 +753,10 @@ mod flow {
         /// Refuses an address that is not http:// or https://, as the
         /// program's steps do with kkt-deployment's rule, before any server
         /// is asked.
+        fn validate_address(&self, _: &str) -> Result<(), StepError> {
+            Ok(())
+        }
+
         fn check_address(&self, url: &str) -> Result<(), StepError> {
             if !(url.starts_with("http://") || url.starts_with("https://")) {
                 return Err(StepError(

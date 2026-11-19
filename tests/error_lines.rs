@@ -78,6 +78,17 @@ fn every_command_says_why_it_failed_and_exits_with_one() {
     assert_eq!(
         printed(&[
             "switch",
+            "https://example.invalid/mcp?demo=1",
+            "--clients",
+            "none"
+        ]),
+        on_stderr(
+            "put credentials in the key file, not in the URL; query strings and fragments are not supported"
+        )
+    );
+    assert_eq!(
+        printed(&[
+            "switch",
             "https://example.invalid/mcp",
             "--key-file",
             "/nope/key"
@@ -214,4 +225,27 @@ fn every_command_says_why_it_failed_and_exits_with_one() {
             config.join("config.toml").display()
         ))
     );
+}
+
+#[cfg(unix)]
+#[test]
+fn switch_cannot_suggest_a_different_key_path() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+    let home = scratch::Dir::new("switch-key-path");
+    let out = Command::new(KKT)
+        .args([
+            "switch",
+            "https://example.invalid/mcp",
+            "--clients",
+            "none",
+            "--key-file",
+        ])
+        .arg(OsStr::from_bytes(b"/tmp/key-\xff"))
+        .own_home(&home)
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    assert!(out.stdout.is_empty());
+    assert_eq!(out.stderr, b"error: the key path is not UTF-8\n");
 }

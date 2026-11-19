@@ -418,6 +418,12 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
         .map_err(step_error)
     }
 
+    fn validate_address(&self, url: &str) -> Result<(), setup::StepError> {
+        kkt_deployment::connection::server_address(url, None)
+            .map(|_| ())
+            .map_err(step_error)
+    }
+
     fn check_address(&self, url: &str) -> Result<(), setup::StepError> {
         check_address(self.parts.prober, url).map_err(step_error)
     }
@@ -461,6 +467,12 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> 
             record,
         )
         .map_err(step_error)
+    }
+
+    fn validate_address(&self, url: &str) -> Result<(), setup::StepError> {
+        kkt_deployment::connection::server_address(url, None)
+            .map(|_| ())
+            .map_err(step_error)
     }
 
     fn check_address(&self, url: &str) -> Result<(), setup::StepError> {
