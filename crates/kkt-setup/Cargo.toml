@@ -8,6 +8,7 @@ repository.workspace = true
 publish = false
 
 [dependencies]
+thiserror.workspace = true
 kkt-llm-agent-config = { path = "../kkt-llm-agent-config" }
 kkt-names = { path = "../kkt-names" }
 serde.workspace = true

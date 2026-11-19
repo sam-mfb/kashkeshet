@@ -1,0 +1,11 @@
+format = 1
+mode = "docker"
+written_by = "0.10.0"
+url = "https://kkt.tail1234.ts.net/mcp"
+key_file = "/home/sam/.config/kkt/docker-access-key"
+
+[docker]
+folder = "/home/sam/.local/share/kashkeshet/docker"
+tailscale = true
+hostname = "kkt"
+tailnet = "tail1234.ts.net"

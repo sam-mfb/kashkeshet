@@ -1,0 +1,6 @@
+mode = "docker"
+tailscale = true
+allow_hosts = ["kkt.tail1234.ts.net"]
+clients = ["claude-code", "codex"]
+ts_hostname = "kkt"
+ts_authkey_file = "/home/sam/ts-authkey"

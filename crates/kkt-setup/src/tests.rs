@@ -23,7 +23,7 @@ fn docker() -> Mode {
 }
 
 fn parse(text: &str) -> Result<Record, String> {
-    Record::parse(text, Path::new(FILE))
+    Record::parse(text, Path::new(FILE)).map_err(|e| e.to_string())
 }
 
 #[test]
@@ -253,14 +253,20 @@ fn an_unfinished_setup_reads_back_as_written() {
          ts_hostname = \"kkt-work\"\n\
          ts_authkey_file = \"/home/sam/tailscale-key\"\n"
     );
-    assert_eq!(Unfinished::parse(&text, Path::new(FILE)), Ok(begun.clone()));
+    assert_eq!(
+        Unfinished::parse(&text, Path::new(FILE)).map_err(|e| e.to_string()),
+        Ok(begun.clone())
+    );
     let installed = Unfinished {
         record: Some(record(docker())),
         ..begun
     };
     let text = installed.render().expect("render");
     assert!(text.contains("\n[record]\nformat = 1\n"), "{text}");
-    assert_eq!(Unfinished::parse(&text, Path::new(FILE)), Ok(installed));
+    assert_eq!(
+        Unfinished::parse(&text, Path::new(FILE)).map_err(|e| e.to_string()),
+        Ok(installed)
+    );
 }
 
 #[test]
@@ -291,7 +297,9 @@ fn bad_unfinished_setups_are_refused_naming_the_file_and_the_problem() {
         ),
     ];
     for (text, expected) in cases {
-        let error = Unfinished::parse(text, Path::new(FILE)).expect_err(text);
+        let error = Unfinished::parse(text, Path::new(FILE))
+            .expect_err(text)
+            .to_string();
         assert!(error.contains(FILE), "{error}");
         assert!(error.contains(expected), "{error}");
     }
