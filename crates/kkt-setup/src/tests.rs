@@ -480,155 +480,225 @@ mod flow {
             &self,
             tailscale: bool,
             allow_hosts: &[String],
-        ) -> Result<Installed, String> {
-            self.did(format!(
-                "install service tailscale={tailscale}{}",
-                hosts(allow_hosts)
-            ));
-            if self.fail_install || self.fails_once("install") {
-                return Err("launchctl failed".into());
-            }
-            Ok(Installed {
-                url: "http://127.0.0.1:7420/mcp".into(),
-                key_file: Some("/home/sam/.config/kkt/access-key".into()),
-            })
+        ) -> Result<Installed, StepError> {
+            (|| -> Result<Installed, String> {
+                self.did(format!(
+                    "install service tailscale={tailscale}{}",
+                    hosts(allow_hosts)
+                ));
+                if self.fail_install || self.fails_once("install") {
+                    return Err("launchctl failed".into());
+                }
+                Ok(Installed {
+                    url: "http://127.0.0.1:7420/mcp".into(),
+                    key_file: Some("/home/sam/.config/kkt/access-key".into()),
+                })
+            })()
+            .map_err(|said| StepError(said.into()))
         }
         fn install_docker(
             &self,
             login: Option<&TailscaleLogin>,
             allow_hosts: &[String],
-        ) -> Result<(Installed, DockerSetup), String> {
-            // The Tailscale name and auth key file are shown when they are
-            // not the defaults.
-            let login_shown = match login {
-                Some(login) => {
-                    let mut shown = String::new();
-                    if login.hostname != flow::DEFAULT_TS_HOSTNAME {
-                        shown.push_str(&format!(" hostname={}", login.hostname));
+        ) -> Result<(Installed, DockerSetup), StepError> {
+            (|| -> Result<(Installed, DockerSetup), String> {
+                // The Tailscale name and auth key file are shown when they are
+                // not the defaults.
+                let login_shown = match login {
+                    Some(login) => {
+                        let mut shown = String::new();
+                        if login.hostname != flow::DEFAULT_TS_HOSTNAME {
+                            shown.push_str(&format!(" hostname={}", login.hostname));
+                        }
+                        if let Some(file) = &login.auth_key_file {
+                            shown.push_str(&format!(" authkey={}", file.display()));
+                        }
+                        shown
                     }
-                    if let Some(file) = &login.auth_key_file {
-                        shown.push_str(&format!(" authkey={}", file.display()));
-                    }
-                    shown
+                    None => String::new(),
+                };
+                let tailscale = login.is_some();
+                self.did(format!(
+                    "install docker tailscale={tailscale}{login_shown}{}",
+                    hosts(allow_hosts)
+                ));
+                if self.fail_install || self.fails_once("install") {
+                    return Err("could not write /home/sam/.config/kkt/docker-access-key".into());
                 }
-                None => String::new(),
-            };
-            let tailscale = login.is_some();
-            self.did(format!(
-                "install docker tailscale={tailscale}{login_shown}{}",
-                hosts(allow_hosts)
-            ));
-            if self.fail_install || self.fails_once("install") {
-                return Err("could not write /home/sam/.config/kkt/docker-access-key".into());
+                Ok((
+                    Installed {
+                        url: "https://kkt.tail1234.ts.net/mcp".into(),
+                        key_file: Some("/home/sam/.config/kkt/docker-access-key".into()),
+                    },
+                    DockerSetup {
+                        folder: "/home/sam/.local/share/kashkeshet/docker".into(),
+                        tailscale,
+                        hostname: Some("kkt".into()),
+                        tailnet: Some("tail1234.ts.net".into()),
+                    },
+                ))
+            })()
+            .map_err(|said| StepError(said.into()))
+        }
+        fn stage_key(&self, key: &str) -> Result<PathBuf, StepError> {
+            {
+                let done: Result<PathBuf, String> = {
+                    self.did(format!("stage key {key}"));
+                    Ok("/home/sam/.config/kkt/client-access-key.partial".into())
+                };
+                done
             }
-            Ok((
-                Installed {
-                    url: "https://kkt.tail1234.ts.net/mcp".into(),
-                    key_file: Some("/home/sam/.config/kkt/docker-access-key".into()),
-                },
-                DockerSetup {
-                    folder: "/home/sam/.local/share/kashkeshet/docker".into(),
-                    tailscale,
-                    hostname: Some("kkt".into()),
-                    tailnet: Some("tail1234.ts.net".into()),
-                },
-            ))
+            .map_err(|said| StepError(said.into()))
         }
-        fn stage_key(&self, key: &str) -> Result<PathBuf, String> {
-            self.did(format!("stage key {key}"));
-            Ok("/home/sam/.config/kkt/client-access-key.partial".into())
+        fn keep_key(&self, _: &Path, url: &str) -> Result<PathBuf, StepError> {
+            {
+                let done: Result<PathBuf, String> = {
+                    self.did(format!("keep key for {url}"));
+                    Ok("/home/sam/.config/kkt/client-access-key-abc".into())
+                };
+                done
+            }
+            .map_err(|said| StepError(said.into()))
         }
-        fn keep_key(&self, _: &Path, url: &str) -> Result<PathBuf, String> {
-            self.did(format!("keep key for {url}"));
-            Ok("/home/sam/.config/kkt/client-access-key-abc".into())
-        }
-        fn discard_key(&self, _: &Path) -> Result<(), String> {
-            self.did("discard key".into());
-            Ok(())
+        fn discard_key(&self, _: &Path) -> Result<(), StepError> {
+            {
+                let done: Result<(), String> = {
+                    self.did("discard key".into());
+                    Ok(())
+                };
+                done
+            }
+            .map_err(|said| StepError(said.into()))
         }
         fn detect_clients(&self) -> Vec<Client> {
             self.clients.clone()
         }
-        fn allow_kkt(&self, client: Client) -> Result<String, String> {
-            assert!(client.can_allow_kkt(), "{}", client.name());
-            self.did(format!("allow kkt in {}", client.name()));
-            match self.fail_allow {
-                Some(failing) if failing == client => Err("bad settings file".into()),
-                _ => Ok(format!("allowed kkt in {}", client.name())),
+        fn allow_kkt(&self, client: Client) -> Result<String, StepError> {
+            {
+                let done: Result<String, String> = {
+                    assert!(client.can_allow_kkt(), "{}", client.name());
+                    self.did(format!("allow kkt in {}", client.name()));
+                    match self.fail_allow {
+                        Some(failing) if failing == client => Err("bad settings file".into()),
+                        _ => Ok(format!("allowed kkt in {}", client.name())),
+                    }
+                };
+                done
             }
+            .map_err(|said| StepError(said.into()))
         }
-        fn doctor(&self, _: &Record) -> Result<String, String> {
-            self.did("doctor".into());
-            if self.fail_doctor || self.fails_once("doctor") {
-                Err("problem: key rejected".into())
-            } else {
-                Ok("ok: all checks".into())
+        fn doctor(&self, _: &Record) -> Result<String, StepError> {
+            {
+                let done: Result<String, String> = {
+                    self.did("doctor".into());
+                    if self.fail_doctor || self.fails_once("doctor") {
+                        Err("problem: key rejected".into())
+                    } else {
+                        Ok("ok: all checks".into())
+                    }
+                };
+                done
             }
+            .map_err(|said| StepError(said.into()))
         }
-        fn unfinished(&self) -> Result<Option<Unfinished>, String> {
-            Ok(self.unfinished.borrow().clone())
+        fn unfinished(&self) -> Result<Option<Unfinished>, StepError> {
+            {
+                let done: Result<Option<Unfinished>, String> =
+                    { Ok(self.unfinished.borrow().clone()) };
+                done
+            }
+            .map_err(|said| StepError(said.into()))
         }
-        fn save_unfinished(&self, unfinished: &Unfinished) -> Result<(), String> {
-            let clients: Vec<_> = unfinished.clients.iter().map(|c| c.name()).collect();
-            let installed = match &unfinished.record {
-                Some(record) => format!("installed {}", record.url),
-                None => "begun".to_string(),
-            };
-            self.did(format!(
-                "note unfinished {} {installed}{}",
-                unfinished.purpose.name(),
-                match clients.as_slice() {
-                    [] => String::new(),
-                    names => format!(" clients={}", names.join(",")),
-                }
-            ));
-            *self.unfinished.borrow_mut() = Some(unfinished.clone());
-            Ok(())
+        fn save_unfinished(&self, unfinished: &Unfinished) -> Result<(), StepError> {
+            if self.fails_once("note") {
+                return Err(StepError("could not write the note".into()));
+            }
+            {
+                let done: Result<(), String> = {
+                    let clients: Vec<_> = unfinished.clients.iter().map(|c| c.name()).collect();
+                    let installed = match &unfinished.record {
+                        Some(record) => format!("installed {}", record.url),
+                        None => "begun".to_string(),
+                    };
+                    self.did(format!(
+                        "note unfinished {} {installed}{}",
+                        unfinished.purpose.name(),
+                        match clients.as_slice() {
+                            [] => String::new(),
+                            names => format!(" clients={}", names.join(",")),
+                        }
+                    ));
+                    *self.unfinished.borrow_mut() = Some(unfinished.clone());
+                    Ok(())
+                };
+                done
+            }
+            .map_err(|said| StepError(said.into()))
         }
-        fn forget_unfinished(&self) -> Result<(), String> {
-            self.did("forget unfinished".into());
-            *self.unfinished.borrow_mut() = None;
-            Ok(())
+        fn forget_unfinished(&self) -> Result<(), StepError> {
+            {
+                let done: Result<(), String> = {
+                    self.did("forget unfinished".into());
+                    *self.unfinished.borrow_mut() = None;
+                    Ok(())
+                };
+                done
+            }
+            .map_err(|said| StepError(said.into()))
         }
         fn add_admin_key(
             &self,
             record: &Record,
             name: &kkt_names::AdminName,
-        ) -> Result<PathBuf, String> {
-            self.did(format!("admin key for {}", record.mode.name()));
-            self.admin_names.borrow_mut().push(name.to_string());
-            if self.fails_once("admin key") {
-                return Err("kkt did not answer".into());
-            }
-            Ok("/home/sam/.config/kkt/admin-key".into())
+        ) -> Result<PathBuf, StepError> {
+            (|| -> Result<PathBuf, String> {
+                self.did(format!("admin key for {}", record.mode.name()));
+                self.admin_names.borrow_mut().push(name.to_string());
+                if self.fails_once("admin key") {
+                    return Err("kkt did not answer".into());
+                }
+                Ok("/home/sam/.config/kkt/admin-key".into())
+            })()
+            .map_err(|said| StepError(said.into()))
         }
-        fn check_lanes(&self, folder: &Path, purpose: Purpose) -> Result<usize, String> {
-            let folder = folder.display().to_string();
-            self.checked
-                .borrow_mut()
-                .push(format!("lanes {folder} for {purpose:?}"));
-            if self.bad_lanes.iter().any(|bad| *bad == folder) {
-                return Err(format!(
-                    "{folder}/reviewer.md: the header has no name: line"
+        fn check_lanes(&self, folder: &Path, purpose: Purpose) -> Result<usize, StepError> {
+            (|| -> Result<usize, String> {
+                let folder = folder.display().to_string();
+                self.checked
+                    .borrow_mut()
+                    .push(format!("lanes {folder} for {purpose:?}"));
+                if self.bad_lanes.iter().any(|bad| *bad == folder) {
+                    return Err(format!(
+                        "{folder}/reviewer.md: the header has no name: line"
+                    ));
+                }
+                Ok(2)
+            })()
+            .map_err(|said| StepError(said.into()))
+        }
+        fn import_lanes(&self, record: &Record, folder: &Path) -> Result<String, StepError> {
+            (|| -> Result<String, String> {
+                self.did(format!(
+                    "import lanes {} into {}",
+                    folder.display(),
+                    record.mode.name()
                 ));
-            }
-            Ok(2)
-        }
-        fn import_lanes(&self, record: &Record, folder: &Path) -> Result<String, String> {
-            self.did(format!(
-                "import lanes {} into {}",
-                folder.display(),
-                record.mode.name()
-            ));
-            if self.fails_once("lanes") {
-                return Err("lane reviewer: the lane needs instructions".into());
-            }
-            Ok("created reviewer (version 1)".into())
+                if self.fails_once("lanes") {
+                    return Err("lane reviewer: the lane needs instructions".into());
+                }
+                Ok("created reviewer (version 1)".into())
+            })()
+            .map_err(|said| StepError(said.into()))
         }
         /// Refuses a malformed key with kkt-keys' own check, as the
         /// program's steps do.
-        fn check_typed_key(&self, key: &str) -> Result<(), String> {
-            kkt_keys::check_access_key(key).map_err(|e| e.to_string())
+        fn check_typed_key(&self, key: &str) -> Result<(), StepError> {
+            {
+                let done: Result<(), String> =
+                    { kkt_keys::check_access_key(key).map_err(|e| e.to_string()) };
+                done
+            }
+            .map_err(|said| StepError(said.into()))
         }
     }
 
@@ -1156,8 +1226,14 @@ mod flow {
             admin_name: Some("Night Owl".into()),
             ..docker_flags()
         };
-        let error =
-            run(&answers, "0.6.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        let error = run(&answers, "0.6.0", "/mcp", &Script::default(), &steps)
+            .expect_err("refused")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the admin name must be lowercase letters and digits, in words joined by single hyphens, such as `sentinel` (which becomes `admin-sentinel`); got \"Night Owl\""
+        );
         assert!(error.contains("admin name"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -1172,7 +1248,14 @@ mod flow {
             admin_key: Some(true),
             ..docker_flags()
         };
-        let error = run(&answers, "0.6.0", "/mcp", &Script::default(), &steps).expect_err("fails");
+        let error = run(&answers, "0.6.0", "/mcp", &Script::default(), &steps)
+            .expect_err("fails")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "kkt did not answer\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check."
+        );
         assert!(error.contains("kkt did not answer"), "{error}");
         assert!(error.contains("Run `kkt setup` again to finish"), "{error}");
         assert!(!steps.recorded());
@@ -1247,7 +1330,14 @@ mod flow {
             ..client_flags()
         };
         let ask = Refusing;
-        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("unanswered");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps)
+            .expect_err("unanswered")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "Connect Codex to kkt? No terminal to ask on: pass --clients."
+        );
         assert!(error.contains("pass --clients"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -1271,6 +1361,80 @@ mod flow {
         fn tell(&self, _: &str) {}
     }
 
+    /// A server install that cannot be noted first is not started, and says
+    /// so, pinned exactly.
+    #[test]
+    fn an_install_that_cannot_be_noted_first_is_not_started() {
+        let steps = Fake {
+            fail_once: RefCell::new(vec!["note"]),
+            ..Fake::default()
+        };
+        let answers = Answers {
+            purpose: Some(Purpose::Service),
+            tailscale: Some(false),
+            allow_hosts: Some(Vec::new()),
+            clients: Some(Vec::new()),
+            ..Answers::default()
+        };
+        let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
+            .expect_err("not noted")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error,
+            "could not write the note\nsetup notes the install before starting it, so nothing was changed"
+        );
+        assert!(
+            !steps.done().iter().any(|d| d.starts_with("install")),
+            "{:?}",
+            steps.done()
+        );
+    }
+
+    /// At a terminal, a failed step offers to try again; when that question
+    /// gets no answer, both are said, pinned exactly.
+    #[test]
+    fn a_failed_step_whose_retry_question_gets_no_answer_says_both() {
+        /// At a terminal, but with no answer to give.
+        struct NoAnswer;
+        impl Ask for NoAnswer {
+            fn interactive(&self) -> bool {
+                true
+            }
+            fn choose(&self, question: Question, _: &[&str], _: usize) -> Result<usize, AskError> {
+                Err(unanswered(question))
+            }
+            fn confirm(&self, question: Question) -> Result<bool, AskError> {
+                Err(unanswered(question))
+            }
+            fn text(&self, question: Question, _: &str) -> Result<String, AskError> {
+                Err(unanswered(question))
+            }
+            fn tell(&self, _: &str) {}
+        }
+        let steps = Fake {
+            fail_install: true,
+            ..Fake::default()
+        };
+        let answers = Answers {
+            purpose: Some(Purpose::Service),
+            tailscale: Some(false),
+            allow_hosts: Some(Vec::new()),
+            clients: Some(Vec::new()),
+            allow_kkt: Some(false),
+            admin_key: Some(false),
+            ..Answers::default()
+        };
+        let error = run(&answers, "0.4.0", "/mcp", &NoAnswer, &steps)
+            .expect_err("unanswered")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error,
+            "launchctl failed\nTry again? No terminal to ask on.\nAn earlier `kkt setup` began to install a server here as a service, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."
+        );
+    }
+
     #[test]
     fn a_failed_install_writes_no_record() {
         let steps = Fake {
@@ -1284,7 +1448,14 @@ mod flow {
             clients: Some(Vec::new()),
             ..Answers::default()
         };
-        let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps).expect_err("fails");
+        let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
+            .expect_err("fails")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "launchctl failed\nAn earlier `kkt setup` began to install a server here as a service, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."
+        );
         assert!(error.starts_with("launchctl failed\n"), "{error}");
         assert!(error.contains("continues from the install"), "{error}");
         assert_eq!(
@@ -1341,7 +1512,14 @@ mod flow {
             key_file: None,
             ..client_flags()
         };
-        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("rejected");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps)
+            .expect_err("rejected")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so nothing was recorded; fix that and run `kkt setup` again"
+        );
         assert!(error.contains("nothing was recorded"), "{error}");
         assert!(error.ends_with("run `kkt setup` again"), "{error}");
         assert_eq!(*ask.asked.borrow(), ["--key-file", "Try again?"]);
@@ -1546,8 +1724,14 @@ mod flow {
             flaky: Some("https://kkt.tail1234.ts.net/mcp"),
             ..Fake::default()
         };
-        let error =
-            run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps).expect_err("flaky");
+        let error = run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps)
+            .expect_err("flaky")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --url did not pass its check, so nothing was changed:\nproblem: server: connection refused"
+        );
         assert!(error.contains("given with --url"), "{error}");
         assert!(!error.contains("--key-file"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -1560,7 +1744,13 @@ mod flow {
             ..Fake::default()
         };
         let error = run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps)
-            .expect_err("bad address");
+            .expect_err("bad address")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --url did not pass its check, so nothing was changed:\nproblem: server: connection refused"
+        );
         assert!(error.contains("--url"), "{error}");
         assert!(error.contains("connection refused"), "{error}");
         assert_eq!(steps.checked(), ["address https://kkt.tail1234.ts.net/mcp"]);
@@ -1573,8 +1763,14 @@ mod flow {
             bad_keys: vec!["file /keys/kkt".into()],
             ..Fake::default()
         };
-        let error =
-            run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps).expect_err("bad key");
+        let error = run(&client_flags(), "0.4.0", "/mcp", &Script::default(), &steps)
+            .expect_err("bad key")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --key-file did not pass its check, so nothing was changed:\nproblem: key accepted: server returned 401"
+        );
         assert!(error.contains("--key-file"), "{error}");
         assert!(error.contains("401"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -1601,8 +1797,14 @@ mod flow {
             url: Some("kkt.example".into()),
             ..client_flags()
         };
-        let error =
-            run(&answers, "0.4.0", "/mcp", &Script::default(), &steps).expect_err("bad url");
+        let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
+            .expect_err("bad url")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --url did not pass its check, so nothing was changed:\nURL must be an absolute http:// or https:// address"
+        );
         assert!(error.contains("--url"), "{error}");
         assert!(error.contains("http:// or https://"), "{error}");
         assert!(steps.checked().is_empty());
@@ -1620,7 +1822,14 @@ mod flow {
             ..client_flags()
         };
         let ask = Script::default();
-        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("one failed");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps)
+            .expect_err("one failed")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "could not connect Claude Code, so nothing was recorded; fix that and run `kkt setup` again"
+        );
         assert!(error.contains("Claude Code"), "{error}");
         assert!(error.contains("nothing was recorded"), "{error}");
         // The others are still tried, so one run shows every problem.
@@ -1648,7 +1857,14 @@ mod flow {
             ..Fake::default()
         };
         let ask = Script::default();
-        let error = run(&client_flags(), "0.4.0", "/mcp", &ask, &steps).expect_err("doctor");
+        let error = run(&client_flags(), "0.4.0", "/mcp", &ask, &steps)
+            .expect_err("doctor")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so nothing was recorded; fix that and run `kkt setup` again"
+        );
         assert!(error.contains("nothing was recorded"), "{error}");
         assert_eq!(steps.done(), ["doctor"]);
         assert!(
@@ -1746,7 +1962,14 @@ mod flow {
             fail_once: RefCell::new(vec!["doctor"]),
             ..Fake::default()
         };
-        let error = run(&docker_flags(), "0.4.0", "/mcp", &ask, &steps).expect_err("no retry");
+        let error = run(&docker_flags(), "0.4.0", "/mcp", &ask, &steps)
+            .expect_err("no retry")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so nothing was recorded.\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check."
+        );
         assert!(ask.asked.borrow().is_empty());
         assert!(error.contains("nothing was recorded"), "{error}");
         assert!(
@@ -1836,7 +2059,14 @@ mod flow {
             clients: Some(vec![Client::Codex]),
             ..docker_flags()
         };
-        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("declined");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps)
+            .expect_err("declined")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "could not connect Codex, so nothing was recorded.\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check."
+        );
         assert!(error.starts_with("could not connect Codex"), "{error}");
         assert!(error.contains("Run `kkt setup` again to finish"), "{error}");
         assert!(!steps.recorded());
@@ -1954,8 +2184,14 @@ mod flow {
             purpose: Some(Purpose::Service),
             ..docker_flags()
         };
-        let error =
-            run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        let error = run(&answers, "0.8.0", "/mcp", &Script::default(), &steps)
+            .expect_err("refused")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "An earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Setting kkt up as a service instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt setup --mode docker` to finish that setup first; then `kkt uninstall` removes it, or `kkt switch <url>` points only this machine's clients at another server"
+        );
         assert!(
             error.contains("installed a server here in Docker"),
             "{error}"
@@ -1968,8 +2204,14 @@ mod flow {
         // A service install noted, then a Docker setup.
         let steps = Fake::default();
         *steps.unfinished.borrow_mut() = Some(left_over_service());
-        let error =
-            run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        let error = run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps)
+            .expect_err("refused")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "An earlier `kkt setup` installed a server here as a service, for clients at http://127.0.0.1:7420/mcp, but stopped before recording it. Setting kkt up in Docker instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt setup --mode service` to finish that setup first; then `kkt uninstall` removes it, or `kkt switch <url>` points only this machine's clients at another server"
+        );
         assert!(
             error.contains("installed a server here as a service"),
             "{error}"
@@ -1993,7 +2235,14 @@ mod flow {
             lanes: Some(None),
             ..Answers::default()
         };
-        let error = run(&answers, "0.8.0", "/mcp", &ask, &steps).expect_err("refused");
+        let error = run(&answers, "0.8.0", "/mcp", &ask, &steps)
+            .expect_err("refused")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "An earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Setting kkt up as a service instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt setup --mode docker` to finish that setup first; then `kkt uninstall` removes it, or `kkt switch <url>` points only this machine's clients at another server"
+        );
         assert!(error.contains("nothing was changed"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
@@ -2083,7 +2332,14 @@ mod flow {
             yes: true,
             ..Answers::default()
         };
-        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("fails");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps)
+            .expect_err("fails")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so nothing was recorded.\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check."
+        );
         assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
         assert!(error.contains("nothing was recorded"), "{error}");
         assert_eq!(steps.done(), ["doctor"]);
@@ -2120,7 +2376,11 @@ mod flow {
                 clients: Some(vec![Client::Codex]),
                 ..docker_flags()
             };
-            let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("fails");
+            let error = run(&answers, "0.4.0", "/mcp", &ask, &steps)
+                .expect_err("fails")
+                .to_string();
+            // Pinned exactly: what a person is told, in either case.
+            assert!(["could not connect Codex, so nothing was recorded.\nAn earlier `kkt setup` installed a server here in Docker, from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, but stopped before recording it. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the connection check.", "could not write /home/sam/.config/kkt/docker-access-key\nAn earlier `kkt setup` began to install a server here in Docker, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."].contains(&error.to_string().as_str()), "{error}");
             assert!(ask.asked.borrow().is_empty(), "{:?}", ask.asked.borrow());
             assert!(error.contains(failed), "{error}");
         }
@@ -2216,7 +2476,14 @@ mod flow {
             yes: true,
             ..Answers::default()
         };
-        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect_err("fails");
+        let error = run(&answers, "0.4.0", "/mcp", &ask, &steps)
+            .expect_err("fails")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "could not write /home/sam/.config/kkt/docker-access-key\nAn earlier `kkt setup` began to install a server here in Docker, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."
+        );
         assert!(
             error.contains("began to install a server here in Docker"),
             "{error}"
@@ -2387,7 +2654,13 @@ mod flow {
             &Script::default(),
             &steps,
         )
-        .expect_err("refused");
+        .expect_err("refused")
+        .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the answer given with --lanes did not pass its check, so nothing was changed:\n/home/sam/lanes/reviewer.md: the header has no name: line"
+        );
         assert!(error.contains("--lanes"), "{error}");
         assert!(
             error.contains("reviewer.md: the header has no name"),
@@ -2418,8 +2691,14 @@ mod flow {
             lanes: Some(Some("/home/sam/lanes".into())),
             ..client_flags()
         };
-        let error =
-            run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        let error = run(&answers, "0.8.0", "/mcp", &Script::default(), &steps)
+            .expect_err("refused")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "--lanes is for a server: run `kkt lanes import` on the machine where it runs"
+        );
         assert!(error.contains("--lanes is for a server"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
         // A client setup is not asked about lanes.
@@ -2442,7 +2721,13 @@ mod flow {
             &Script::default(),
             &steps,
         )
-        .expect_err("import failed");
+        .expect_err("import failed")
+        .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "lane reviewer: the lane needs instructions\nThe setup is recorded, but the lanes were not imported; import them with `kkt lanes import /home/sam/lanes`"
+        );
         assert!(error.contains("needs instructions"), "{error}");
         assert!(
             error.contains("The setup is recorded, but the lanes were not imported"),
@@ -2668,8 +2953,14 @@ mod flow {
     fn without_a_terminal_setup_adopts_only_with_the_flag() {
         // No flags: the first question fails, and nothing is recorded.
         let steps = with_found(Ok(found_docker()));
-        let error =
-            run(&Answers::default(), "0.5.1", "/mcp", &Refusing, &steps).expect_err("unanswered");
+        let error = run(&Answers::default(), "0.5.1", "/mcp", &Refusing, &steps)
+            .expect_err("unanswered")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "What is this machine for? No terminal to ask on: pass --mode."
+        );
         assert!(error.contains("--mode"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
 
@@ -2712,7 +3003,14 @@ mod flow {
             clients: Some(vec![Client::Codex]),
             ..Answers::default()
         };
-        let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("check");
+        let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps)
+            .expect_err("check")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "the connection check found problems (see the fixes above), so setup stopped there.\nThe server is recorded, so `kkt status` and `kkt upgrade` manage it. For a server set up by an older kkt, `kkt upgrade` may fix the problem; then connect clients with `kkt connect <client> --write`."
+        );
         assert!(error.contains("so setup stopped there"), "{error}");
         assert!(!error.contains("nothing was recorded"), "{error}");
         assert!(error.contains("The server is recorded"), "{error}");
@@ -2730,7 +3028,14 @@ mod flow {
             ..docker_flags()
         };
         let steps = Fake::default();
-        let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("none");
+        let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps)
+            .expect_err("none")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "--adopt: no kkt server without a setup record was found here"
+        );
         assert!(
             error.contains("no kkt server without a setup record"),
             "{error}"
@@ -2740,7 +3045,14 @@ mod flow {
         let missing = "Found a kkt server in Docker from /srv, not recorded, but its Tailscale \
                        login never finished, so its address is not known.";
         let steps = with_found(Err(missing.into()));
-        let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("unread");
+        let error = run(&answers, "0.5.1", "/mcp", &Script::default(), &steps)
+            .expect_err("unread")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "--adopt: Found a kkt server in Docker from /srv, not recorded, but its Tailscale login never finished, so its address is not known."
+        );
         assert_eq!(error, format!("--adopt: {missing}"));
         assert!(steps.done().is_empty());
     }
@@ -2783,8 +3095,14 @@ mod flow {
                 ..answers
             };
             let steps = with_found(Ok(found_docker()));
-            let error =
-                run(&adopt, "0.5.1", "/mcp", &Script::default(), &steps).expect_err("differs");
+            let error = run(&adopt, "0.5.1", "/mcp", &Script::default(), &steps)
+                .expect_err("differs")
+                .to_string();
+            // Pinned exactly: what a person is told.
+            assert_eq!(
+                error.to_string(),
+                "--adopt: Found a kkt server in Docker from /home/sam/.local/share/kashkeshet/docker, for clients at https://kkt.tail1234.ts.net/mcp, not recorded. The answers given now are different."
+            );
             assert!(error.contains("answers given now are different"), "{error}");
             assert!(steps.done().is_empty());
         }
@@ -2840,7 +3158,14 @@ mod flow {
                 interactive,
                 ..Script::default()
             };
-            let error = run(&answers, "0.5.1", "/mcp", &ask, &steps).expect_err("not adopted");
+            let error = run(&answers, "0.5.1", "/mcp", &ask, &steps)
+                .expect_err("not adopted")
+                .to_string();
+            // Pinned exactly: what a person is told.
+            assert_eq!(
+                error.to_string(),
+                "--adopt installs nothing, but this setup had not finished installing its server; run `kkt setup` without --adopt to continue it"
+            );
             assert!(error.contains("--adopt installs nothing"), "{error}");
             assert!(ask.asked.borrow().is_empty());
             assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -2975,23 +3300,41 @@ mod flow {
             ..docker_flags()
         };
         let steps = on(docker_record());
-        let error =
-            run(&answers, "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        let error = run(&answers, "0.8.0", "/mcp", &Script::default(), &steps)
+            .expect_err("refused")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "kkt runs here in Docker, from /home/sam/.local/share/kashkeshet/docker (see `kkt status`). Setting kkt up as a service instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt uninstall` first to remove it, or `kkt switch <url>` to point only this machine's clients at another server"
+        );
         assert!(error.contains("kkt runs here in Docker"), "{error}");
         assert!(error.contains("kkt uninstall"), "{error}");
         assert!(error.contains("kkt switch"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
 
         let steps = on(super::record(Mode::Service { tailscale: true }));
-        let error =
-            run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        let error = run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps)
+            .expect_err("refused")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "kkt runs here as a service (see `kkt status`). Setting kkt up in Docker instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt uninstall` first to remove it, or `kkt switch <url>` to point only this machine's clients at another server"
+        );
         assert!(error.contains("kkt runs here as a service"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
 
         // Continuing a stopped setup of the other kind is refused too.
         let steps = with_left_over(on(super::record(Mode::Service { tailscale: false })));
-        let error =
-            run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps).expect_err("refused");
+        let error = run(&docker_flags(), "0.8.0", "/mcp", &Script::default(), &steps)
+            .expect_err("refused")
+            .to_string();
+        // Pinned exactly: what a person is told.
+        assert_eq!(
+            error.to_string(),
+            "kkt runs here as a service (see `kkt status`). Setting kkt up in Docker instead would leave that server running with nothing to manage it, so nothing was changed. Run `kkt uninstall` first to remove it, or `kkt switch <url>` to point only this machine's clients at another server"
+        );
         assert!(error.contains("kkt runs here as a service"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
     }
