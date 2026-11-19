@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "b43604e1",
+ "commit": "41fbc289",
  "crates": [
   {
    "bins": [
@@ -4426,6 +4426,7 @@ window.KKT_GRAPH = {
      "kind": "enum",
      "path": "ServiceError",
      "variants": [
+      "LogConfig",
       "Unsupported",
       "NoHome",
       "NotInstalled",
@@ -4544,7 +4545,8 @@ window.KKT_GRAPH = {
      "doc": "The launchd user agent of the user whose home folder it is given, waiting for launchd as `settings` say.",
      "kind": "struct",
      "methods": [
-      "new"
+      "new",
+      "with_configured_log"
      ],
      "path": "Launchd"
     },
@@ -4575,7 +4577,17 @@ window.KKT_GRAPH = {
    "path": "crates/kkt-bare-service-launchd",
    "produces": [],
    "released_program": false,
-   "slots": [],
+   "slots": [
+    {
+     "at": "Launchd::with_configured_log",
+     "foreign": [
+      "core::ops::function::Fn"
+     ],
+     "kind": "param",
+     "name": "read",
+     "traits": []
+    }
+   ],
    "testing_third_party": [],
    "third_party": []
   },
@@ -9293,6 +9305,7 @@ window.KKT_GRAPH = {
      "doc": "Required only by commands that inspect an unrecorded service.",
      "kind": "trait",
      "methods": [
+      "endpoint",
       "matches_defaults"
      ],
      "path": "ServiceDefaults"
@@ -20301,12 +20314,19 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Service",
+    "ServiceError",
     "Unsupported"
    ],
    "kind": "normal",
    "optional": false,
-   "role": "wires",
+   "role": "uses",
    "roles": [
+    {
+     "detail": [
+      "ServiceError"
+     ],
+     "role": "uses"
+    },
     {
      "detail": [
       "Unsupported"
@@ -20315,9 +20335,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "ServiceError"
-   ],
+   "test_items": [],
    "to": "kkt-bare-service"
   },
   {
@@ -25909,10 +25927,12 @@ window.KKT_GRAPH = {
    "items": [
     "Check",
     "DockerKkt",
+    "Initialized",
     "Inspector",
     "KeyToCheck",
     "Plan",
     "Prober",
+    "Reply",
     "ServerLines",
     "ServiceSeen",
     "Settings",
@@ -25947,8 +25967,10 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Check",
+      "Initialized",
       "Plan",
       "Prober",
+      "Reply",
       "ServerLines",
       "Setup",
       "SetupServer",
@@ -25986,7 +26008,6 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [
     "Answered",
-    "Initialized",
     "KeyFile",
     "KeyFileUnread",
     "Probing",
@@ -32976,6 +32997,27 @@ window.KKT_ASSEMBLY = {
       {
        "at": "InstallParts",
        "param": "container_configs"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-bare-service-launchd",
+     "note": "The default config or the config named in the plist, with relative paths resolved.",
+     "own": "Read the log path from the service config",
+     "suppliers": [
+      {
+       "crate": "kkt-config-file",
+       "item": "parse_file"
+      },
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
+     "to": [
+      {
+       "at": "Launchd::with_configured_log",
+       "param": "read"
       }
      ]
     },

@@ -1027,6 +1027,13 @@ mod tests {
         }
     }
     impl crate::ServiceDefaults for Unused {
+        fn endpoint(
+            &self,
+            _: &[String],
+        ) -> Result<(std::net::SocketAddr, Option<PathBuf>), crate::PartError> {
+            unreachable!("service endpoint")
+        }
+
         fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
             unreachable!("service_defaults")
         }

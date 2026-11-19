@@ -69,9 +69,14 @@ impl Fake {
     }
 
     fn with_file(self, path: &str) -> Fake {
-        self.files
-            .borrow_mut()
-            .insert(PathBuf::from(path), String::new());
+        self.files.borrow_mut().insert(
+            PathBuf::from(path),
+            if path == PLIST {
+                mac().render(&mac_spec()).expect("plist")
+            } else {
+                String::new()
+            },
+        );
         self
     }
 
@@ -311,7 +316,7 @@ fn a_plist_without_the_log_file_is_read_as_it_is() {
     let system = Fake::default();
     let plist = mac().render(&mac_spec()).expect("plist");
     let older = plist.replace(
-        &format!("    <string>--log-file</string>\n    <string>{MAC_LOG}</string>\n"),
+        &format!("    <string>--default-log-file</string>\n    <string>{MAC_LOG}</string>\n"),
         "",
     );
     assert_ne!(older, plist);
@@ -575,6 +580,41 @@ fn launchd_logs_tail_the_log_file() {
 
     let said = mac().logs(&Fake::default(), 50, false).expect("logs");
     assert_eq!(said, [format!("No log yet at {MAC_LOG}")]);
+}
+
+#[test]
+fn status_and_logs_follow_the_configured_file_only_for_a_new_plist() {
+    let mut manager = mac();
+    manager.configured_log = Box::new(|config| {
+        assert_eq!(
+            config,
+            Some(Path::new("/Users/sam/.config/kkt/config.toml"))
+        );
+        Ok(Some("/logs/other.log".into()))
+    });
+    let system = Fake::default().with_file("/logs/other.log").not_loaded();
+    let plist = manager.render(&mac_spec()).expect("render");
+    system.write_file(Path::new(PLIST), &plist).expect("plist");
+    assert!(
+        manager
+            .status(&system)
+            .expect("status")
+            .contains(&"Log: /logs/other.log".into())
+    );
+    manager.logs(&system, 5, false).expect("logs");
+    assert!(system.ran().contains(&"tail -n 5 /logs/other.log".into()));
+    let old = plist.replace("--default-log-file", "--log-file");
+    system
+        .write_file(Path::new(PLIST), &old)
+        .expect("old plist");
+    assert_eq!(
+        manager.installed_args(&system).expect("read"),
+        Some(mac_spec().args)
+    );
+    assert_eq!(
+        manager.logs(&system, 5, false).expect("logs"),
+        [format!("No log yet at {MAC_LOG}")]
+    );
 }
 
 /// On launchd, stopping a failed server is not enough, since launchd

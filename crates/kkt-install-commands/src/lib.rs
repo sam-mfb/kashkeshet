@@ -113,6 +113,11 @@ pub struct CheckedService {
 /// }
 /// ```
 pub trait ServiceDefaults {
+    /// The listener and access key selected by the installed service arguments.
+    fn endpoint(
+        &self,
+        args: &[String],
+    ) -> Result<(std::net::SocketAddr, Option<PathBuf>), PartError>;
     /// Resolve installed arguments first, then defaults, and compare as a running server.
     fn matches_defaults(&self, args: &[String]) -> Result<bool, PartError>;
 }

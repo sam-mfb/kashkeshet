@@ -256,7 +256,13 @@ pub async fn status<D: ServiceDefaults>(
                 "{}",
                 configured_name_pack_line(&config.name_pack)
             ));
-            Ok(service::run(parts, ServiceAction::Status).await?)
+            service::run(parts, ServiceAction::Status).await?;
+            let version = service_version(parts).await;
+            parts.output.output(format_args!(
+                "Version: {}\n",
+                version.as_deref().unwrap_or("could not be read")
+            ));
+            Ok(())
         }
         kkt_deployment::StatusThen::Docker(folder) => {
             let folder = kkt_container::Folder(folder);
@@ -275,6 +281,54 @@ pub async fn status<D: ServiceDefaults>(
             Ok(())
         }
         kkt_deployment::StatusThen::Done => Ok(()),
+    }
+}
+
+/// Ask the locally running service. A client record can point elsewhere after a switch.
+async fn service_version<D: ServiceDefaults>(
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
+) -> Option<String> {
+    if !parts.service.state().ok()?.running {
+        return None;
+    }
+    let args = parts.service.installed_args().ok()??;
+    let (bind, path) = parts.service_defaults.endpoint(&args).ok()?;
+    // Keep the service credential on this machine, even if someone edited the
+    // config after starting the service. Wildcard listeners answer on loopback.
+    let loopback = if bind.is_ipv4() {
+        std::net::Ipv4Addr::LOCALHOST.into()
+    } else {
+        std::net::IpAddr::V6(std::net::Ipv6Addr::LOCALHOST)
+    };
+    let local = if bind.ip().is_loopback() {
+        bind
+    } else if bind.ip().is_unspecified() {
+        std::net::SocketAddr::new(loopback, bind.port())
+    } else {
+        // A specific interface address is local if the OS lets us bind it.
+        let mut check = bind;
+        check.set_port(0);
+        (parts.try_bind)(check).ok()?;
+        bind
+    };
+    let url = format!("http://{local}{}", parts.mcp_path);
+    let key = path
+        .map(|path| parts.key_files.read(&path))
+        .transpose()
+        .ok()?;
+    let wait = parts
+        .clock
+        .sleep_until(parts.clock.now() + std::time::Duration::from_secs(2));
+    let reply = tokio::select! {
+        reply = parts.prober.initialize(&url, key.as_deref().map(str::trim)) => reply.ok()?,
+        () = wait => return None,
+    };
+    match reply {
+        kkt_diagnostics::Initialized::Replied {
+            reply: Ok(kkt_diagnostics::Reply::ServerInfo { version, .. }),
+            ..
+        } => version,
+        _ => None,
     }
 }
 
@@ -986,6 +1040,13 @@ mod tests {
     }
 
     impl ServiceDefaults for Untouched {
+        fn endpoint(
+            &self,
+            _: &[String],
+        ) -> Result<(std::net::SocketAddr, Option<PathBuf>), crate::PartError> {
+            unreachable!("service endpoint")
+        }
+
         fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
             self.refused("service_defaults.matches_defaults")
                 .map_err(crate::PartError::from)
@@ -1638,6 +1699,13 @@ mod tests {
     /// Settings that run the defaults or not, or that cannot say.
     struct Defaults(Option<bool>);
     impl ServiceDefaults for Defaults {
+        fn endpoint(
+            &self,
+            _: &[String],
+        ) -> Result<(std::net::SocketAddr, Option<PathBuf>), crate::PartError> {
+            unreachable!("service endpoint")
+        }
+
         fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
             self.0.ok_or_else(|| "the config file is unreadable".into())
         }

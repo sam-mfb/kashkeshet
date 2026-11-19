@@ -1,6 +1,6 @@
 //! A launchd user agent on macOS. The plist starts the server at login and
 //! again only if it exits with a failure. launchd never rotates a log, so
-//! the server writes its own, bounded one (`--log-file`); launchd's own
+//! the server writes its own, bounded one (`--default-log-file`); launchd's own
 //! output file only catches what comes before logging starts, and crashes.
 //! It runs in the user's `gui/<uid>` domain.
 
@@ -24,7 +24,7 @@ const LAUNCH_AGENTS_DIR: &str = "Library/LaunchAgents";
 /// services log to the journal.
 const MACOS_LOG_DIR: &str = "Library/Logs/kashkeshet";
 /// The service's log file on macOS, in [`MACOS_LOG_DIR`]. The server writes
-/// it itself (`--log-file`), within kkt-rolling-file's `LogPolicy::DEFAULT`.
+/// it itself (`--default-log-file`), within kkt-rolling-file's `LogPolicy::DEFAULT`.
 const MACOS_LOG_FILE_NAME: &str = "kashkeshet.log";
 /// Where launchd sends the service's stdout and stderr on macOS, in
 /// [`MACOS_LOG_DIR`]. Only output from before logging starts, and crashes,
@@ -42,7 +42,10 @@ const NO_DOMAIN_TEXT: &str = "Could not print domain";
 /// `launchctl kill`'s exit status when the service has no process (ESRCH).
 const NO_PROCESS: i32 = 3;
 
+pub(crate) type ConfiguredLog = Box<dyn Fn(Option<&Path>) -> Result<Option<PathBuf>, ServiceError>>;
+
 pub(crate) struct Agent {
+    pub(crate) configured_log: ConfiguredLog,
     home: PathBuf,
     agents_dir: PathBuf,
     log_dir: PathBuf,
@@ -52,6 +55,7 @@ pub(crate) struct Agent {
 impl Agent {
     pub(crate) fn new(home: &Path, waits: crate::Settings) -> Agent {
         Agent {
+            configured_log: Box::new(|_| Ok(None)),
             home: home.to_path_buf(),
             agents_dir: home.join(LAUNCH_AGENTS_DIR),
             log_dir: home.join(MACOS_LOG_DIR),
@@ -67,19 +71,36 @@ impl Agent {
         self.log_dir.join(MACOS_LOG_FILE_NAME)
     }
 
+    fn config_log(&self, args: &[String]) -> Result<PathBuf, ServiceError> {
+        let config = args
+            .windows(2)
+            .find(|pair| pair[0] == "--config")
+            .map(|pair| Path::new(&pair[1]));
+        Ok((self.configured_log)(config)?.unwrap_or_else(|| self.log_file()))
+    }
+
+    fn installed_log(&self, system: &dyn System) -> Result<PathBuf, ServiceError> {
+        if let Some(args) = self.plist_args(system)?
+            && let [.., flag, _] = args.as_slice()
+            && flag == "--default-log-file"
+        {
+            return self.config_log(&args);
+        }
+        Ok(self.log_file())
+    }
+
     fn crash_log_file(&self) -> PathBuf {
         self.log_dir.join(MACOS_CRASH_LOG_FILE_NAME)
     }
 
     pub(crate) fn render(&self, spec: &Spec) -> Result<String, ServiceError> {
         let mut arguments = format!("    <string>{}</string>\n", xml(path_text(&spec.program)?)?);
-        // The server's own, bounded log; it goes last, so it wins over a
-        // `log_file` in the config file.
+        // The server reads the config on each start, before using this fallback.
         let log_file = path_text(&self.log_file())?.to_string();
         for arg in spec
             .args
             .iter()
-            .chain(&["--log-file".to_string(), log_file])
+            .chain(&["--default-log-file".to_string(), log_file])
         {
             arguments.push_str(&format!("    <string>{}</string>\n", xml(arg)?));
         }
@@ -123,11 +144,24 @@ impl Agent {
     }
 
     /// The installed plist's `ProgramArguments`, after the program and
-    /// without the `--log-file` that `render` adds, if it is there.
+    /// without the fallback log argument or its older explicit equivalent.
     pub(crate) fn installed_args(
         &self,
         system: &dyn System,
     ) -> Result<Option<Vec<String>>, ServiceError> {
+        let Some(mut words) = self.plist_args(system)? else {
+            return Ok(None);
+        };
+        if let [.., flag, path] = words.as_slice()
+            && matches!(flag.as_str(), "--log-file" | "--default-log-file")
+            && Path::new(path) == self.log_file()
+        {
+            words.truncate(words.len() - 2);
+        }
+        Ok(Some(words))
+    }
+
+    fn plist_args(&self, system: &dyn System) -> Result<Option<Vec<String>>, ServiceError> {
         let plist = self.plist();
         let Some(text) = read_service_file(system, &plist)? else {
             return Ok(None);
@@ -160,13 +194,6 @@ impl Agent {
             return Err(unreadable("its ProgramArguments array is empty"));
         }
         words.remove(0);
-        let log_file = self.log_file();
-        if let [.., flag, path] = words.as_slice()
-            && flag == "--log-file"
-            && Path::new(path) == log_file
-        {
-            words.truncate(words.len() - 2);
-        }
         Ok(Some(words))
     }
 
@@ -341,6 +368,7 @@ impl Agent {
         clock: &dyn Clock,
         spec: &Spec,
     ) -> Result<Vec<String>, ServiceError> {
+        let log = self.config_log(&spec.args)?;
         let plist = self.render(spec)?;
         // Asked before the plist is written, so a user launchd cannot serve
         // (no login session) is refused with no service file left behind.
@@ -360,7 +388,7 @@ impl Agent {
         Ok(vec![
             format!("Installed {}", self.plist().display()),
             "Started kashkeshet; it starts again at each login.".to_string(),
-            format!("Log: {}", self.log_file().display()),
+            format!("Log: {}", log.display()),
         ])
     }
 
@@ -474,7 +502,7 @@ impl Agent {
                 }
             }
         }
-        said.push(format!("Log: {}", self.log_file().display()));
+        said.push(format!("Log: {}", self.installed_log(system)?.display()));
         Ok(said)
     }
 
@@ -484,7 +512,7 @@ impl Agent {
         lines: usize,
         follow: bool,
     ) -> Result<Vec<String>, ServiceError> {
-        let log = self.log_file();
+        let log = self.installed_log(system)?;
         if !exists(system, &log)? {
             return Ok(vec![format!("No log yet at {}", log.display())]);
         }
