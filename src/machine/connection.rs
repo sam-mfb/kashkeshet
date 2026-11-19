@@ -14,11 +14,15 @@ pub fn serve_endpoint(
     bind: std::net::SocketAddr,
     given: Option<&str>,
     mcp_path: &str,
-) -> Result<String, String> {
+) -> Result<String, kkt_deployment::connection::AddressError> {
     let default = format!("http://{bind}{mcp_path}");
     kkt_deployment::connection::server_address(given.unwrap_or(&default), Some(mcp_path))
-        .map_err(|e| e.to_string())
 }
+
+/// Why a key file's path could not be made absolute.
+#[derive(Debug, thiserror::Error)]
+#[error("could not resolve key path: {0}")]
+pub struct KeyPathError(#[source] std::io::Error);
 
 #[cfg(test)]
 use kkt_deployment::connection::Connection;
@@ -86,7 +90,7 @@ impl ConnectionSource for ConnectionReads<'_> {
     fn absolute(&self, path: &Path) -> Result<std::path::PathBuf, SourceError> {
         kkt_files::Files
             .absolute(path)
-            .map_err(|e| source_error(format!("could not resolve key path: {e}")))
+            .map_err(|e| source_error(KeyPathError(e)))
     }
 }
 

@@ -216,7 +216,8 @@ fn endpoint_validation_keeps_keys_out_of_urls_and_preserves_forwarding_paths() {
         "http://localhost/\nmcp",
     ] {
         let error = kashkeshet::machine::connection::serve_endpoint(bind, Some(bad), "/mcp")
-            .expect_err("refused");
+            .expect_err("refused")
+            .to_string();
         assert!(!error.contains("secret"));
     }
 }
