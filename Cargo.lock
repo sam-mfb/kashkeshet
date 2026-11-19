@@ -1034,7 +1034,7 @@ dependencies = [
 
 [[package]]
 name = "kashkeshet"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "clap",
  "futures",
@@ -1106,7 +1106,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-admission"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-entropy",
  "kkt-hash",
@@ -1117,14 +1117,14 @@ dependencies = [
 
 [[package]]
 name = "kkt-agent-client"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
 ]
 
 [[package]]
 name = "kkt-agent-client-mcp"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-agent-client",
@@ -1136,7 +1136,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-agent-commands"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-agent-client",
@@ -1152,7 +1152,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-agent-files"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-scratch",
  "libc",
@@ -1161,7 +1161,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-api-admin"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-api-agent",
  "kkt-api-operator",
@@ -1170,7 +1170,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-api-agent"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "serde",
  "thiserror",
@@ -1178,7 +1178,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-api-operator"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-api-agent",
  "serde",
@@ -1186,7 +1186,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-api-sim"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-api-agent",
@@ -1202,7 +1202,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-backup"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-clock",
  "kkt-keys",
@@ -1211,7 +1211,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-backup-os"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-backup",
  "kkt-clock",
@@ -1220,7 +1220,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-bare-service"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-clock",
  "thiserror",
@@ -1228,7 +1228,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-bare-service-launchd"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-bare-service",
  "kkt-clock",
@@ -1236,7 +1236,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-bare-service-systemd"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-bare-service",
  "kkt-clock",
@@ -1245,14 +1245,14 @@ dependencies = [
 
 [[package]]
 name = "kkt-browser"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-scratch",
 ]
 
 [[package]]
 name = "kkt-clock"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "chrono",
  "futures",
@@ -1261,7 +1261,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-clock-system"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-clock",
@@ -1270,7 +1270,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-config-file"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-toml",
  "thiserror",
@@ -1278,14 +1278,14 @@ dependencies = [
 
 [[package]]
 name = "kkt-container"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "kkt-container-docker"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-clock",
  "kkt-container",
@@ -1295,7 +1295,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-containerized-service"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-clock",
@@ -1306,7 +1306,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-db"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-search",
  "rusqlite",
@@ -1316,7 +1316,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-db-sqlite"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-db",
  "kkt-scratch",
@@ -1328,7 +1328,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-deployment"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-bare-service",
  "kkt-containerized-service",
@@ -1343,7 +1343,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-diagnostics"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-clock",
  "kkt-keys",
@@ -1353,11 +1353,11 @@ dependencies = [
 
 [[package]]
 name = "kkt-entropy"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 
 [[package]]
 name = "kkt-entropy-os"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-entropy",
  "rand",
@@ -1365,7 +1365,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-fake-product"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-admission",
@@ -1397,28 +1397,28 @@ dependencies = [
 
 [[package]]
 name = "kkt-files"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-scratch",
 ]
 
 [[package]]
 name = "kkt-hash"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "sha2",
 ]
 
 [[package]]
 name = "kkt-hosts"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "kkt-identity"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-admission",
  "kkt-api-agent",
@@ -1427,7 +1427,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-identity-keymode"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-admission",
  "kkt-api-agent",
@@ -1441,7 +1441,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-install-commands"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-backup",
@@ -1466,7 +1466,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-keymode"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-admission",
  "kkt-api-agent",
@@ -1498,7 +1498,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-keys"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-entropy",
  "kkt-hash",
@@ -1508,7 +1508,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-keys-os"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-keys",
  "kkt-scratch",
@@ -1516,14 +1516,14 @@ dependencies = [
 
 [[package]]
 name = "kkt-lane-files"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "kkt-listen"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "axum",
  "tokio",
@@ -1531,14 +1531,14 @@ dependencies = [
 
 [[package]]
 name = "kkt-llm-agent-command"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "kkt-llm-agent-config"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-keys",
  "kkt-machine",
@@ -1550,11 +1550,11 @@ dependencies = [
 
 [[package]]
 name = "kkt-log"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 
 [[package]]
 name = "kkt-log-tracing"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-log",
  "thiserror",
@@ -1564,18 +1564,18 @@ dependencies = [
 
 [[package]]
 name = "kkt-machine"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 
 [[package]]
 name = "kkt-machine-os"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-machine",
 ]
 
 [[package]]
 name = "kkt-mcp"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "axum",
  "kkt-admission",
@@ -1604,7 +1604,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-names"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-entropy",
  "thiserror",
@@ -1612,7 +1612,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-operator-commands"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-api-agent",
@@ -1631,7 +1631,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-probe"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "reqwest",
  "serde_json",
@@ -1640,21 +1640,21 @@ dependencies = [
 
 [[package]]
 name = "kkt-provenance"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-hash",
 ]
 
 [[package]]
 name = "kkt-remote-access"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "thiserror",
 ]
 
 [[package]]
 name = "kkt-remote-access-tailscale"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-remote-access",
  "serde",
@@ -1664,11 +1664,11 @@ dependencies = [
 
 [[package]]
 name = "kkt-revision"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 
 [[package]]
 name = "kkt-rolling-file"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-clock",
  "kkt-scratch",
@@ -1677,7 +1677,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-rules"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-api-admin",
@@ -1696,15 +1696,15 @@ dependencies = [
 
 [[package]]
 name = "kkt-scratch"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 
 [[package]]
 name = "kkt-search"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 
 [[package]]
 name = "kkt-server"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "axum",
  "futures",
@@ -1733,7 +1733,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-setup"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-keys",
  "kkt-llm-agent-config",
@@ -1745,7 +1745,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-shutdown"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "tokio",
  "tokio-util",
@@ -1753,7 +1753,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-shutdown-os"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "kkt-shutdown",
  "tokio",
@@ -1761,14 +1761,14 @@ dependencies = [
 
 [[package]]
 name = "kkt-terminal"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "libc",
 ]
 
 [[package]]
 name = "kkt-toml"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -1779,7 +1779,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-watch"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "futures",
  "kkt-agent-client",
@@ -1790,7 +1790,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-web"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "askama",
  "axum",
@@ -1814,7 +1814,7 @@ dependencies = [
 
 [[package]]
 name = "kkt-webapp-preview"
-version = "1.0.0-rc.2"
+version = "1.0.0-rc.3"
 dependencies = [
  "clap",
  "kkt-api-sim",
