@@ -216,12 +216,17 @@ async fn backups_taken_while_agents_write_restore_to_a_working_server() {
 }
 
 /// A home whose server has three messages, then stopped: its database
-/// path, with the messages in it.
+/// path, with the messages in it. The config names the database beside
+/// it, so the path is the same on every platform.
 async fn messaged_home(name: &str) -> (scratch::Dir, PathBuf) {
     let home = temp_home(name);
     let config_dir = home.join(".config/kkt");
     std::fs::create_dir_all(&config_dir).expect("config dir");
-    std::fs::write(config_dir.join("config.toml"), "no_access_key = true\n").expect("config file");
+    std::fs::write(
+        config_dir.join("config.toml"),
+        "db = \"test.db\"\nno_access_key = true\n",
+    )
+    .expect("config file");
     let mut server = start(kkt(&home, &["serve"])).await;
     let client = common::connect_new_at(&server.base()).await;
     let token = field(&ok(&client, "register", json!({})).await, "token");
@@ -242,7 +247,7 @@ async fn messaged_home(name: &str) -> (scratch::Dir, PathBuf) {
         .await;
     }
     server.child.kill().await.expect("stop kkt");
-    let db = home.join(".local/share/kashkeshet/kashkeshet.db");
+    let db = home.join(".config/kkt/test.db");
     (home, db)
 }
 
@@ -273,8 +278,10 @@ async fn a_backups_about_file_records_the_highest_message_id() {
 
 /// A backup destination whose name is not valid UTF-8 still records
 /// the ID: the copied database's path is percent-encoded from its own
-/// bytes, not through UTF-8.
-#[cfg(unix)]
+/// bytes, not through UTF-8. Linux only: macOS requires file names in
+/// UTF-8, so a folder ending in byte 0xff cannot be created there and
+/// this case cannot arise on macOS.
+#[cfg(target_os = "linux")]
 #[tokio::test]
 async fn a_backup_to_a_non_utf8_folder_records_the_highest_id() {
     use std::os::unix::ffi::OsStringExt;
