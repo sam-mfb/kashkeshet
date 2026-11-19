@@ -61,8 +61,8 @@ async fn main() -> std::process::ExitCode {
         ),
     };
     let result = match (logging, task) {
-        (Err(e), _) => Err(e.to_string()),
-        (Ok(()), Err(e)) => Err(e.to_string()),
+        (Err(e), _) => Err(CommandError::from(e)),
+        (Ok(()), Err(e)) => Err(CommandError::from(e)),
         (Ok(()), Ok(task)) => {
             run(
                 &env,
@@ -93,6 +93,45 @@ async fn main() -> std::process::ExitCode {
             std::process::ExitCode::FAILURE
         }
     }
+}
+
+/// Why a command failed: logging could not start, the command line could
+/// not be read, or the command's own error. Each is said as its source says
+/// it.
+#[derive(Debug, thiserror::Error)]
+enum CommandError {
+    #[error(transparent)]
+    Logging(#[from] kkt_log_tracing::LoggingError),
+    #[error(transparent)]
+    Cli(#[from] cli::CliError),
+    #[error(transparent)]
+    ServeCheck(#[from] kkt_install_commands::record::ServeCheckError),
+    #[error(transparent)]
+    Serve(#[from] serve::ServeError),
+    #[error(transparent)]
+    Key(#[from] kkt_operator_commands::key::KeyError),
+    #[error(transparent)]
+    Agent(#[from] kkt_operator_commands::agent::AgentError),
+    #[error(transparent)]
+    Lanes(#[from] kkt_operator_commands::lanes::LaneError),
+    #[error(transparent)]
+    Service(#[from] kkt_install_commands::service::ServiceCommandError),
+    #[error(transparent)]
+    Backup(#[from] kkt_install_commands::lifecycle::BackupCommandError),
+    #[error(transparent)]
+    Status(#[from] kkt_install_commands::lifecycle::StatusError),
+    #[error(transparent)]
+    Upgrade(#[from] kkt_install_commands::lifecycle::UpgradeCommandError),
+    #[error(transparent)]
+    Uninstall(#[from] kkt_install_commands::lifecycle::UninstallError),
+    #[error(transparent)]
+    Doctor(#[from] kkt_install_commands::doctor::DoctorError),
+    #[error(transparent)]
+    Setup(#[from] setup::SetupError),
+    #[error(transparent)]
+    Switch(#[from] setup::SwitchError),
+    #[error(transparent)]
+    AgentCommand(#[from] agent_commands::AgentCommandError),
 }
 
 /// One command, with its inputs as plain values. `cli` makes it from the
@@ -174,7 +213,7 @@ async fn run(
     platform: Platform,
     serve_args: ServeArgs,
     task: Task,
-) -> Result<std::process::ExitCode, String> {
+) -> Result<std::process::ExitCode, CommandError> {
     // The three assemblies' parts, built once, here. None reads anything
     // until a command asks.
     let native = NativeParts::new(env, platform).with_service_args(serve_args);
@@ -198,11 +237,11 @@ async fn run(
                     install.service,
                     install.output,
                 )
-                .map_err(|e| e.to_string())?;
+                .map_err(CommandError::from)?;
             }
             serve::run(env, platform, config, options)
                 .await
-                .map_err(|e| e.to_string())
+                .map_err(CommandError::from)
         }
         Task::KeyCreate {
             path,
@@ -220,44 +259,45 @@ async fn run(
             force,
             show,
         )
-        .map_err(|e| e.to_string()),
+        .map_err(CommandError::from),
         Task::Agent { action, db, config } => {
             kkt_operator_commands::agent::run(&operator, action, db, config)
                 .await
-                .map_err(|e| e.to_string())
+                .map_err(CommandError::from)
         }
         Task::Lanes { action, db, config } => {
             kkt_operator_commands::lanes::run(&operator, action, db, config)
                 .await
-                .map_err(|e| e.to_string())
+                .map_err(CommandError::from)
         }
         Task::Service(action) => kkt_install_commands::service::run(&install, action)
             .await
-            .map_err(|e| e.to_string()),
+            .map_err(CommandError::from),
         Task::Backup { folder, db, config } => {
             kkt_install_commands::lifecycle::backup(&install, folder.as_deref(), db, config)
-                .map_err(|e| e.to_string())
+                .map_err(CommandError::from)
         }
         Task::Status => kkt_install_commands::lifecycle::status(&install, env, platform)
             .await
-            .map_err(|e| e.to_string()),
+            .map_err(CommandError::from),
         Task::Upgrade { allow_downgrade } => {
             kkt_install_commands::lifecycle::upgrade(&install, env, platform, allow_downgrade)
                 .await
-                .map_err(|e| e.to_string())
+                .map_err(CommandError::from)
         }
         Task::Uninstall => kkt_install_commands::lifecycle::uninstall(&install, env, platform)
             .await
-            .map_err(|e| e.to_string()),
+            .map_err(CommandError::from),
         Task::Switch(how) => kkt_install_commands::setup::run_switch(&install, env, how)
             .await
-            .map_err(|e| e.to_string()),
+            .map_err(CommandError::from),
         Task::KeyHeader { key_file, json } => {
-            kkt_operator_commands::key::header(&operator, key_file, json).map_err(|e| e.to_string())
+            kkt_operator_commands::key::header(&operator, key_file, json)
+                .map_err(CommandError::from)
         }
         Task::KeyShow { key_file, kind } => {
             return kkt_operator_commands::key::show(&operator, key_file, kind)
-                .map_err(|e| e.to_string());
+                .map_err(CommandError::from);
         }
         Task::Connect {
             client,
@@ -265,16 +305,16 @@ async fn run(
             client_config,
             write,
         } => connect::run(&agents, env, &client, connection, client_config, write)
-            .map_err(|e| e.to_string()),
+            .map_err(CommandError::from),
         Task::Doctor(connection) => {
             kkt_install_commands::doctor::run(&install, env, platform, connection)
                 .await
-                .map_err(|e| e.to_string())
+                .map_err(CommandError::from)
         }
         Task::Setup { answers, options } => {
             kkt_install_commands::setup::run(env, platform, &install, answers, options)
                 .await
-                .map_err(|e| e.to_string())
+                .map_err(CommandError::from)
         }
         Task::Register {
             token_file,
@@ -295,7 +335,7 @@ async fn run(
             },
         )
         .await
-        .map_err(|e| e.to_string()),
+        .map_err(CommandError::from),
         Task::Reclaim {
             handle,
             recovery_file,
@@ -303,12 +343,12 @@ async fn run(
             connection,
         } => agent_commands::reclaim(&agents, connection, &handle, recovery_file, token_file)
             .await
-            .map_err(|e| e.to_string()),
+            .map_err(CommandError::from),
         // The only command with an exit code of its own.
         Task::Watch(task) => {
             return agent_commands::watch::run(&mut agents, task)
                 .await
-                .map_err(|e| e.to_string());
+                .map_err(CommandError::from);
         }
     };
     done.map(|()| std::process::ExitCode::SUCCESS)

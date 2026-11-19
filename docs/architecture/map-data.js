@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "ffc17c45",
+ "commit": "98bf5e0d",
  "crates": [
   {
    "bins": [
@@ -375,6 +375,11 @@ window.KKT_GRAPH = {
      "path": "machine::connection::ConnectionReads"
     },
     {
+     "doc": "Why a key file's path could not be made absolute.",
+     "kind": "struct",
+     "path": "machine::connection::KeyPathError"
+    },
+    {
      "doc": "The MCP endpoint a client of the serve settings reaches: `given`, as kkt-deployment's address rule takes it, or with none given the server on `bind`.",
      "kind": "fn",
      "path": "machine::connection::serve_endpoint"
@@ -494,6 +499,16 @@ window.KKT_GRAPH = {
      "path": "machine::native::HereLanes"
     },
     {
+     "doc": "Why setup's lanes could not be checked or imported.",
+     "kind": "enum",
+     "path": "machine::native::ImportLanesError",
+     "variants": [
+      "NotOnServer",
+      "DockerHome",
+      "Lanes"
+     ]
+    },
+    {
      "doc": "What is installed on this machine, as kkt-operator-commands declares it: kkt-install-commands' reads of the setup record, the note of an unfinished setup and a server found with no record, read into kkt-deployment's facts.",
      "kind": "struct",
      "path": "machine::native::InstalledOnThisMachine"
@@ -516,6 +531,19 @@ window.KKT_GRAPH = {
      "doc": "The service capability: what an installed service runs with, compared with the defaults, as `kkt serve` would read its arguments.",
      "kind": "struct",
      "path": "machine::native::ServiceArgs"
+    },
+    {
+     "doc": "Why setup's record or its note of an unfinished setup could not be read, written or removed: the step on this machine's files that failed, or kkt-setup's own refusal of the text.",
+     "kind": "enum",
+     "path": "machine::native::SetupFileError",
+     "variants": [
+      "Read",
+      "CreateFolder",
+      "Write",
+      "Remove",
+      "Parse",
+      "Render"
+     ]
     },
     {
      "doc": "The install's lane import, adapted to the operator's lane helpers.",
@@ -4878,13 +4906,13 @@ window.KKT_GRAPH = {
      "path": "Config"
     },
     {
-     "doc": "Why a config file's text could not be read as a config file: a setting (`config` for the file as a whole) and what is wrong with it, or the caller's own refusal of a log level, as its level check made it (see `parse_file`).",
-     "kind": "enum",
-     "path": "ConfigError",
-     "variants": [
-      "Setting",
-      "Level"
-     ]
+     "doc": "Why a config file's text could not be read as a config file: the setting (`config` for the file as a whole) and what is wrong with it.",
+     "fields": [
+      "name",
+      "rule"
+     ],
+     "kind": "struct",
+     "path": "ConfigError"
     },
     {
      "doc": "kkt's config directory: `kkt` under the supplied config-home folder.",
@@ -18153,15 +18181,6 @@ window.KKT_GRAPH = {
      "path": "BrowserLink"
     },
     {
-     "doc": "Why `Terminal::read_line` could not read a line.",
-     "kind": "enum",
-     "path": "ReadLineError",
-     "variants": [
-      "Write",
-      "Read"
-     ]
-    },
-    {
      "doc": "The process's standard output and standard error.",
      "kind": "struct",
      "methods": [
@@ -18736,14 +18755,6 @@ window.KKT_GRAPH = {
       "Admitted",
       "Refused"
      ]
-    },
-    {
-     "doc": "Why a `Gate` refused a key: its own error, passed on unread; the page shows what it says.",
-     "kind": "struct",
-     "methods": [
-      "new"
-     ],
-     "path": "SignInRefused"
     },
     {
      "doc": "Who is viewing, as the `Gate` decides it: the swarm whose operations the page shows and changes, and the operator they act as there.",
@@ -20089,6 +20100,7 @@ window.KKT_GRAPH = {
    "items": [
     "AdminKey",
     "AdminKeyError",
+    "AgentCommandError",
     "AgentParts",
     "CredentialSlot",
     "Credentials",
@@ -20125,6 +20137,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "AdminKeyError",
+      "AgentCommandError",
       "AgentParts",
       "CredentialsError",
       "KeyUnread",
@@ -20405,7 +20418,6 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Config",
-    "ConfigError",
     "config_dir",
     "config_file",
     "config_file_in_home",
@@ -20433,7 +20445,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Config",
-      "ConfigError",
       "config_dir",
       "config_file",
       "config_file_in_home",
@@ -20627,12 +20638,14 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "NoDockerHome",
     "Plan",
     "Request",
     "ServerKeys",
     "ServiceSettings",
     "UnfinishedSetup",
     "connection",
+    "connection::AddressError",
     "connection::ConnectionOptions",
     "connection::ConnectionSource",
     "connection::RecordedServer",
@@ -20654,12 +20667,14 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "NoDockerHome",
       "Plan",
       "Request",
       "ServerKeys",
       "ServiceSettings",
       "UnfinishedSetup",
       "connection",
+      "connection::AddressError",
       "connection::ConnectionOptions",
       "connection::RecordedServer",
       "connection::ServeConnection",
@@ -20867,16 +20882,23 @@ window.KKT_GRAPH = {
     "deployment::recorded_server",
     "deployment::server_keys",
     "deployment::unfinished_setup",
+    "doctor::DoctorError",
     "doctor::run",
+    "lifecycle::BackupCommandError",
+    "lifecycle::StatusError",
+    "lifecycle::UninstallError",
+    "lifecycle::UpgradeCommandError",
     "lifecycle::backup",
     "lifecycle::status",
     "lifecycle::uninstall",
     "lifecycle::upgrade",
     "record::InstallReads",
+    "record::ServeCheckError",
     "record::check_setup",
     "record::read_setup",
     "service",
     "service::ServiceAction",
+    "service::ServiceCommandError",
     "service::ServiceInstall",
     "service::run",
     "setup::InstallOptions",
@@ -20907,15 +20929,22 @@ window.KKT_GRAPH = {
       "deployment::recorded_server",
       "deployment::server_keys",
       "deployment::unfinished_setup",
+      "doctor::DoctorError",
       "doctor::run",
+      "lifecycle::BackupCommandError",
+      "lifecycle::StatusError",
+      "lifecycle::UninstallError",
+      "lifecycle::UpgradeCommandError",
       "lifecycle::backup",
       "lifecycle::status",
       "lifecycle::uninstall",
       "lifecycle::upgrade",
+      "record::ServeCheckError",
       "record::check_setup",
       "record::read_setup",
       "service",
       "service::ServiceAction",
+      "service::ServiceCommandError",
       "service::run",
       "setup::run",
       "setup::run_switch"
@@ -21302,7 +21331,9 @@ window.KKT_GRAPH = {
     "Paths",
     "ServeConfig",
     "agent::AgentAction",
+    "agent::AgentError",
     "agent::run",
+    "key::KeyError",
     "key::NewKey",
     "key::create",
     "key::header",
@@ -21312,6 +21343,7 @@ window.KKT_GRAPH = {
     "lanes",
     "lanes::Carried",
     "lanes::ContainerLanes",
+    "lanes::LaneError",
     "lanes::LaneServer",
     "lanes::LaneServers",
     "lanes::LanesAction",
@@ -21345,7 +21377,9 @@ window.KKT_GRAPH = {
       "OperatorParts",
       "PartError",
       "agent::AgentAction",
+      "agent::AgentError",
       "agent::run",
+      "key::KeyError",
       "key::create",
       "key::header",
       "key::show",
@@ -21353,6 +21387,7 @@ window.KKT_GRAPH = {
       "keys::selected_key_path",
       "lanes",
       "lanes::Carried",
+      "lanes::LaneError",
       "lanes::LanesAction",
       "lanes::LanesOn",
       "lanes::RunArg",
@@ -21615,7 +21650,11 @@ window.KKT_GRAPH = {
     "Mode",
     "Purpose",
     "Record",
+    "RecordError",
+    "RenderError",
+    "SetupError",
     "Switch",
+    "SwitchError",
     "Target",
     "Unfinished",
     "record_path",
@@ -21639,7 +21678,11 @@ window.KKT_GRAPH = {
       "Mode",
       "Purpose",
       "Record",
+      "RecordError",
+      "RenderError",
+      "SetupError",
       "Switch",
+      "SwitchError",
       "Target",
       "Unfinished",
       "record_path",
@@ -22063,6 +22106,7 @@ window.KKT_GRAPH = {
     "Server",
     "Unfinished",
     "Unrecorded",
+    "record_path",
     "unfinished_path"
    ],
    "kind": "dev",
@@ -22078,6 +22122,7 @@ window.KKT_GRAPH = {
       "Server",
       "Unfinished",
       "Unrecorded",
+      "record_path",
       "unfinished_path"
      ],
      "role": "uses"
@@ -23031,7 +23076,6 @@ window.KKT_GRAPH = {
     "Gate",
     "Session",
     "SignIn",
-    "SignInRefused",
     "Viewer"
    ],
    "kind": "normal",
@@ -23050,7 +23094,6 @@ window.KKT_GRAPH = {
       "Admit",
       "Session",
       "SignIn",
-      "SignInRefused",
       "Viewer"
      ],
      "role": "uses"
@@ -23151,7 +23194,6 @@ window.KKT_GRAPH = {
     "PageLimits",
     "Sessions",
     "Settings",
-    "SignInRefused",
     "testing",
     "testing::App",
     "testing::Door",
@@ -23181,7 +23223,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Settings",
-      "SignInRefused",
       "testing",
       "testing::administration_works",
       "testing::announcement_editor_works",
@@ -29290,7 +29331,6 @@ window.KKT_GRAPH = {
     "Sessions",
     "Settings",
     "SignIn",
-    "SignInRefused",
     "Viewer",
     "router"
    ],
@@ -29312,7 +29352,6 @@ window.KKT_GRAPH = {
       "Session",
       "Settings",
       "SignIn",
-      "SignInRefused",
       "router"
      ],
      "role": "uses"
@@ -29579,7 +29618,6 @@ window.KKT_GRAPH = {
     "Sessions",
     "Settings",
     "SignIn",
-    "SignInRefused",
     "Viewer",
     "router",
     "testing",
@@ -29628,7 +29666,6 @@ window.KKT_GRAPH = {
       "Session",
       "Settings",
       "SignIn",
-      "SignInRefused",
       "router",
       "testing",
       "testing::ACTIVITY_BUCKET",
