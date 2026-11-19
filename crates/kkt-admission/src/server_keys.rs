@@ -438,6 +438,12 @@ mod tests {
     #[test]
     fn a_refusal_is_worded_naming_the_setting() {
         let rule = |name| SettingError::new(name, "must not be empty");
+        // A name file with no key hash, refused as kkt-keys refuses it.
+        let no_hash = || {
+            kkt_keys::bound_in("admin-ops\n", "k", 40)
+                .expect_err("no key hash")
+                .to_string()
+        };
         let cases = [
             (
                 KeyRefusal::Text("could not read /k".to_string()),
@@ -483,16 +489,16 @@ mod tests {
                 "invalid setting: admin_key_file: must not be empty",
             ),
             (
-                KeyRefusal::AdminName("bad".to_string()),
+                KeyRefusal::AdminName(no_hash()),
                 None,
                 Some("/k/admin-key.name"),
-                "invalid setting: admin name in /k/admin-key.name: bad",
+                "invalid setting: admin name in /k/admin-key.name: its second line must be `key-sha256: ` and a hash of the admin key",
             ),
             (
-                KeyRefusal::AdminName("bad".to_string()),
+                KeyRefusal::AdminName(no_hash()),
                 None,
                 None,
-                "invalid setting: admin name: bad",
+                "invalid setting: admin name: its second line must be `key-sha256: ` and a hash of the admin key",
             ),
         ];
         for (refusal, set_in, names, said) in cases {

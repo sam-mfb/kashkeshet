@@ -687,6 +687,49 @@ fn status_says_what_is_there_and_running_and_the_name_pack_serve_uses() {
     assert_eq!(status_of(configured).name_pack, Ok("stones".into()));
 }
 
+/// A config reader that refuses every config file, naming the setting.
+struct Refuses;
+
+impl ConfigReader for Refuses {
+    fn settings(&self, _: &str, _: &Path, _: Option<&Path>) -> Result<ContainerConfig, String> {
+        Err("name_pack: no such pack".into())
+    }
+}
+
+#[test]
+fn a_container_config_the_reader_refuses_is_said_with_its_reason() {
+    let configured = local(LOCAL_ENV)
+        .with_config("kkt", serving(&["serve"]))
+        .answering(|request| match request {
+            Request::Exec { args, .. } if args[0] == "cat" => {
+                Ok((Some(0), "pack=nowhere\n".into(), String::new()))
+            }
+            _ => Ok((Some(0), String::new(), String::new())),
+        });
+    configured
+        .up(
+            &Project {
+                folder: &folder(),
+                shielded: &[],
+            },
+            &[],
+            Output::Captured,
+        )
+        .unwrap();
+    let state = service(configured)
+        .status(
+            &folder(),
+            &Refuses,
+            "default-pack",
+            Path::new("kkt/config.toml"),
+        )
+        .unwrap();
+    assert_eq!(
+        state.name_pack,
+        Err("unreadable container config: name_pack: no such pack".into())
+    );
+}
+
 #[test]
 fn a_name_pack_with_no_container_is_unidentified() {
     let project_folder = folder();
