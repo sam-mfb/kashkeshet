@@ -258,6 +258,7 @@ impl<P: Projects> ServiceContainer for Containerized<P> {
         backup::backup(
             &self.projects,
             &self.project(folder),
+            &*self.tell,
             self.working_dir.as_deref(),
             dest,
         )

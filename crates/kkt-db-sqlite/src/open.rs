@@ -350,11 +350,14 @@ pub(crate) fn check_references(conn: &Connection) -> Result<(), DbError> {
 }
 
 /// Brings the database on `writer` up to date with `sets` and opens it.
+/// With `migrate` false, the database must already be up to date; the
+/// caller has refused it otherwise, so nothing here writes.
 fn open_with(
     writer: Arc<Mutex<Connection>>,
     sets: &[Set],
     legacy: Option<&Legacy>,
     file: bool,
+    migrate: bool,
     readers: impl FnOnce() -> Result<Vec<Mutex<Connection>>, DbError>,
 ) -> Result<Arc<dyn Backend>, DbError> {
     let found = found(&*lock(&writer)?, legacy)?;
@@ -372,7 +375,9 @@ fn open_with(
             .pragma_update(None, "journal_mode", "WAL")
             .map_err(failed)?;
     }
-    Evolver { conn: &writer }.migrate(sets)?;
+    if migrate {
+        Evolver { conn: &writer }.migrate(sets)?;
+    }
     let schema = Schema::latest(sets)?;
     Ok(Arc::new(Store(Arc::new(Connections {
         writer,
@@ -459,6 +464,7 @@ impl SqlitePlace {
             sets,
             self.legacy.as_ref(),
             true,
+            true,
             move || {
                 (0..options.readers)
                     .map(|_| {
@@ -471,20 +477,34 @@ impl SqlitePlace {
         )
     }
 
-    /// Opens the file read-only: every connection is read-only, no
-    /// migration is applied, no journal mode is set, and nothing is
-    /// created. Fails when the file is not there, is not a database this
-    /// version opens, or would need a migration first. The legacy
-    /// adoption this place may carry does not apply: a database from
-    /// before kkt-db is refused, as `open` without adoption refuses it.
+    /// Opens the finished database file at this place read-only, for a
+    /// read nobody else is writing to (a backup's copy): every connection
+    /// is immutable, so SQLite creates no file beside it — no `-wal` or
+    /// `-shm`, even for a WAL-mode database whose sidecars are gone — and
+    /// nothing is written or migrated. A database that would need a
+    /// migration first is refused before any write path, with
+    /// [`DbError::Backend`] saying it is not at the current schema; a
+    /// database from before kkt-db is likewise refused, the legacy
+    /// adoption this place may carry notwithstanding. Because the file
+    /// is immutable, only its main file is read: a copy whose data is
+    /// still only in a `-wal` beside it is not this method's to read.
     pub fn open_read_only(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
-        let writer = read_only(&self.path)?;
-        configure(&writer, self.options.busy_timeout)?;
+        let first = immutable(&self.path)?;
+        configure(&first, self.options.busy_timeout)?;
+        let writer = Arc::new(Mutex::new(first));
+        let pending = Evolver { conn: &writer }.pending(sets)?;
+        if !pending.is_empty() {
+            return Err(DbError::Backend(format!(
+                "the database at {} is not at the current schema ({} set(s) would be upgraded); a read-only open does not migrate it",
+                self.path.display(),
+                pending.len()
+            )));
+        }
         let (path, options) = (self.path.clone(), self.options);
-        open_with(Arc::new(Mutex::new(writer)), sets, None, false, move || {
+        open_with(writer, sets, None, false, false, move || {
             (0..options.readers)
                 .map(|_| {
-                    let reader = read_only(&path)?;
+                    let reader = immutable(&path)?;
                     configure(&reader, options.busy_timeout)?;
                     Ok(Mutex::new(reader))
                 })
@@ -534,6 +554,33 @@ fn read_only(path: &std::path::Path) -> Result<Connection, DbError> {
     .map_err(failed)
 }
 
+/// A read-only connection that treats the file as immutable, so SQLite
+/// creates nothing beside it (no `-wal` or `-shm`): for a finished file
+/// nobody else is writing. The path is percent-encoded into the URI.
+fn immutable(path: &std::path::Path) -> Result<Connection, DbError> {
+    use rusqlite::OpenFlags;
+    let text = path
+        .to_str()
+        .ok_or_else(|| DbError::Backend(format!("{} is not valid UTF-8", path.display())))?;
+    let mut uri = String::from("file:");
+    for byte in text.as_bytes() {
+        match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'.' | b'-' | b'_' | b'~' => {
+                uri.push(*byte as char)
+            }
+            other => uri.push_str(&format!("%{other:02X}")),
+        }
+    }
+    uri.push_str("?immutable=1");
+    Connection::open_with_flags(
+        &uri,
+        OpenFlags::SQLITE_OPEN_READ_ONLY
+            | OpenFlags::SQLITE_OPEN_URI
+            | OpenFlags::SQLITE_OPEN_NO_MUTEX,
+    )
+    .map_err(failed)
+}
+
 /// A database with no tables: every set at version 0.
 struct Empty;
 
@@ -575,7 +622,14 @@ impl MemoryPlace {
     }
 
     pub fn open(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
-        open_with(self.conn.clone(), sets, None, false, || Ok(Vec::new()))
+        open_with(
+            self.conn.clone(),
+            sets,
+            None,
+            false,
+            true,
+            || Ok(Vec::new()),
+        )
     }
 
     pub fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {

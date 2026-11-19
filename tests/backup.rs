@@ -290,6 +290,14 @@ async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
         .await;
         (folder, out)
     }
+    let files_in = |dir: &Path| {
+        let mut names: Vec<String> = std::fs::read_dir(dir)
+            .expect("list")
+            .map(|e| e.expect("entry").file_name().to_string_lossy().into_owned())
+            .collect();
+        names.sort();
+        names
+    };
     let beside = |db: &Path| {
         let mut names: Vec<String> = std::fs::read_dir(db.parent().expect("parent"))
             .expect("list")
@@ -312,6 +320,10 @@ async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
         assert!(success, "{text}");
         assert_eq!(std::fs::read(&db).expect("bytes after"), before);
         let backup = backups_in(&folder).pop().expect("one backup");
+        assert_eq!(
+            files_in(&backup),
+            ["about.txt", "config.toml", "kashkeshet.db"]
+        );
         let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
         assert!(about.contains("highest message ID: 3\n"), "{about}");
         conn.execute_batch("ROLLBACK").expect("release");
@@ -330,6 +342,10 @@ async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
         assert_eq!(std::fs::read(&db).expect("bytes after"), before);
         assert_eq!(beside(&db), beside_before);
         let backup = backups_in(&folder).pop().expect("one backup");
+        assert_eq!(
+            files_in(&backup),
+            ["about.txt", "config.toml", "kashkeshet.db"]
+        );
         let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
         assert!(about.contains("highest message ID: 3\n"), "{about}");
     }
@@ -350,6 +366,7 @@ async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
         assert_eq!(std::fs::read(&db).expect("still empty").len(), 0);
         assert_eq!(beside(&db), ["empty.db"]);
         let backup = backups_in(&folder).pop().expect("one backup");
+        assert_eq!(files_in(&backup), ["about.txt", "kashkeshet.db"]);
         let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
         assert!(!about.contains("highest message ID"), "{about}");
     }
@@ -372,6 +389,7 @@ async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
         assert_eq!(std::fs::read(&db).expect("bytes after"), before);
         assert_eq!(beside(&db), beside_before);
         let backup = backups_in(&folder).pop().expect("one backup");
+        assert_eq!(files_in(&backup), ["about.txt", "kashkeshet.db"]);
         let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
         assert!(!about.contains("highest message ID"), "{about}");
     }
