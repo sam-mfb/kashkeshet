@@ -1922,4 +1922,126 @@ mod tests {
             ))
         );
     }
+
+    /// Setup's files, where only the path questions are asked: the step
+    /// named fails, the others answer the path as given.
+    struct PathsFail(&'static str);
+
+    impl PathsFail {
+        fn at(&self, step: &str, path: &Path) -> std::io::Result<PathBuf> {
+            match self.0 == step {
+                true => Err(std::io::Error::other("refused")),
+                false => Ok(path.to_path_buf()),
+            }
+        }
+    }
+
+    impl crate::SetupFiles for PathsFail {
+        fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
+            unreachable!("no record is read")
+        }
+        fn read_unfinished(&self, _: &Path) -> Result<Option<setup::Unfinished>, crate::PartError> {
+            unreachable!("no note is read")
+        }
+        fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), crate::PartError> {
+            unreachable!("no record is written")
+        }
+        fn write_unfinished(
+            &self,
+            _: &Path,
+            _: &setup::Unfinished,
+        ) -> Result<(), crate::PartError> {
+            unreachable!("no note is written")
+        }
+        fn remove_unfinished(&self, _: &Path) -> Result<(), crate::PartError> {
+            unreachable!("no note is removed")
+        }
+        fn kkt_path(&self) -> Result<PathBuf, crate::PartError> {
+            unreachable!("kkt is not looked for")
+        }
+        fn path_dirs(&self) -> Vec<PathBuf> {
+            unreachable!("PATH is not read")
+        }
+        fn on_path(&self, _: &[PathBuf], _: &str) -> bool {
+            unreachable!("PATH is not read")
+        }
+        fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
+            self.at("absolute", path)
+        }
+        fn program_path(&self) -> std::io::Result<PathBuf> {
+            self.at("program", Path::new("/bin/kkt"))
+        }
+        fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+            self.at("canonicalize", path)
+        }
+        fn remove_record(&self, _: &Path) -> Result<(), crate::PartError> {
+            unreachable!("no record is removed")
+        }
+    }
+
+    /// The refusals planning a service words itself, word for word.
+    #[test]
+    fn the_service_plans_refusals_are_pinned() {
+        let untouched = Untouched::default();
+        let empty = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let service = kkt_bare_service::testing::Memory::new();
+        let said = Said::default();
+        let remote = Tailscale::default();
+        let serve = Asked::default();
+        let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> {
+            panic!("planning a service tried an address")
+        };
+        let plan = |files: &PathsFail, install: crate::service::ServiceInstall| {
+            let parts = InstallParts {
+                container: &empty,
+                container_configs: &untouched,
+                service: &service,
+                try_bind: &try_bind,
+                remote: &remote,
+                clients: &untouched,
+                client_command: &untouched,
+                prober: &NoProbes,
+                import_lanes: &untouched,
+                connection: &untouched,
+                clock: std::sync::Arc::new(NoClock),
+                serve: &serve,
+                service_defaults: &untouched,
+                setup_files: files,
+                key_files: &untouched,
+                entropy: &kkt_entropy::testing::SeqEntropy::new(0),
+                database: &untouched,
+                backups: &untouched,
+                output: &said,
+                mcp_path: "/mcp",
+                login_link: &untouched,
+                lines: &untouched,
+                config_file: &untouched,
+            };
+            crate::service::service_plan(&parts, install)
+                .map(|_| ())
+                .map_err(|e| e.to_string())
+        };
+        let install = |config: Option<&str>, db: Option<&str>| crate::service::ServiceInstall {
+            config: config.map(PathBuf::from),
+            db: db.map(PathBuf::from),
+            ..crate::service::ServiceInstall::NONE
+        };
+        assert_eq!(
+            plan(&PathsFail("program"), install(None, None)),
+            Err("could not find this program's path: refused".to_string())
+        );
+        assert_eq!(
+            plan(&PathsFail("canonicalize"), install(Some("kkt.toml"), None)),
+            Err("invalid setting: config could not be read from kkt.toml: refused".to_string())
+        );
+        assert_eq!(
+            plan(&PathsFail("absolute"), install(None, Some("kkt.db"))),
+            Err("could not make kkt.db absolute: refused".to_string())
+        );
+        // The serving facts' own refusal, passed on as it is.
+        assert_eq!(
+            plan(&PathsFail(""), install(None, None)),
+            Err("not asked here".to_string())
+        );
+    }
 }
