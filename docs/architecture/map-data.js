@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "7c98bc2e",
+ "commit": "b6aa5731",
  "crates": [
   {
    "bins": [
@@ -9383,6 +9383,17 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "Why `kkt service` failed: each kind is a source's own error.",
+     "kind": "enum",
+     "path": "service::ServiceCommandError",
+     "variants": [
+      "Service",
+      "Plan",
+      "Bind",
+      "Key"
+     ]
+    },
+    {
      "doc": "How `kkt service install` installs the service.",
      "fields": [
       "config",
@@ -9405,6 +9416,20 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "service::ServicePlan"
+    },
+    {
+     "doc": "Why the service to install could not be planned.",
+     "kind": "enum",
+     "path": "service::ServicePlanError",
+     "variants": [
+      "ProgramPath",
+      "ConfigPath",
+      "Absolute",
+      "Settings",
+      "Plan",
+      "Check",
+      "Spec"
+     ]
     },
     {
      "doc": "`kkt service ...`: runs the command against this system's service manager and prints what happened.",
@@ -25312,6 +25337,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
+    "BindError",
     "Deployment",
     "DeploymentEndpoint",
     "FindKeyError",
@@ -25320,6 +25346,7 @@ window.KKT_GRAPH = {
     "KeyReadError",
     "NoDockerHome",
     "Plan",
+    "PlanError",
     "RecordedDeployment",
     "RecordedServerRead",
     "Replace",
@@ -25372,6 +25399,7 @@ window.KKT_GRAPH = {
     },
     {
      "detail": [
+      "BindError",
       "Deployment",
       "DeploymentEndpoint",
       "FindKeyError",
@@ -25380,6 +25408,7 @@ window.KKT_GRAPH = {
       "KeyReadError",
       "NoDockerHome",
       "Plan",
+      "PlanError",
       "RecordedDeployment",
       "Replace",
       "Request",
@@ -25565,6 +25594,7 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kkt-install-commands",
    "items": [
+    "KeyFileError",
     "KeyFiles",
     "admin_key_path",
     "bound_to",
@@ -25577,6 +25607,7 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "KeyFileError",
       "KeyFiles",
       "admin_key_path",
       "bound_to",
@@ -25590,7 +25621,6 @@ window.KKT_GRAPH = {
    "test_items": [
     "AccessKey",
     "KeyFileAction",
-    "KeyFileError",
     "testing::Memory"
    ],
    "to": "kkt-keys"
