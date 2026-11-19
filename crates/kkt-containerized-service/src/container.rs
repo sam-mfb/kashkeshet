@@ -180,6 +180,8 @@ pub trait ServiceContainer {
         default_name_pack: &str,
         config_file: &Path,
     ) -> Result<State, ContainerError>;
+    /// Whether the project's server container exists, including when stopped.
+    fn server_present(&self, folder: &Folder) -> Result<bool, ContainerError>;
     /// Discover an existing installation; return a refusal if it is incomplete.
     fn existing(&self, folder: &Folder) -> Result<Option<Existing>, ContainerError>;
     /// Compare the saved web key with the server without exposing either key.

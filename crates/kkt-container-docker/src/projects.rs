@@ -179,6 +179,11 @@ impl Projects for Docker {
             .map(|_| ())
     }
 
+    fn has_container(&self, project: &Project, service: &str) -> Result<bool, ProjectError> {
+        let command = compose(project, &["ps", "--all", "--quiet", service]);
+        Ok(!self.succeed(&command, Output::Captured)?.trim().is_empty())
+    }
+
     fn running(&self, project: &Project) -> Result<Vec<String>, ProjectError> {
         let command = compose(project, &["ps", "--status", "running", "--services"]);
         let said = self.succeed(&command, Output::Captured)?;

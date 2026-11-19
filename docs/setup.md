@@ -272,7 +272,9 @@ backing up its config, and records the server. After that, `kkt watch`,
 `--url` or `--key-file`. Without `--key-file`, a terminal asks for the key
 file and offers the current one; with no terminal, the current one is used.
 `--clients` picks the clients instead. Running `kkt setup --mode client`
-with the new address does the same.
+with the new address does the same. When there is no setup record, switch
+prints the client setup command for your URL and client selection. Supply
+`--key-file` when running without a terminal.
 
 On a machine that runs its own server, only the clients move. The local
 server keeps running, and `kkt status`, `kkt upgrade` and `kkt uninstall`
@@ -285,7 +287,9 @@ it: setting up the other kind of server is refused until you finish that
 setup with `kkt setup --mode <its mode>`, and `kkt setup --mode client`
 records that server along with the clients' new server, so kkt manages
 it. Uninstalling a server whose clients use another
-server leaves the machine set up as that server's client.
+server leaves the machine set up as that server's client. Uninstall names
+any client whose config still points at the removed server and prints the
+command to move those clients once you choose a replacement.
 
 A record of switched clients can't be read by a kkt older than the version
 that added `kkt switch`. To go back to an older kkt, run `kkt setup` with it.

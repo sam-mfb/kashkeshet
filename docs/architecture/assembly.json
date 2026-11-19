@@ -2357,6 +2357,23 @@
      ]
     },
     {
+     "passes_on": "the client configs' host the program gave InstallParts",
+     "crate": "kkt-llm-agent-config",
+     "to": [
+      {
+       "at": "Client::configured_url",
+       "param": "host"
+      }
+     ],
+     "note": "kkt uninstall",
+     "from": [
+      {
+       "at": "InstallParts",
+       "param": "clients"
+      }
+     ]
+    },
+    {
      "passes_on": "the client command the program gave InstallParts",
      "crate": "kkt-llm-agent-config",
      "to": [
@@ -2504,6 +2521,23 @@
       },
       {
        "at": "doctor::run",
+       "param": "env"
+      }
+     ]
+    },
+    {
+     "passes_on": "the Env the program gave each command",
+     "crate": "kkt-llm-agent-config",
+     "to": [
+      {
+       "at": "Client::configured_url",
+       "param": "env"
+      }
+     ],
+     "note": "kkt uninstall",
+     "from": [
+      {
+       "at": "lifecycle::uninstall",
        "param": "env"
       }
      ]
@@ -2930,6 +2964,20 @@
    "at": "inspect_admin_key",
    "param": "prober",
    "why": "only the program's tests call inspect_admin_key"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::configured_url",
+   "param": "env",
+   "why": "agent commands configure clients but do not read their configured addresses"
+  },
+  {
+   "crate": "kkt-agent-commands",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::configured_url",
+   "param": "host",
+   "why": "agent commands configure clients but do not read their configured addresses"
   }
  ],
  "not_filled": [
@@ -3184,6 +3232,20 @@
    "at": "page",
    "param": "sessions",
    "why": "it hands over a kkt-web Sessions it builds: a value of a type kkt-server names, not an injection; its clock and entropy are wired into Sessions::new"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::configured_url",
+   "param": "env",
+   "why": "uninstall reads the configured address through kkt-install-commands"
+  },
+  {
+   "crate": "kashkeshet",
+   "to": "kkt-llm-agent-config",
+   "at": "Client::configured_url",
+   "param": "host",
+   "why": "uninstall reads the configured address through kkt-install-commands"
   }
  ]
 }

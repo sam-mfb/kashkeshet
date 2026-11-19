@@ -12,8 +12,11 @@ use std::path::PathBuf;
 #[derive(Debug, thiserror::Error)]
 pub enum SwitchError {
     /// There is no setup record to switch.
-    #[error("this machine is not set up yet; run `kkt setup` first")]
+    #[error("there is no recorded local server for --local; run `kkt setup` first")]
     NotSetUp,
+    /// A URL was supplied on a machine without a setup record.
+    #[error("this machine has no setup record; run `{command}`")]
+    ClientSetup { command: String },
     /// `--local` was given on a client machine.
     #[error(
         "--local is for a machine that runs a kkt server, and this one is a client of {url}; give the server's address instead"
@@ -107,10 +110,9 @@ pub fn switch(
     ask: &dyn Ask,
     steps: &dyn SwitchSteps,
 ) -> Result<Record, SwitchError> {
-    let record = steps
-        .recorded()
-        .map_err(SwitchError::Record)?
-        .ok_or(SwitchError::NotSetUp)?;
+    let Some(record) = steps.recorded().map_err(SwitchError::Record)? else {
+        return Err(no_record(how, steps).map_err(SwitchError::Clients)?);
+    };
     let before = record.for_clients();
     let server = match &how.to {
         Target::Local if !record.runs_server() => {
@@ -180,6 +182,33 @@ pub fn switch(
         after.url, before.url
     ));
     Ok(switched)
+}
+
+/// The client setup command for a URL on a machine without a record.
+fn no_record(how: &Switch, steps: &dyn SwitchSteps) -> Result<SwitchError, StepError> {
+    let Target::Url(url) = &how.to else {
+        return Ok(SwitchError::NotSetUp);
+    };
+    let clients = match &how.clients {
+        Some(clients) => clients.clone(),
+        None => steps.connected_clients()?,
+    };
+    let quote = |word: &str| format!("'{}'", word.replace('\'', "'\\''"));
+    let mut command = format!("kkt setup --mode client --url {}", quote(url.trim()));
+    if let Some(path) = &how.key_file {
+        command.push_str(&format!(" --key-file {}", quote(&path.to_string_lossy())));
+    }
+    let names = if clients.is_empty() {
+        "none".to_owned()
+    } else {
+        clients
+            .iter()
+            .map(|c| c.name())
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    command.push_str(&format!(" --clients {names} --no-allow-kkt"));
+    Ok(SwitchError::ClientSetup { command })
 }
 
 /// The key file for a new server: `--key-file`, else asked at a terminal

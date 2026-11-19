@@ -73,7 +73,7 @@ fn every_command_says_why_it_failed_and_exits_with_one() {
     );
     assert_eq!(
         printed(&["switch", "--local"]),
-        on_stderr("this machine is not set up yet; run `kkt setup` first")
+        on_stderr("there is no recorded local server for --local; run `kkt setup` first")
     );
     assert_eq!(
         printed(&["setup", "--clients", "bogus"]),
