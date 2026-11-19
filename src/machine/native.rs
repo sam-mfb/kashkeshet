@@ -949,12 +949,18 @@ mod tests {
                 kkt_setup::record_path(&empty).display()
             ))
         );
-        // A note that is a folder cannot be removed as a file.
+        // A note that is a folder cannot be removed as a file. The system's
+        // refusal is its own: macOS refuses to unlink a folder as not
+        // permitted, where Linux says it is a folder.
         std::fs::create_dir_all(kkt_setup::unfinished_path(&reads)).expect("a folder");
+        let refused = match cfg!(target_os = "macos") {
+            true => "Operation not permitted (os error 1)",
+            false => "Is a directory (os error 21)",
+        };
         assert_eq!(
             said(NativeSetupFiles.remove_unfinished(&reads)),
             Err(format!(
-                "could not remove {}: Is a directory (os error 21)",
+                "could not remove {}: {refused}",
                 kkt_setup::unfinished_path(&reads).display()
             ))
         );
