@@ -224,7 +224,7 @@ fn apply(
         })?;
     let changed = match text {
         Some(updated) => {
-            files::replace(host, path, original.as_deref(), &updated)
+            files::replace(host, path, original.as_deref(), &updated, false)
                 .map_err(|e| e.with_setting(source))?;
             true
         }

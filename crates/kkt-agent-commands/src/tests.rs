@@ -159,6 +159,12 @@ impl kkt_llm_agent_config::Host for NoClients {
     fn restrict(&self, _: &Path) -> io::Result<()> {
         unreachable!("no test writes a client config")
     }
+    fn mode(&self, _: &Path) -> io::Result<Option<u32>> {
+        unreachable!("no test writes a client config")
+    }
+    fn set_mode(&self, _: &Path, _: u32) -> io::Result<()> {
+        unreachable!("no test writes a client config")
+    }
     fn create_dir_all(&self, _: &Path) -> io::Result<()> {
         unreachable!("no test writes a client config")
     }

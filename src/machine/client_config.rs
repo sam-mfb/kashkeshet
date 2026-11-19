@@ -29,6 +29,12 @@ impl Host for ClientHost {
     fn restrict(&self, path: &Path) -> io::Result<()> {
         Files.restrict(path)
     }
+    fn mode(&self, path: &Path) -> io::Result<Option<u32>> {
+        Files.mode(path)
+    }
+    fn set_mode(&self, path: &Path, mode: u32) -> io::Result<()> {
+        Files.set_mode(path, mode)
+    }
     fn create_dir_all(&self, path: &Path) -> io::Result<()> {
         Files.create_dir_all(path)
     }
