@@ -678,6 +678,7 @@ fn fake_docker(dir: &Path, key: &str) -> PathBuf {
              *\"kkt key show --web\"*) echo 'web-key-0123456789abcdef0123456789abcdef' ;;\n\
              *\"kkt key show\"*) echo '{key}' ;;\n\
              *\"kkt backup\"*) echo 'Backed up to /backups/kkt-20261029T120000.000Z-v0.4.2' ;;\n\
+             *\"ps --all --quiet kkt\"*) echo abc123 ;;\n\
              *\"ps --status running --services\"*) [ -n \"$FAKE_KKT_RUNNING\" ] && echo kkt ;;\n\
              *\"up -d tailscale\"*) exit 1 ;;\n\
              esac\nexit 0\n"
@@ -2457,7 +2458,13 @@ async fn setup_adopts_a_docker_install_with_no_record_and_upgrade_then_works() {
     assert!(said.contains("ok: key accepted"), "{said}");
     assert!(!said.contains(&key_text), "{said}");
     // Nothing installed or started again, and no Tailscale login.
-    assert_eq!(std::fs::read_to_string(&log).unwrap_or_default(), "");
+    assert_eq!(
+        std::fs::read_to_string(&log).unwrap().trim(),
+        format!(
+            "compose --project-directory {} ps --all --quiet kkt",
+            folder.display()
+        )
+    );
     // What setup 0.4.2 would have written, by this version.
     assert_eq!(
         record_text(&home),
@@ -2782,4 +2789,133 @@ async fn allow_kkt_writes_the_clients_permission_rules_once() {
         "{codex}"
     );
     server.kill().await.expect("stop kkt");
+}
+
+/// Exercise both printed recovery commands in a shell, with the same data
+/// an operator has after uninstall. A different client's config stays intact.
+#[cfg(unix)]
+#[tokio::test]
+async fn clients_can_follow_the_printed_commands_after_uninstall() {
+    let (_server_home, mut server, url, key) = keyed_server("uninstall-destination").await;
+    let home = temp_home("uninstall-clients");
+    let key_path = home.join("destination's key");
+    std::fs::copy(&key, &key_path).unwrap();
+    let bin = fake_docker(&home, KEY_0_4_1);
+    std::os::unix::fs::symlink(KKT, bin.join("kkt")).unwrap();
+    let removed = "http://127.0.0.1:7420/mcp";
+    let folder = managed_folder(&home);
+    std::fs::create_dir_all(&folder).unwrap();
+    write_record(
+        &home,
+        &format!(
+            "format = 1\nmode = \"docker\"\nwritten_by = \"0.10.0\"\nurl = \"{removed}\"\n[docker]\nfolder = \"{}\"\ntailscale = false\n",
+            folder.display()
+        ),
+    );
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().unwrap()).unwrap();
+    std::fs::write(&codex, format!("[mcp_servers.kkt]\nurl = '{removed}'\n")).unwrap();
+    let other = home.join(".claude.json");
+    let remote = r#"{"mcpServers":{"kkt":{"url":"https://other.example/mcp"}}}"#;
+    std::fs::write(&other, remote).unwrap();
+
+    let (ok, said) = kkt_with_path(&home, &bin, &["uninstall"]).await;
+    assert!(
+        ok && said.contains("cannot reach a server until moved: codex."),
+        "{said}"
+    );
+    let command = said
+        .lines()
+        .find(|line| line.starts_with("kkt setup "))
+        .unwrap();
+    let run = |command: &str| {
+        std::process::Command::new("/bin/sh")
+            .args(["-c", command])
+            .own_home(&home)
+            .env("PATH", &bin)
+            .env("NEW_URL", &url)
+            .env("NEW_KEY_FILE", &key_path)
+            .stdin(Stdio::null())
+            .output()
+            .unwrap()
+    };
+    let output = run(command);
+    assert!(output.status.success(), "{output:?}");
+    assert!(codex_config(&home).contains(&url));
+    assert_eq!(std::fs::read_to_string(&other).unwrap(), remote);
+
+    std::fs::remove_file(home.join(".config/kkt/setup.toml")).unwrap();
+    let (ok, said) = kkt_with_path(
+        &home,
+        &bin,
+        &[
+            "switch",
+            &url,
+            "--key-file",
+            arg(&key_path),
+            "--clients",
+            "codex",
+        ],
+    )
+    .await;
+    assert!(!ok, "{said}");
+    let command = said
+        .split_once("run `")
+        .unwrap()
+        .1
+        .strip_suffix("`\n")
+        .unwrap();
+    let output = run(command);
+    assert!(output.status.success(), "{output:?}");
+    assert!(record_text(&home).contains(&url));
+    assert_eq!(std::fs::read_to_string(&other).unwrap(), remote);
+    server.kill().await.unwrap();
+}
+
+#[tokio::test]
+async fn a_retained_project_and_an_unreachable_docker_daemon_are_distinguished() {
+    let home = temp_home("retained-project");
+    left_by_0_4_1(
+        &home,
+        "KKT_VERSION=0.10.0\nCOMPOSE_PROJECT_NAME=kkt\nKKT_PORT=7420\n",
+        KEY_0_4_1,
+    );
+    let bin = home.join("bin");
+    script(
+        &bin,
+        "docker",
+        r#"case "$*" in *"ps --all --quiet kkt") exit 0;; *) exit 1;; esac"#,
+    );
+    let (_, status) = kkt_with_path(&home, &bin, &["status"]).await;
+    assert!(
+        status.contains("No setup record") && !status.contains("Unrecorded install"),
+        "{status}"
+    );
+    let flags = [
+        "setup",
+        "--mode",
+        "docker",
+        "--no-tailscale",
+        "--allow-host",
+        "none",
+        "--clients",
+        "none",
+    ];
+    let (_, setup) = kkt_with_path(&home, &bin, &flags).await;
+    assert!(
+        setup.contains("Docker setup will reuse existing storage") && !setup.contains("adopt"),
+        "{setup}"
+    );
+
+    std::fs::remove_file(home.join(".config/kkt/setup-unfinished.toml")).ok();
+    script(&bin, "docker", "echo 'daemon unavailable' >&2; exit 1");
+    for args in [&["status"][..], &flags[..]] {
+        let (_, said) = kkt_with_path(&home, &bin, args).await;
+        assert!(
+            said.contains("could not check whether the Docker server container exists")
+                && said.contains("daemon unavailable"),
+            "{said}"
+        );
+        assert!(!said.contains("Found a kkt server"), "{said}");
+    }
 }

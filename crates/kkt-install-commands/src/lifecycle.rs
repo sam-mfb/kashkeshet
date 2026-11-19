@@ -419,6 +419,7 @@ pub async fn uninstall<D: ServiceDefaults>(
 ) -> Result<(), UninstallError> {
     let record = recorded_setup(parts, env, platform)?;
     let stays_client = uninstall_record(&record, Build::CURRENT.version);
+    let removed_url = record.runs_server().then_some(record.url.as_str());
     match record.mode {
         setup::Mode::Docker(install) => {
             parts
@@ -437,16 +438,37 @@ pub async fn uninstall<D: ServiceDefaults>(
         parts
             .output
             .output(format_args!("{}", uninstall_line(Some(&client))));
-        return Ok(());
+    } else {
+        let config_dir = parts.serve.config_dir().ok_or(UninstallError::NoHome)?;
+        parts
+            .setup_files
+            .remove_record(&config_dir)
+            .map_err(UninstallError::Remove)?;
+        parts
+            .output
+            .output(format_args!("{}", uninstall_line(None)));
     }
-    let config_dir = parts.serve.config_dir().ok_or(UninstallError::NoHome)?;
-    parts
-        .setup_files
-        .remove_record(&config_dir)
-        .map_err(UninstallError::Remove)?;
-    parts
-        .output
-        .output(format_args!("{}", uninstall_line(None)));
+    if let Some(url) = removed_url {
+        let mut affected = Vec::new();
+        for client in kkt_llm_agent_config::Client::ALL {
+            match client.configured_url(env, parts.clients) {
+                Ok(Some(address)) if address == url => affected.push(client.name()),
+                Err(error) => parts.output.errors(format_args!(
+                    "Could not check {}: {error}\n",
+                    client.display_name()
+                )),
+                _ => {}
+            }
+        }
+        if !affected.is_empty() {
+            let names = affected.join(",");
+            parts.output.output(format_args!(
+                "The following clients still point at {url} and cannot reach a server until moved: {names}.\n\
+                 Set NEW_URL and NEW_KEY_FILE to the replacement server's MCP URL and key file, then run:\n\
+                 kkt setup --mode client --url \"$NEW_URL\" --key-file \"$NEW_KEY_FILE\" --clients {names} --no-allow-kkt\n"
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -918,7 +940,8 @@ mod tests {
 
     impl kkt_llm_agent_config::Host for Untouched {
         fn read(&self, _: &Path) -> std::io::Result<String> {
-            self.asked("clients.read")
+            self.0.borrow_mut().push("clients.read");
+            Err(std::io::ErrorKind::NotFound.into())
         }
         fn exists(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("clients.exists");
@@ -1333,10 +1356,17 @@ mod tests {
         assert!(serve.0.borrow().is_empty(), "asked {:?}", serve.0.borrow());
         assert!(remote.0.borrow().is_empty(), "ran {:?}", remote.0.borrow());
         assert!(container.calls().is_empty(), "{:?}", container.calls());
-        assert!(
-            untouched.0.borrow().is_empty(),
-            "{:?}",
-            untouched.0.borrow()
+        assert_eq!(
+            *untouched.0.borrow(),
+            [
+                "clients.read",
+                "clients.read",
+                "clients.read",
+                "clients.exists",
+                "clients.exists",
+                "clients.read",
+                "clients.read"
+            ]
         );
         assert_eq!(service.done(), ["uninstall"]);
         let config_dir = home.join(".config").join("kkt");
@@ -1545,6 +1575,9 @@ mod tests {
         ) -> Result<kkt_containerized_service::State, kkt_containerized_service::ContainerError>
         {
             unreachable!("no status is asked")
+        }
+        fn server_present(&self, _: &kkt_container::Folder) -> Result<bool, ContainerError> {
+            unreachable!("project files unreadable")
         }
         fn existing(
             &self,

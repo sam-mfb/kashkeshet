@@ -268,22 +268,39 @@ pub(super) fn merge(
     super::order::pretty(text, &updated).map(Some)
 }
 
-/// Whether the config `text` of `client` has a kkt entry.
-pub(super) fn has_kkt_entry(client: Client, text: &str) -> Result<bool, ClientConfigError> {
+/// A client's kkt entry can use a transport without a URL.
+#[derive(Debug)]
+pub(super) struct KktEntry {
+    pub url: Option<String>,
+}
+
+pub(super) fn kkt_entry(client: Client, text: &str) -> Result<Option<KktEntry>, ClientConfigError> {
     if client == Client::Codex {
         let document =
             parse_toml(text).map_err(|e| ClientConfigError::Malformed(Shape::Toml(e)))?;
-        return Ok(document.find(&["mcp_servers", "kkt"]).is_some());
+        return Ok(document.find(&["mcp_servers", "kkt"]).map(|_| KktEntry {
+            url: match document.find(&["mcp_servers", "kkt", "url"]) {
+                Some(kkt_toml::Found::Text(url)) => Some(url),
+                _ => None,
+            },
+        }));
     }
     let group = if client == Client::OpenCode {
         "mcp"
     } else {
         "mcpServers"
     };
+    let field = if client == Client::Agy {
+        "serverUrl"
+    } else {
+        "url"
+    };
     Ok(parse_json(text)?
         .get(group)
         .and_then(|servers| servers.get("kkt"))
-        .is_some())
+        .map(|entry| KktEntry {
+            url: entry.get(field).and_then(Value::as_str).map(str::to_owned),
+        }))
 }
 
 pub(super) fn has_claude_entry(text: &str) -> Result<bool, ClientConfigError> {
@@ -375,7 +392,7 @@ mod tests {
 
     #[test]
     fn checking_malformed_codex_toml_names_the_parsers_reason() {
-        let error = has_kkt_entry(Client::Codex, MALFORMED_TOML)
+        let error = kkt_entry(Client::Codex, MALFORMED_TOML)
             .expect_err("malformed")
             .to_string();
         assert_cause(&error, "invalid Codex TOML");

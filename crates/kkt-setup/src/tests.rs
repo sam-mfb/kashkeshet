@@ -3381,7 +3381,9 @@ mod flow {
             };
             assert_eq!(
                 said(&to(OTHER), &Fake::default()),
-                "this machine is not set up yet; run `kkt setup` first"
+                format!(
+                    "this machine has no setup record; run `kkt setup --mode client --url '{OTHER}' --clients none --no-allow-kkt`"
+                )
             );
             let local = Switch {
                 to: Target::Local,
@@ -3572,12 +3574,20 @@ mod flow {
         }
 
         #[test]
-        fn a_machine_with_no_record_is_told_to_run_setup() {
-            let steps = Fake::default();
+        fn setup_advice_selects_clients_with_existing_entries() {
+            let steps = Fake {
+                connected: vec![Client::OpenCode, Client::Agy],
+                ..Fake::default()
+            };
             let error = switch(&to(OTHER), "0.8.0", &Script::default(), &steps)
                 .expect_err("none")
                 .to_string();
-            assert!(error.contains("run `kkt setup` first"), "{error}");
+            assert_eq!(
+                error,
+                format!(
+                    "this machine has no setup record; run `kkt setup --mode client --url '{OTHER}' --clients opencode,agy --no-allow-kkt`"
+                )
+            );
             assert!(steps.done().is_empty());
         }
 

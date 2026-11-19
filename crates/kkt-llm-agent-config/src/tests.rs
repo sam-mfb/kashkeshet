@@ -113,6 +113,42 @@ fn a_client_is_connected_when_its_config_has_a_kkt_entry() {
 }
 
 #[test]
+fn each_client_reads_the_address_from_its_own_kkt_entry() {
+    let host = FakeHost::default();
+    let env = env();
+    for (client, text) in [
+        (
+            Client::Codex,
+            "[mcp_servers.kkt]\nurl = 'https://local/mcp'",
+        ),
+        (
+            Client::ClaudeCode,
+            r#"{"mcpServers":{"kkt":{"url":"https://local/mcp"}}}"#,
+        ),
+        (
+            Client::OpenCode,
+            r#"{"mcp":{"kkt":{"url":"https://local/mcp"}}}"#,
+        ),
+        (
+            Client::Agy,
+            r#"{"mcpServers":{"kkt":{"serverUrl":"https://local/mcp"}}}"#,
+        ),
+        (
+            Client::MuseCode,
+            r#"{"mcpServers":{"kkt":{"url":"https://local/mcp"}}}"#,
+        ),
+    ] {
+        host.put(client.file(&env, &host).unwrap(), text);
+        assert_eq!(
+            client.configured_url(&env, &host).unwrap().as_deref(),
+            Some("https://local/mcp"),
+            "{}",
+            client.name()
+        );
+    }
+}
+
+#[test]
 fn a_malformed_codex_config_names_the_parsers_reason() {
     let host = FakeHost::default();
     let env = env();
@@ -692,7 +728,7 @@ fn every_message() -> Vec<String> {
         &host,
         &host,
     ));
-    push(formats::has_kkt_entry(Client::Codex, "a = = b").map(|_| String::new()));
+    push(formats::kkt_entry(Client::Codex, "a = = b").map(|_| String::new()));
     // Configuring, with the context the errors carry.
     let claude = PathBuf::from("/c/.claude.json");
     let claude_setup = setup(&e, &claude, None);
