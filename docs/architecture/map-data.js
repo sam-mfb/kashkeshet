@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "438573cf",
+ "commit": "88115bd2",
  "crates": [
   {
    "bins": [
@@ -13814,6 +13814,26 @@ window.KKT_GRAPH = {
      ]
     },
     {
+     "doc": "Why a lane command failed: a source's own error, or the step here that failed.",
+     "kind": "enum",
+     "path": "lanes::LaneError",
+     "variants": [
+      "Here",
+      "Config",
+      "Database",
+      "Rule",
+      "Read",
+      "Write",
+      "Run",
+      "RetireAll",
+      "Check",
+      "SourceInContainer",
+      "Resolve",
+      "LimitUnread",
+      "LimitSetting"
+     ]
+    },
+    {
      "doc": "What a `LaneServer` gives back, in time.",
      "kind": "type",
      "path": "lanes::LaneFuture"
@@ -13863,6 +13883,15 @@ window.KKT_GRAPH = {
      "variants": [
       "Docker",
       "Local"
+     ]
+    },
+    {
+     "doc": "Why `kkt lanes` cannot act on this machine's server.",
+     "kind": "enum",
+     "path": "lanes::LanesOnError",
+     "variants": [
+      "DockerTakesNoLocalOptions",
+      "OnAClient"
      ]
     },
     {
@@ -16972,16 +17001,6 @@ window.KKT_GRAPH = {
      "path": "Ask"
     },
     {
-     "doc": "Why a question got no answer.",
-     "kind": "enum",
-     "path": "AskError",
-     "variants": [
-      "NoTerminal",
-      "NoAnswer",
-      "Read"
-     ]
-    },
-    {
      "doc": "The key a client-only machine uses for its server.",
      "kind": "enum",
      "path": "ClientKey",
@@ -17021,11 +17040,6 @@ window.KKT_GRAPH = {
      ],
      "kind": "struct",
      "path": "Installed"
-    },
-    {
-     "doc": "Why the terminal could not be read: the caller's own error, passed on unread.",
-     "kind": "struct",
-     "path": "LineError"
     },
     {
      "doc": "The caller's line input and output for setup's questions.",
@@ -17275,21 +17289,6 @@ window.KKT_GRAPH = {
       "text"
      ],
      "path": "ask::Ask"
-    },
-    {
-     "doc": "Why a question got no answer.",
-     "kind": "enum",
-     "path": "ask::AskError",
-     "variants": [
-      "NoTerminal",
-      "NoAnswer",
-      "Read"
-     ]
-    },
-    {
-     "doc": "Why the terminal could not be read: the caller's own error, passed on unread.",
-     "kind": "struct",
-     "path": "ask::LineError"
     },
     {
      "doc": "The caller's line input and output for setup's questions.",
@@ -21059,7 +21058,6 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "Answers",
-    "LineError",
     "Lines",
     "Mode",
     "Purpose",
@@ -21083,7 +21081,6 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Answers",
-      "LineError",
       "Lines",
       "Mode",
       "Purpose",
@@ -25593,9 +25590,7 @@ window.KKT_GRAPH = {
     }
    ],
    "target": null,
-   "test_items": [
-    "LineError"
-   ],
+   "test_items": [],
    "to": "kkt-setup"
   },
   {
@@ -27394,7 +27389,9 @@ window.KKT_GRAPH = {
     "LaneCommit",
     "LaneFile",
     "Read",
+    "ReadError",
     "Skipped",
+    "WriteError",
     "file_name",
     "read_folder",
     "write_folder"
@@ -27409,7 +27406,9 @@ window.KKT_GRAPH = {
       "LaneCommit",
       "LaneFile",
       "Read",
+      "ReadError",
       "Skipped",
+      "WriteError",
       "file_name",
       "read_folder",
       "write_folder"
@@ -27419,7 +27418,8 @@ window.KKT_GRAPH = {
    ],
    "target": null,
    "test_items": [
-    "Skip"
+    "Skip",
+    "testing::Memory"
    ],
    "to": "kkt-lane-files"
   },
@@ -27595,6 +27595,43 @@ window.KKT_GRAPH = {
    "target": null,
    "test_items": [],
    "to": "kkt-keys"
+  },
+  {
+   "features": [
+    "testing"
+   ],
+   "from": "kkt-operator-commands",
+   "items": [
+    "Disk",
+    "LaneCommit",
+    "LaneFile",
+    "Read",
+    "Skip",
+    "Skipped",
+    "testing::Memory"
+   ],
+   "kind": "dev",
+   "optional": false,
+   "role": "uses",
+   "roles": [
+    {
+     "detail": [
+      "Disk",
+      "Read",
+      "Skip"
+     ],
+     "role": "uses"
+    },
+    {
+     "detail": [
+      "testing::Memory"
+     ],
+     "role": "wires"
+    }
+   ],
+   "target": null,
+   "test_items": [],
+   "to": "kkt-lane-files"
   },
   {
    "features": [],
