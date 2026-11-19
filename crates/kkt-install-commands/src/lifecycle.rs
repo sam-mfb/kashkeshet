@@ -506,6 +506,27 @@ fn existing_db<D>(
     Ok(path)
 }
 
+/// Reads the highest message ID from the finished backup copy and records it
+/// in `about.txt`. Returns a plain reason if it could not be recorded; never
+/// fails the backup.
+fn record_highest_message_id<D>(
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
+    written: &Path,
+) -> Option<String> {
+    match parts
+        .database
+        .highest_message_id(&written.join(backup::DATABASE_FILE))
+    {
+        Ok(Some(highest)) => parts
+            .backups
+            .record_highest(written, highest)
+            .err()
+            .map(|e| e.to_string()),
+        Ok(None) => None,
+        Err(e) => Some(e.to_string()),
+    }
+}
+
 /// Backs up the database `kkt serve` would use (or `db`), with the config
 /// file and existing keys it would read, into `folder`. On a client
 /// machine (`on_client`), default config and key files belong to no local
@@ -530,6 +551,7 @@ fn local_backup<D>(
         };
         let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
         let written = parts.backups.write(folder, &layout)?;
+        let not_recorded = record_highest_message_id(parts, &written);
         let out = parts.output;
         out.output(format_args!("Backed up to {}\n", written.display()));
         out.output(format_args!("  database {}\n", database.display()));
@@ -537,6 +559,11 @@ fn local_backup<D>(
             "Backed up only the database: no --config was given on a client machine, so default \
              config and key files were skipped.\n"
         ));
+        if let Some(why) = &not_recorded {
+            out.output(format_args!(
+                "Highest message ID not recorded in about.txt: {why}\n"
+            ));
+        }
         return Ok(());
     }
     let config = parts
@@ -570,6 +597,11 @@ fn local_backup<D>(
     };
     let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
     let written = parts.backups.write(folder, &layout)?;
+    // The highest message ID is read from the finished copy, read-only,
+    // so it is exact and the database being backed up is never opened.
+    // It is optional: any failure leaves the backup complete without
+    // the line, and says so in one line below instead of failing.
+    let not_recorded = record_highest_message_id(parts, &written);
     let out = parts.output;
     out.output(format_args!("Backed up to {}\n", written.display()));
     out.output(format_args!("  database {}\n", database.display()));
@@ -588,6 +620,11 @@ fn local_backup<D>(
     }
     if let Some(path) = &admin_name {
         out.output(format_args!("  admin name {}\n", path.display()));
+    }
+    if let Some(why) = &not_recorded {
+        out.output(format_args!(
+            "Highest message ID not recorded in about.txt: {why}\n"
+        ));
     }
     Ok(())
 }
@@ -1212,6 +1249,10 @@ mod tests {
             self.0.borrow_mut().push("database.exists");
             false
         }
+        fn highest_message_id(&self, _: &Path) -> Result<Option<i64>, crate::PartError> {
+            self.0.borrow_mut().push("database.highest_message_id");
+            Ok(None)
+        }
     }
 
     /// A key file error for a step a test did not expect.
@@ -1243,6 +1284,9 @@ mod tests {
     impl kkt_backup::Backups for Untouched {
         fn write(&self, _: &Path, _: &backup::Layout<'_>) -> Result<PathBuf, backup::BackupError> {
             self.refused("backups.write").map_err(not_asked)
+        }
+        fn record_highest(&self, _: &Path, _: i64) -> Result<(), backup::BackupError> {
+            self.refused("backups.record_highest").map_err(not_asked)
         }
         fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, backup::BackupError> {
             self.refused("backups.prune").map_err(not_asked)
@@ -2690,6 +2734,9 @@ mod tests {
     impl crate::Databases for Present {
         fn exists(&self, _: &Path) -> bool {
             true
+        }
+        fn highest_message_id(&self, _: &Path) -> Result<Option<i64>, crate::PartError> {
+            Ok(None)
         }
     }
 

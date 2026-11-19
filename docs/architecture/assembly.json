@@ -211,6 +211,17 @@
      ]
     },
     {
+     "impl": "kkt-clock-system::SystemClock",
+     "crate": "kkt-rules",
+     "to": [
+      {
+       "at": "DirectAccess::new",
+       "param": "clock"
+      }
+     ],
+     "note": "the highest message ID read for a backup's about file"
+    },
+    {
      "impl": "kkt-entropy-os::OsEntropy",
      "crate": "kkt-server",
      "to": [

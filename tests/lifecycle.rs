@@ -357,6 +357,42 @@ fn a_docker_machine_set_up_by_0_4_2_keeps_working() {
     assert!(text(&out).contains("Mode: docker"));
 }
 
+/// The line the in-container backup prints when the highest message ID
+/// was not recorded reaches the person at the host, and the about file
+/// it wrote reaches the host copy unchanged. The fake container stands
+/// in for the in-container `kkt backup`, whose own about content the
+/// backup integration tests cover.
+#[cfg(unix)]
+#[test]
+fn a_docker_backup_forwards_why_the_highest_id_was_not_recorded() {
+    let home = home("docker-about");
+    let folder = docker_record(&home);
+    fake(
+        &home,
+        "docker",
+        "case \" $* \" in\n\
+         *' exec '*) mkdir -p \"$HOME/managed-docker/backups/kkt-fixture\"; \\\n\
+         printf 'kkt test backup\\n' > \"$HOME/managed-docker/backups/kkt-fixture/about.txt\"; \\\n\
+         touch \"$HOME/managed-docker/backups/kkt-fixture/kashkeshet.db\"; \\\n\
+         echo 'Backed up to /backups/kkt-fixture'; \\\n\
+         echo 'Highest message ID not recorded in about.txt: the copy is at an old schema' ;;\n\
+         *' cp '*) for last; do :; done; cp -R \"$HOME/managed-docker/backups/kkt-fixture\" \"$last/\" ;;\n\
+         esac\nexit 0",
+    );
+    let dest = home.join("export");
+    let out = run(&home, &["backup", dest.to_str().unwrap()]);
+    assert!(out.status.success(), "{}", text(&out));
+    assert!(
+        text(&out)
+            .contains("Highest message ID not recorded in about.txt: the copy is at an old schema"),
+        "{}",
+        text(&out)
+    );
+    let about = std::fs::read_to_string(dest.join("kkt-fixture/about.txt")).unwrap();
+    assert!(!about.contains("highest message ID"), "{about}");
+    assert!(folder.join("backups/kkt-fixture/about.txt").exists());
+}
+
 #[cfg(unix)]
 #[test]
 fn docker_backup_failure_prevents_upgrade_and_failed_uninstall_keeps_record() {
