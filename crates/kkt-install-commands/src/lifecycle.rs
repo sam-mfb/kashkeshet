@@ -2048,4 +2048,259 @@ mod tests {
             Err("not asked here".to_string())
         );
     }
+
+    /// Key files that are all there, of which the one at the path given
+    /// cannot be read.
+    struct Unreadable(&'static str);
+
+    impl kkt_keys::KeyFiles for Unreadable {
+        fn read(&self, path: &Path) -> std::io::Result<String> {
+            match path == Path::new(self.0) {
+                true => Err(std::io::Error::other("refused")),
+                false => Ok("key\n".into()),
+            }
+        }
+        fn try_exists(&self, _: &Path) -> std::io::Result<bool> {
+            Ok(true)
+        }
+        fn is_file(&self, _: &Path) -> bool {
+            true
+        }
+        fn mode(&self, _: &Path) -> std::io::Result<Option<u32>> {
+            unreachable!("no mode is asked")
+        }
+        fn create_dir_all(&self, _: &Path) -> Result<(), kkt_keys::KeyFileError> {
+            unreachable!("nothing is written")
+        }
+        fn keep_staged(&self, _: &Path, _: &Path) -> Result<(), kkt_keys::KeyFileError> {
+            unreachable!("nothing is written")
+        }
+        fn remove(&self, _: &Path) -> std::io::Result<()> {
+            unreachable!("nothing is removed")
+        }
+        fn write_key(&self, _: &Path, _: &str, _: bool) -> Result<(), kkt_keys::KeyFileError> {
+            unreachable!("nothing is written")
+        }
+        fn write_admin_name(&self, _: &Path, _: Option<&str>) -> std::io::Result<()> {
+            unreachable!("nothing is written")
+        }
+    }
+
+    /// Setup's files holding a record of `mode`, which may be rewritten or
+    /// removed.
+    struct RecordOf(setup::Mode);
+
+    impl crate::SetupFiles for RecordOf {
+        fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
+            Ok(Some(setup::Record {
+                mode: self.0.clone(),
+                written_by: "0.10.0".into(),
+                url: "http://127.0.0.1:7420/mcp".into(),
+                key_file: Some(PathBuf::from("/home/k/.config/kkt/access-key")),
+                clients: None,
+            }))
+        }
+        fn read_unfinished(&self, _: &Path) -> Result<Option<setup::Unfinished>, crate::PartError> {
+            Ok(None)
+        }
+        fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), crate::PartError> {
+            Ok(())
+        }
+        fn write_unfinished(
+            &self,
+            _: &Path,
+            _: &setup::Unfinished,
+        ) -> Result<(), crate::PartError> {
+            unreachable!("no note is written")
+        }
+        fn remove_unfinished(&self, _: &Path) -> Result<(), crate::PartError> {
+            unreachable!("no note is removed")
+        }
+        fn kkt_path(&self) -> Result<PathBuf, crate::PartError> {
+            unreachable!("kkt is not looked for")
+        }
+        fn path_dirs(&self) -> Vec<PathBuf> {
+            unreachable!("PATH is not read")
+        }
+        fn on_path(&self, _: &[PathBuf], _: &str) -> bool {
+            unreachable!("PATH is not read")
+        }
+        fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
+            Ok(path.to_path_buf())
+        }
+        fn program_path(&self) -> std::io::Result<PathBuf> {
+            unreachable!("the program is not looked for")
+        }
+        fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+            Ok(path.to_path_buf())
+        }
+        fn remove_record(&self, _: &Path) -> Result<(), crate::PartError> {
+            Ok(())
+        }
+    }
+
+    /// Serving facts with the default config file's settings under the
+    /// home `/home/k`, whose config folder is there for the first `reads`
+    /// questions and then gone, as when HOME changes under a command.
+    struct Facts {
+        reads: std::cell::Cell<usize>,
+    }
+
+    impl Facts {
+        fn home() -> Facts {
+            Facts {
+                reads: std::cell::Cell::new(usize::MAX),
+            }
+        }
+    }
+
+    impl ServeFacts for Facts {
+        fn config(&self, _: Option<PathBuf>) -> Result<crate::Config, crate::PartError> {
+            Ok(crate::Config {
+                file: None,
+                db: None,
+                max_lane_chars: 100,
+                access_key_file: None,
+                no_access_key: None,
+                name_pack: "default".into(),
+            })
+        }
+        fn configured_access_key(&self) -> Result<Option<PathBuf>, crate::PartError> {
+            Ok(Some(PathBuf::from("/home/k/.config/kkt/access-key")))
+        }
+        fn database(
+            &self,
+            given: Option<PathBuf>,
+            _: Option<PathBuf>,
+        ) -> Result<PathBuf, crate::PartError> {
+            Ok(given.unwrap_or_else(|| PathBuf::from("/home/k/kkt.db")))
+        }
+        fn bind(&self) -> Result<std::net::SocketAddr, crate::PartError> {
+            Ok("127.0.0.1:7420".parse().expect("an address"))
+        }
+        fn default_access_key(&self) -> Option<PathBuf> {
+            None
+        }
+        fn default_name_pack(&self) -> String {
+            "default".into()
+        }
+        fn config_dir(&self) -> Option<PathBuf> {
+            let left = self.reads.get();
+            self.reads.set(left.saturating_sub(1));
+            (left > 0).then(|| PathBuf::from("/home/k/.config/kkt"))
+        }
+        fn config_file(&self) -> Option<PathBuf> {
+            Some(PathBuf::from("/home/k/.config/kkt/config.toml"))
+        }
+        fn config_file_in_home(&self) -> PathBuf {
+            PathBuf::from("kkt/config.toml")
+        }
+        fn service_settings(
+            &self,
+            _: Option<PathBuf>,
+            _: kkt_deployment::ServiceSettings,
+        ) -> Result<crate::ServiceInputs<'_>, crate::PartError> {
+            unreachable!("no service is planned")
+        }
+    }
+
+    /// The refusals `kkt status`, `kkt backup` and `kkt uninstall` word
+    /// themselves, word for word, and the whole of a service upgrade that
+    /// would not load.
+    #[test]
+    fn the_lifecycle_commands_refusals_are_pinned() {
+        let env = Env {
+            home: Some(PathBuf::from("/home/k")),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let untouched = Untouched::default();
+        let empty = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let service = kkt_bare_service::testing::Memory::new();
+        let said = Said::default();
+        let remote = Tailscale::default();
+        let try_bind =
+            |_: std::net::SocketAddr| -> std::io::Result<()> { panic!("no address is tried") };
+        let run = |serve: &Facts,
+                   files: &RecordOf,
+                   key_files: &dyn kkt_keys::KeyFiles,
+                   command: &str| {
+            let parts = InstallParts {
+                container: &empty,
+                container_configs: &untouched,
+                service: &service,
+                try_bind: &try_bind,
+                remote: &remote,
+                clients: &untouched,
+                client_command: &untouched,
+                prober: &NoProbes,
+                import_lanes: &untouched,
+                connection: &untouched,
+                clock: std::sync::Arc::new(NoClock),
+                serve,
+                service_defaults: &untouched,
+                setup_files: files,
+                key_files,
+                entropy: &kkt_entropy::testing::SeqEntropy::new(0),
+                database: &untouched,
+                backups: &untouched,
+                output: &said,
+                mcp_path: "/mcp",
+                login_link: &untouched,
+                lines: &untouched,
+                config_file: &untouched,
+            };
+            let done = match command {
+                "status" => futures::executor::block_on(status(&parts, &env, Platform::Xdg)),
+                "backup" => backup(
+                    &parts,
+                    Some(Path::new("/backups")),
+                    Some(PathBuf::from("/data/kkt.db")),
+                    None,
+                ),
+                "uninstall" => futures::executor::block_on(uninstall(&parts, &env, Platform::Xdg)),
+                other => panic!("no command {other}"),
+            };
+            done.map_err(|e| e.to_string())
+        };
+        let service_record = RecordOf(setup::Mode::Service { tailscale: false });
+        let refusing = kkt_keys::testing::Memory::new().failing("/home/k/.config/kkt/admin-key");
+        assert_eq!(
+            run(&Facts::home(), &service_record, &refusing, "status"),
+            Err("could not tell whether the key file /home/k/.config/kkt/admin-key is there: refused".to_string())
+        );
+        assert_eq!(
+            run(
+                &Facts::home(),
+                &service_record,
+                &Unreadable("/home/k/.config/kkt/admin-key"),
+                "status"
+            ),
+            Err("could not read key file /home/k/.config/kkt/admin-key: refused".to_string())
+        );
+        assert_eq!(
+            run(&Facts::home(), &service_record, &untouched, "backup"),
+            Err(
+                "no database at /data/kkt.db; pass --db with the server's database file"
+                    .to_string()
+            )
+        );
+        let client_record = RecordOf(setup::Mode::Client);
+        let homeless = Facts {
+            reads: std::cell::Cell::new(1),
+        };
+        assert_eq!(
+            run(&homeless, &client_record, &untouched, "uninstall"),
+            Err("set HOME to find the setup record".to_string())
+        );
+
+        // A service upgrade whose new service would not load, whole.
+        let reload = ServiceError::ReloadFailed("The new service is not loaded.".to_string());
+        assert_eq!(
+            unrecorded_upgrade(reload),
+            "The new service is not loaded. This upgrade is not recorded yet: once the service \
+             is loaded, run `kkt upgrade` again to record the new version."
+        );
+    }
 }
