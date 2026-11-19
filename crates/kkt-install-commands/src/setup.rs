@@ -21,7 +21,7 @@ pub async fn run<D: crate::ServiceDefaults>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     answers: setup::Answers,
     options: InstallOptions,
-) -> Result<(), String> {
+) -> Result<(), setup::SetupError> {
     let ask = Prompter::new(parts.lines);
     let steps = OsSteps {
         env,
@@ -39,7 +39,6 @@ pub async fn run<D: crate::ServiceDefaults>(
             &ask,
             &steps,
         )
-        .map_err(|e| e.to_string())
         .map(|_| ())
     })
 }
@@ -52,13 +51,11 @@ pub async fn run_switch<D>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     env: &Env,
     how: setup::Switch,
-) -> Result<(), String> {
+) -> Result<(), setup::SwitchError> {
     let ask = Prompter::new(parts.lines);
     let steps = OsSwitchSteps { env, parts };
     tokio::task::block_in_place(|| {
-        setup::switch(&how, Build::CURRENT.version, &ask, &steps)
-            .map(|_| ())
-            .map_err(|e| e.to_string())
+        setup::switch(&how, Build::CURRENT.version, &ask, &steps).map(|_| ())
     })
 }
 

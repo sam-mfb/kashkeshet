@@ -234,7 +234,9 @@ async fn run(
         Task::Uninstall => {
             kkt_install_commands::lifecycle::uninstall(&install, env, platform).await
         }
-        Task::Switch(how) => kkt_install_commands::setup::run_switch(&install, env, how).await,
+        Task::Switch(how) => kkt_install_commands::setup::run_switch(&install, env, how)
+            .await
+            .map_err(|e| e.to_string()),
         Task::KeyHeader { key_file, json } => {
             kkt_operator_commands::key::header(&operator, key_file, json).map_err(|e| e.to_string())
         }
@@ -255,7 +257,9 @@ async fn run(
                 .map_err(|e| e.to_string())
         }
         Task::Setup { answers, options } => {
-            kkt_install_commands::setup::run(env, platform, &install, answers, options).await
+            kkt_install_commands::setup::run(env, platform, &install, answers, options)
+                .await
+                .map_err(|e| e.to_string())
         }
         Task::Register {
             token_file,

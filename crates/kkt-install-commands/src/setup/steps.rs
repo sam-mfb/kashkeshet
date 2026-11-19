@@ -31,21 +31,22 @@ fn allow_host_in_config(
     files: &dyn crate::ConfigText,
     serve: &dyn crate::ServeFacts,
     host: &str,
-) -> Result<(), String> {
+) -> Result<(), StepFailure> {
     let path = serve
         .config_file()
-        .ok_or("set HOME to keep kkt's config file")?;
-    let text = files
-        .read(&path)
-        .map_err(|e| e.to_string())?
-        .unwrap_or_else(String::new);
-    let updated = files
-        .with_allowed_host(&text, host)
-        .map_err(|e| format!("invalid setting: {e} (in {})", path.display()))?;
+        .ok_or(StepFailure::NoHome(HomeFor::ConfigFile))?;
+    let text = files.read(&path)?.unwrap_or_else(String::new);
+    let updated =
+        files
+            .with_allowed_host(&text, host)
+            .map_err(|problem| StepFailure::InvalidSetting {
+                problem,
+                config: path.clone(),
+            })?;
     if updated == text {
         return Ok(());
     }
-    files.write(&path, &updated).map_err(|e| e.to_string())
+    Ok(files.write(&path, &updated)?)
 }
 
 impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_, '_, C, D> {
@@ -54,10 +55,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         tailscale: bool,
         allow_hosts: &[String],
     ) -> Result<setup::Installed, setup::StepError> {
-        (|| -> Result<setup::Installed, String> {
+        (|| -> Result<setup::Installed, StepFailure> {
             // Before anything changes: Tailscale must be logged in, with HTTPS.
             let node = match tailscale {
-                true => Some(self.parts.remote.prepare().map_err(|e| e.to_string())?),
+                true => Some(self.parts.remote.prepare()?),
                 false => None,
             };
             if let Some(node) = &node {
@@ -66,27 +67,24 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             for host in allow_hosts {
                 allow_host_in_config(self.parts.config_file, self.parts.serve, host)?;
             }
-            tokio::runtime::Handle::current()
-                .block_on(service::run(
-                    self.parts,
-                    ServiceAction::Install(ServiceInstall {
-                        config: None,
-                        db: None,
-                        access_key_file: None,
-                        no_access_key: false,
-                        dry_run: false,
-                    }),
-                ))
-                .map_err(|e| e.to_string())?;
-            let connection =
-                connection::serve_connection(self.parts.connection, ConnectionOptions::NONE, false)
-                    .map_err(|e| e.to_string())?;
+            tokio::runtime::Handle::current().block_on(service::run(
+                self.parts,
+                ServiceAction::Install(ServiceInstall {
+                    config: None,
+                    db: None,
+                    access_key_file: None,
+                    no_access_key: false,
+                    dry_run: false,
+                }),
+            ))?;
+            let connection = connection::serve_connection(
+                self.parts.connection,
+                ConnectionOptions::NONE,
+                false,
+            )?;
             let url = match &node {
                 Some(node) => {
-                    self.parts
-                        .remote
-                        .serve(self.parts.serve.bind().map_err(|e| e.to_string())?)
-                        .map_err(|e| e.to_string())?;
+                    self.parts.remote.serve(self.parts.serve.bind()?)?;
                     format!("https://{}/mcp", node.dns_name)
                 }
                 None => connection.url,
@@ -110,14 +108,14 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         tailscale: Option<&setup::TailscaleLogin>,
         allow_hosts: &[String],
     ) -> Result<(setup::Installed, setup::DockerSetup), setup::StepError> {
-        (|| -> Result<(setup::Installed, setup::DockerSetup), String> {
+        (|| -> Result<(setup::Installed, setup::DockerSetup), StepFailure> {
             let options = &self.options;
-            let folder = docker_folder(self.env, self.platform).map_err(|e| e.to_string())?;
+            let folder = docker_folder(self.env, self.platform)?;
             let key_file = self
                 .parts
                 .serve
                 .config_dir()
-                .ok_or("set HOME to keep the access key")?
+                .ok_or(StepFailure::NoHome(HomeFor::AccessKey))?
                 .join(DOCKER_KEY_FILE_NAME);
             let tailscale_inputs = match tailscale {
                 Some(login) => Some(kkt_containerized_service::Sharing {
@@ -137,15 +135,14 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 sharing: tailscale_inputs,
             };
             let tailscale = tailscale.is_some();
-            let provisioned = tokio::runtime::Handle::current()
-                .block_on(self.parts.container.provision(
+            let provisioned =
+                tokio::runtime::Handle::current().block_on(self.parts.container.provision(
                     self.parts.clock.as_ref(),
                     self.parts.login_link,
                     &kkt_container::Folder(folder.clone()),
                     &inputs,
                     &kkt_deployment::docker_key_copies(&key_file),
-                ))
-                .map_err(|e| e.to_string())?;
+                ))?;
             let url = docker_url(
                 options.docker_port,
                 provisioned.node.as_ref(),
@@ -169,33 +166,24 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     }
 
     fn stage_key(&self, key: &str) -> Result<PathBuf, setup::StepError> {
-        (|| -> Result<PathBuf, String> {
+        (|| -> Result<PathBuf, StepFailure> {
             let dir = self
                 .parts
                 .serve
                 .config_dir()
-                .ok_or("set HOME to keep the key in ~/.config/kkt")?;
-            self.parts
-                .key_files
-                .create_dir_all(&dir)
-                .map_err(|e| e.to_string())?;
+                .ok_or(StepFailure::NoHome(HomeFor::Key))?;
+            self.parts.key_files.create_dir_all(&dir)?;
             let path = staged_client_key(&dir);
-            self.parts
-                .key_files
-                .write_key(&path, key, true)
-                .map_err(|e| e.to_string())?;
+            self.parts.key_files.write_key(&path, key, true)?;
             Ok(path)
         })()
         .map_err(step_error)
     }
 
     fn keep_key(&self, staged: &Path, url: &str) -> Result<PathBuf, setup::StepError> {
-        (|| -> Result<PathBuf, String> {
+        (|| -> Result<PathBuf, StepFailure> {
             let path = client_key(staged, url)?;
-            self.parts
-                .key_files
-                .keep_staged(staged, &path)
-                .map_err(|e| e.to_string())?;
+            self.parts.key_files.keep_staged(staged, &path)?;
             Ok(path)
         })()
         .map_err(step_error)
@@ -205,7 +193,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         self.parts
             .key_files
             .remove(staged)
-            .map_err(|e| format!("could not remove {}: {e}", staged.display()))
+            .map_err(|cause| StepFailure::NotRemoved {
+                path: staged.to_path_buf(),
+                cause,
+            })
             .map_err(step_error)
     }
 
@@ -219,13 +210,11 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     }
 
     fn allow_kkt(&self, client: Client) -> Result<String, setup::StepError> {
-        clients::allow_kkt(client, self.env, self.parts.clients)
-            .map_err(|e| e.to_string())
-            .map_err(step_error)
+        clients::allow_kkt(client, self.env, self.parts.clients).map_err(step_error)
     }
 
     fn doctor(&self, record: &setup::Record) -> Result<String, setup::StepError> {
-        (|| -> Result<String, String> {
+        (|| -> Result<String, StepFailure> {
             // The server the clients use: on a machine whose clients were
             // switched, another machine's, checked as a client's.
             let server = record.for_clients();
@@ -235,22 +224,23 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 _ => diagnostics::SetupServer::New,
             };
             let note = waiting_note(&server.url, &mode);
-            let mut checks = tokio::runtime::Handle::current()
-                .block_on(diagnostics::until_reachable(
+            let mut checks =
+                tokio::runtime::Handle::current().block_on(diagnostics::until_reachable(
                     Inspector::new(self.parts.prober),
                     self.parts.clock.as_ref(),
                     &server.url,
                     server.key_file.as_deref(),
                     diagnostics::setup_wait(diagnostics::Settings::DEFAULT, kind),
                     &mut || self.parts.output.output(format_args!("{note}\n")),
-                ))
-                .map_err(|e| e.to_string())?;
+                ))?;
             if let Some(fix) = diagnostics::server_fix(&setup_of(&mode)) {
                 point_server_fix_at(&mut checks, &fix);
             }
             match diagnostics::report(checks) {
                 (report, true) => Ok(report.trim_end().to_string()),
-                (report, false) => Err(report.trim_end().to_string()),
+                (report, false) => Err(StepFailure::Checks {
+                    report: report.trim_end().to_string(),
+                }),
             }
         })()
         .map_err(step_error)
@@ -263,34 +253,30 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             self.parts.container,
             self.parts.service,
         )
-        .map_err(|e| e.to_string())
         .map_err(step_error)
     }
 
     fn save_unfinished(&self, unfinished: &setup::Unfinished) -> Result<(), setup::StepError> {
-        (|| -> Result<(), String> {
+        (|| -> Result<(), StepFailure> {
             let config_dir = self
                 .parts
                 .serve
                 .config_dir()
-                .ok_or("set HOME to note the install")?;
-            self.parts
+                .ok_or(StepFailure::NoHome(HomeFor::Note))?;
+            Ok(self
+                .parts
                 .setup_files
-                .write_unfinished(&config_dir, unfinished)
-                .map_err(|e| e.to_string())
+                .write_unfinished(&config_dir, unfinished)?)
         })()
         .map_err(step_error)
     }
 
     fn forget_unfinished(&self) -> Result<(), setup::StepError> {
-        (|| -> Result<(), String> {
+        (|| -> Result<(), StepFailure> {
             let Some(config_dir) = self.parts.serve.config_dir() else {
                 return Ok(());
             };
-            self.parts
-                .setup_files
-                .remove_unfinished(&config_dir)
-                .map_err(|e| e.to_string())
+            Ok(self.parts.setup_files.remove_unfinished(&config_dir)?)
         })()
         .map_err(step_error)
     }
@@ -300,11 +286,11 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         record: &setup::Record,
         name: &AdminName,
     ) -> Result<PathBuf, setup::StepError> {
-        (|| -> Result<PathBuf, String> {
+        (|| -> Result<PathBuf, StepFailure> {
         let access = record
             .key_file
             .as_deref()
-            .ok_or("an admin key needs the server to have an access key")?;
+            .ok_or(StepFailure::AdminKeyNeedsAccessKey)?;
         match &record.mode {
             setup::Mode::Docker(install) => tokio::runtime::Handle::current()
                 .block_on(self.parts.container.add_admin_key(
@@ -313,10 +299,10 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                     &kkt_deployment::docker_key_copies(access),
                     name.as_str(),
                 ))
-                .map_err(|e| e.to_string()),
+                .map_err(StepFailure::from),
             setup::Mode::Service { .. } => {
                 let admin = kkt_keys::admin_key_path(access)
-                    .ok_or_else(|| admin_key_collision().to_string())?;
+                    .ok_or_else(admin_key_collision)?;
                 // A key file that cannot be inspected is not replaced:
                 // `new_key_file` refuses to write over one. Only a new key
                 // is given the name.
@@ -340,7 +326,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                             .map_err(|e| e.to_string())
                         })
                     })
-                    .map_err(|e| e.to_string())?;
+                    ?;
                 self.parts.output.output(format_args!(
                     "{} admin key for /mcp-admin is in {}, and the server was restarted to use it. Read it with `kkt key show --admin`.\n",
                     if made { "A new" } else { "The" },
@@ -348,7 +334,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 ));
                 Ok(admin)
             }
-            setup::Mode::Client => Err("an admin key is made on the server's machine".into()),
+            setup::Mode::Client => Err(StepFailure::AdminKeyOnClient),
         }
     })()
         .map_err(step_error)
@@ -362,7 +348,6 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         self.parts
             .import_lanes
             .check(folder, purpose)
-            .map_err(|e| e.to_string())
             .map_err(step_error)
     }
 
@@ -374,7 +359,6 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
         self.parts
             .import_lanes
             .import(record, folder)
-            .map_err(|e| e.to_string())
             .map_err(step_error)
     }
 
@@ -385,8 +369,8 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
 
 /// Checks that `key`, typed in for a client, is a valid access key, by
 /// kkt-keys' rule. Returns why not.
-fn check_typed_key(key: &str) -> Result<(), String> {
-    kkt_keys::check_access_key(key).map_err(|e| e.to_string())
+fn check_typed_key(key: &str) -> Result<(), StepFailure> {
+    Ok(kkt_keys::check_access_key(key)?)
 }
 
 impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
@@ -465,10 +449,10 @@ impl<C: ConnectionSource, D> setup::SwitchSteps for OsSwitchSteps<'_, '_, C, D> 
 }
 
 /// The clients whose config has a kkt entry now, whatever server it names.
-fn connected_clients(env: &Env, host: &dyn clients::Host) -> Result<Vec<Client>, String> {
+fn connected_clients(env: &Env, host: &dyn clients::Host) -> Result<Vec<Client>, StepFailure> {
     let mut connected = Vec::new();
     for client in Client::ALL {
-        if client.connected(env, host).map_err(|e| e.to_string())? {
+        if client.connected(env, host)? {
             connected.push(client);
         }
     }
@@ -483,9 +467,9 @@ fn connect(
     program: &dyn crate::SetupFiles,
     client: Client,
     record: &setup::Record,
-) -> Result<String, String> {
-    let executable = program.kkt_path().map_err(|e| e.to_string())?;
-    let client_config = client.file(env, host).map_err(|e| e.to_string())?;
+) -> Result<String, StepFailure> {
+    let executable = program.kkt_path()?;
+    let client_config = client.file(env, host)?;
     let server = record.for_clients();
     let setup = Setup {
         env,
@@ -495,17 +479,16 @@ fn connect(
         client_config: &client_config,
         source: client.source(env),
     };
-    clients::configure(client, &setup, true, host, command).map_err(|e| e.to_string())
+    Ok(clients::configure(client, &setup, true, host, command)?)
 }
 
 /// Checks, changing nothing, that `url` is a server address a client may be
 /// given (kkt-deployment's rule, before any server is asked), then that a
 /// server answers there and accepts its host name.
-fn check_address(prober: &dyn kkt_diagnostics::Prober, url: &str) -> Result<(), String> {
-    kkt_deployment::connection::server_address(url, None).map_err(|e| e.to_string())?;
-    let mut checks = tokio::runtime::Handle::current()
-        .block_on(diagnostics::inspect_address(prober, url))
-        .map_err(|e| e.to_string())?;
+fn check_address(prober: &dyn kkt_diagnostics::Prober, url: &str) -> Result<(), StepFailure> {
+    kkt_deployment::connection::server_address(url, None)?;
+    let mut checks =
+        tokio::runtime::Handle::current().block_on(diagnostics::inspect_address(prober, url))?;
     point_server_fix_at(
         &mut checks,
         "check the address, and that the server is running on its machine",
@@ -518,7 +501,7 @@ fn check_key(
     prober: &dyn kkt_diagnostics::Prober,
     url: &str,
     key: &setup::ClientKey,
-) -> Result<(), String> {
+) -> Result<(), StepFailure> {
     let runtime = tokio::runtime::Handle::current();
     let checks = match key {
         setup::ClientKey::None => {
@@ -530,8 +513,7 @@ fn check_key(
         setup::ClientKey::File(path) => {
             runtime.block_on(diagnostics::inspect(prober, url, Some(path)))
         }
-    }
-    .map_err(|e| e.to_string())?;
+    }?;
     only_problems(checks)
 }
 
@@ -544,37 +526,113 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::AdoptSteps for OsSte
 impl<C: ConnectionSource, D: crate::ServiceDefaults> OsSteps<'_, '_, C, D> {
     /// A server kkt installed here that no record or note covers, as the
     /// adopt step finds it, in this crate's words.
-    fn find_unrecorded(&self) -> Result<Option<setup::Unrecorded>, String> {
-        if read_setup(self.parts.serve, self.parts.setup_files)
-            .map_err(|e| e.to_string())?
-            .is_some()
+    fn find_unrecorded(&self) -> Result<Option<setup::Unrecorded>, StepFailure> {
+        if read_setup(self.parts.serve, self.parts.setup_files)?.is_some()
             || read_unfinished(
                 self.parts.serve,
                 self.parts.setup_files,
                 self.parts.container,
                 self.parts.service,
-            )
-            .map_err(|e| e.to_string())?
+            )?
             .is_some()
         {
             return Ok(None);
         }
-        read_unrecorded(self.parts, self.env, self.platform).map_err(|(_, e)| e.to_string())
+        read_unrecorded(self.parts, self.env, self.platform).map_err(|(_, e)| e.into())
     }
 }
 
-/// A step's text, as kkt-setup's steps carry it.
+/// Why one of setup's steps failed: a sentence worded here, or the error of
+/// what it called, passed on as it is.
+#[derive(Debug, thiserror::Error)]
+pub(crate) enum StepFailure {
+    #[error("set HOME to {0}")]
+    NoHome(HomeFor),
+    #[error("invalid setting: {problem} (in {})", config.display())]
+    InvalidSetting {
+        problem: crate::PartError,
+        config: PathBuf,
+    },
+    #[error("could not remove {}: {cause}", path.display())]
+    NotRemoved {
+        path: PathBuf,
+        cause: std::io::Error,
+    },
+    #[error("{} is not in a folder to keep keys in", staged.display())]
+    NoKeyFolder { staged: PathBuf },
+    #[error("an admin key needs the server to have an access key")]
+    AdminKeyNeedsAccessKey,
+    #[error("an admin key is made on the server's machine")]
+    AdminKeyOnClient,
+    /// The doctor's lines for the checks that failed.
+    #[error("{report}")]
+    Checks { report: String },
+    #[error(transparent)]
+    Part(#[from] crate::PartError),
+    #[error(transparent)]
+    Sharing(#[from] kkt_remote_access::SharingError),
+    #[error(transparent)]
+    Service(#[from] crate::service::ServiceCommandError),
+    #[error(transparent)]
+    ServiceManager(#[from] kkt_bare_service::ServiceError),
+    #[error(transparent)]
+    Connection(#[from] kkt_deployment::connection::ConnectionError),
+    #[error(transparent)]
+    DockerHome(#[from] kkt_deployment::NoDockerHome),
+    #[error(transparent)]
+    Container(#[from] kkt_containerized_service::ContainerError),
+    #[error(transparent)]
+    KeyFile(#[from] kkt_keys::KeyFileError),
+    #[error(transparent)]
+    AdminKeyCollision(#[from] kkt_deployment::AdminKeyCollision),
+    #[error(transparent)]
+    Unprobed(#[from] kkt_diagnostics::Unprobed),
+    #[error(transparent)]
+    Record(#[from] crate::record::ReadError),
+    #[error(transparent)]
+    Unrecorded(#[from] crate::record::UnrecordedError),
+    #[error(transparent)]
+    Client(#[from] kkt_llm_agent_config::ClientConfigError),
+    #[error(transparent)]
+    InvalidKey(#[from] kkt_keys::SettingError),
+    #[error(transparent)]
+    Address(#[from] kkt_deployment::connection::AddressError),
+}
+
+/// What a step needs a home folder for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum HomeFor {
+    ConfigFile,
+    AccessKey,
+    Key,
+    Note,
+}
+
+impl std::fmt::Display for HomeFor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            HomeFor::ConfigFile => "keep kkt's config file",
+            HomeFor::AccessKey => "keep the access key",
+            HomeFor::Key => "keep the key in ~/.config/kkt",
+            HomeFor::Note => "note the install",
+        })
+    }
+}
+
+/// Why a step failed, as kkt-setup's steps carry it.
 fn step_error(error: impl Into<Box<dyn std::error::Error + Send + Sync>>) -> setup::StepError {
     setup::StepError(error.into())
 }
 
 /// The doctor's lines for the problems in `checks` as an error, if any.
-fn only_problems(checks: Vec<kkt_diagnostics::Check>) -> Result<(), String> {
+fn only_problems(checks: Vec<kkt_diagnostics::Check>) -> Result<(), StepFailure> {
     let problems: Vec<_> = checks.into_iter().filter(|check| !check.ok).collect();
     if problems.is_empty() {
         return Ok(());
     }
-    Err(diagnostics::report(problems).0.trim_end().to_string())
+    Err(StepFailure::Checks {
+        report: diagnostics::report(problems).0.trim_end().to_string(),
+    })
 }
 
 /// The client key file's name, beside the config file.
@@ -586,10 +644,10 @@ pub(crate) fn staged_client_key(dir: &Path) -> PathBuf {
 
 /// One key per server, so another server's saved key is never replaced. It
 /// goes beside the staged key; a staged path in no folder is refused.
-pub(crate) fn client_key(staged: &Path, url: &str) -> Result<PathBuf, String> {
-    let dir = staged
-        .parent()
-        .ok_or_else(|| format!("{} is not in a folder to keep keys in", staged.display()))?;
+pub(crate) fn client_key(staged: &Path, url: &str) -> Result<PathBuf, StepFailure> {
+    let dir = staged.parent().ok_or_else(|| StepFailure::NoKeyFolder {
+        staged: staged.to_path_buf(),
+    })?;
     let server: String = kkt_hash::sha256(url.as_bytes())
         .iter()
         .take(6)
@@ -620,6 +678,27 @@ pub(crate) fn waiting_note(url: &str, mode: &setup::Mode) -> String {
 mod tests {
     use std::cell::RefCell;
     use std::path::{Path, PathBuf};
+
+    // The steps' helpers, as the text a person reads.
+    fn allow_host_in_config(
+        files: &dyn crate::ConfigText,
+        serve: &dyn crate::ServeFacts,
+        host: &str,
+    ) -> Result<(), String> {
+        super::allow_host_in_config(files, serve, host).map_err(|e| e.to_string())
+    }
+    fn check_typed_key(key: &str) -> Result<(), String> {
+        super::check_typed_key(key).map_err(|e| e.to_string())
+    }
+    fn client_key(staged: &Path, url: &str) -> Result<PathBuf, String> {
+        super::client_key(staged, url).map_err(|e| e.to_string())
+    }
+    fn check_address(prober: &dyn kkt_diagnostics::Prober, url: &str) -> Result<(), String> {
+        super::check_address(prober, url).map_err(|e| e.to_string())
+    }
+    fn only_problems(checks: Vec<kkt_diagnostics::Check>) -> Result<(), String> {
+        super::only_problems(checks).map_err(|e| e.to_string())
+    }
 
     /// A config file holding `text`, keeping what is written to it.
     struct ConfigFile {
@@ -717,7 +796,7 @@ mod tests {
     fn the_host_edit_writes_the_config_file_and_says_what_failed() {
         let config = PathBuf::from("/h/.config/kkt/config.toml");
         let none = ConfigFile::holding(None);
-        super::allow_host_in_config(&none, &Home(true), "h.example").expect("edited");
+        allow_host_in_config(&none, &Home(true), "h.example").expect("edited");
         assert_eq!(*none.read.borrow(), std::slice::from_ref(&config));
         assert_eq!(
             *none.written.borrow(),
@@ -728,12 +807,12 @@ mod tests {
         );
 
         let listed = ConfigFile::holding(Some("allow_hosts = [\"h.example\"]\n"));
-        super::allow_host_in_config(&listed, &Home(true), "h.example").expect("edited");
+        allow_host_in_config(&listed, &Home(true), "h.example").expect("edited");
         assert!(listed.written.borrow().is_empty());
 
         let broken = ConfigFile::holding(Some("allow_hosts = ["));
         assert_eq!(
-            super::allow_host_in_config(&broken, &Home(true), "h.example"),
+            allow_host_in_config(&broken, &Home(true), "h.example"),
             Err(
                 "invalid setting: config is not valid TOML: unclosed array, expected `]` \
                  (in /h/.config/kkt/config.toml)"
@@ -744,7 +823,7 @@ mod tests {
 
         let homeless = ConfigFile::holding(None);
         assert_eq!(
-            super::allow_host_in_config(&homeless, &Home(false), "h.example"),
+            allow_host_in_config(&homeless, &Home(false), "h.example"),
             Err("set HOME to keep kkt's config file".to_string())
         );
         assert!(homeless.read.borrow().is_empty());
@@ -753,15 +832,15 @@ mod tests {
     #[test]
     fn a_malformed_typed_key_is_refused_with_kkt_keys_words() {
         assert_eq!(
-            super::check_typed_key("short"),
+            check_typed_key("short"),
             Err("access_key_file must hold a key of at least 32 characters".to_string())
         );
         assert_eq!(
-            super::check_typed_key("0123456789abcdef 0123456789abcdef"),
+            check_typed_key("0123456789abcdef 0123456789abcdef"),
             Err("access_key_file must hold only printable ASCII with no spaces".to_string())
         );
         assert_eq!(
-            super::check_typed_key("0123456789abcdefghijklmnopqrstuvwxyz"),
+            check_typed_key("0123456789abcdefghijklmnopqrstuvwxyz"),
             Ok(())
         );
     }
@@ -824,6 +903,370 @@ mod tests {
     }
 
     use super::*;
+
+    /// Every part a step's own refusal must not reach: each one fails the
+    /// test, naming the part.
+    struct Unused;
+
+    impl kkt_containerized_service::ConfigReader for Unused {
+        fn settings(
+            &self,
+            _: &str,
+            _: &Path,
+            _: Option<&Path>,
+        ) -> Result<kkt_containerized_service::ContainerConfig, String> {
+            unreachable!("container_configs")
+        }
+    }
+    impl kkt_containerized_service::LoginLink for Unused {
+        fn show(&self, _: &str) {
+            unreachable!("login_link")
+        }
+        fn open_requested(&self) -> bool {
+            unreachable!("login_link")
+        }
+    }
+    impl kkt_remote_access::RemoteAccess for Unused {
+        fn prepare(&self) -> Result<kkt_remote_access::Node, kkt_remote_access::SharingError> {
+            unreachable!("remote")
+        }
+        fn serve(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
+            unreachable!("remote")
+        }
+        fn served(
+            &self,
+            _: std::net::SocketAddr,
+        ) -> Result<Option<kkt_remote_access::Node>, kkt_remote_access::SharingError> {
+            unreachable!("remote")
+        }
+        fn stop(&self, _: std::net::SocketAddr) -> Result<(), kkt_remote_access::SharingError> {
+            unreachable!("remote")
+        }
+    }
+    impl clients::Host for Unused {
+        fn read(&self, _: &Path) -> std::io::Result<String> {
+            unreachable!("clients")
+        }
+        fn exists(&self, _: &Path) -> bool {
+            unreachable!("clients")
+        }
+        fn create_private(&self, _: &Path, _: &str) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn restrict(&self, _: &Path) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn rename(&self, _: &Path, _: &Path) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn remove_file(&self, _: &Path) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
+        fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
+            unreachable!("clients")
+        }
+        fn canonicalize(&self, _: &Path) -> std::io::Result<PathBuf> {
+            unreachable!("clients")
+        }
+        fn process_id(&self) -> u32 {
+            unreachable!("clients")
+        }
+    }
+    impl clients::ClientCommand for Unused {
+        fn remove_server(&self, _: Option<&Path>) -> Result<(), clients::CommandError> {
+            unreachable!("client_command")
+        }
+        fn add_server(&self, _: &str, _: Option<&Path>) -> Result<(), clients::CommandError> {
+            unreachable!("client_command")
+        }
+    }
+    impl crate::ImportLanes for Unused {
+        fn check(&self, _: &Path, _: setup::Purpose) -> Result<usize, crate::PartError> {
+            unreachable!("import_lanes")
+        }
+        fn import(&self, _: &setup::Record, _: &Path) -> Result<String, crate::PartError> {
+            unreachable!("import_lanes")
+        }
+    }
+    impl kkt_setup::Lines for Unused {
+        fn interactive(&self) -> bool {
+            unreachable!("lines")
+        }
+        fn say(&self, _: &str) {
+            unreachable!("lines")
+        }
+        fn read_line(&self, _: &str) -> Result<Option<String>, kkt_setup::LineError> {
+            unreachable!("lines")
+        }
+    }
+    impl ConnectionSource for Unused {
+        type KeySource = ();
+        fn recorded(&self) -> Result<Option<connection::RecordedServer>, connection::SourceError> {
+            unreachable!("connection")
+        }
+        fn serve(
+            &self,
+            _: ConnectionOptions,
+        ) -> Result<connection::ServeConnection<()>, connection::SourceError> {
+            unreachable!("connection")
+        }
+        fn make_default_key(&self, _: &kkt_keys::AccessKey) -> Result<(), connection::SourceError> {
+            unreachable!("connection")
+        }
+        fn check_key(&self, _: &Path, _: &()) -> Result<(), connection::SourceError> {
+            unreachable!("connection")
+        }
+        fn absolute(&self, _: &Path) -> Result<PathBuf, connection::SourceError> {
+            unreachable!("connection")
+        }
+    }
+    impl crate::ServiceDefaults for Unused {
+        fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
+            unreachable!("service_defaults")
+        }
+    }
+    impl crate::SetupFiles for Unused {
+        fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn read_unfinished(&self, _: &Path) -> Result<Option<setup::Unfinished>, crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn write_unfinished(
+            &self,
+            _: &Path,
+            _: &setup::Unfinished,
+        ) -> Result<(), crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn remove_unfinished(&self, _: &Path) -> Result<(), crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn kkt_path(&self) -> Result<PathBuf, crate::PartError> {
+            unreachable!("setup_files")
+        }
+        fn path_dirs(&self) -> Vec<PathBuf> {
+            unreachable!("setup_files")
+        }
+        fn on_path(&self, _: &[PathBuf], _: &str) -> bool {
+            unreachable!("setup_files")
+        }
+        fn absolute(&self, _: &Path) -> std::io::Result<PathBuf> {
+            unreachable!("setup_files")
+        }
+        fn program_path(&self) -> std::io::Result<PathBuf> {
+            unreachable!("setup_files")
+        }
+        fn canonicalize(&self, _: &Path) -> std::io::Result<PathBuf> {
+            unreachable!("setup_files")
+        }
+        fn remove_record(&self, _: &Path) -> Result<(), crate::PartError> {
+            unreachable!("setup_files")
+        }
+    }
+    impl crate::Databases for Unused {
+        fn exists(&self, _: &Path) -> bool {
+            unreachable!("database")
+        }
+    }
+    impl kkt_backup::Backups for Unused {
+        fn write(
+            &self,
+            _: &Path,
+            _: &kkt_backup::Layout<'_>,
+        ) -> Result<PathBuf, kkt_backup::BackupError> {
+            unreachable!("backups")
+        }
+        fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, kkt_backup::BackupError> {
+            unreachable!("backups")
+        }
+    }
+    impl crate::Output for Unused {
+        fn output(&self, _: std::fmt::Arguments<'_>) {
+            unreachable!("output")
+        }
+        fn errors(&self, _: std::fmt::Arguments<'_>) {
+            unreachable!("output")
+        }
+    }
+    impl kkt_clock::Clock for Unused {
+        fn now(&self) -> kkt_clock::Time {
+            unreachable!("clock")
+        }
+        fn sleep_until(&self, _: kkt_clock::Time) -> futures::future::BoxFuture<'_, ()> {
+            unreachable!("clock")
+        }
+    }
+    struct NoProbes;
+    impl kkt_diagnostics::Prober for NoProbes {
+        fn key_file(&self, _: &Path) -> Result<kkt_diagnostics::KeyFile, String> {
+            unreachable!("prober")
+        }
+        fn answer<'a>(
+            &'a self,
+            _: &'a str,
+        ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Answered> {
+            unreachable!("prober")
+        }
+        fn initialize<'a>(
+            &'a self,
+            _: &'a str,
+            _: Option<&'a str>,
+        ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Initialized> {
+            unreachable!("prober")
+        }
+    }
+
+    /// Runs `step` on setup's steps over the parts given here: the home
+    /// `/h`, or none, and `key_files`; every other part is [`Unused`].
+    fn on_steps<T>(
+        home: bool,
+        key_files: &kkt_keys::testing::Memory,
+        step: impl FnOnce(&OsSteps<'_, '_, Unused, Unused>) -> T,
+    ) -> T {
+        let env = Env {
+            home: Some(PathBuf::from("/h")),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let service = kkt_bare_service::testing::Memory::installed(vec!["serve".into()], true);
+        let container = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let try_bind =
+            |_: std::net::SocketAddr| -> std::io::Result<()> { unreachable!("try_bind") };
+        let config_file = ConfigFile::holding(None);
+        let parts = crate::InstallParts {
+            container: &container,
+            container_configs: &Unused,
+            login_link: &Unused,
+            service: &service,
+            try_bind: &try_bind,
+            remote: &Unused,
+            clients: &Unused,
+            client_command: &Unused,
+            prober: &NoProbes,
+            import_lanes: &Unused,
+            lines: &Unused,
+            config_file: &config_file,
+            connection: &Unused,
+            clock: std::sync::Arc::new(Unused),
+            serve: &Home(home),
+            service_defaults: &Unused,
+            setup_files: &Unused,
+            key_files,
+            entropy: &kkt_entropy::testing::SeqEntropy::new(0),
+            database: &Unused,
+            backups: &Unused,
+            output: &Unused,
+            mcp_path: "/mcp",
+        };
+        let steps = OsSteps {
+            env: &env,
+            platform: Platform::Xdg,
+            parts: &parts,
+            options: InstallOptions {
+                kkt_version: "0.0.0".into(),
+                docker_project: "kkt".into(),
+                docker_port: 7420,
+            },
+        };
+        step(&steps)
+    }
+
+    fn record(mode: setup::Mode, key_file: Option<&str>) -> setup::Record {
+        setup::Record {
+            mode,
+            written_by: "0.0.0".into(),
+            url: "http://127.0.0.1:7420/mcp".into(),
+            key_file: key_file.map(PathBuf::from),
+            clients: None,
+        }
+    }
+
+    /// Each sentence a step words itself, exactly.
+    #[test]
+    fn the_steps_own_refusals_are_pinned() {
+        use setup::Steps as _;
+        fn said<T>(result: Result<T, setup::StepError>) -> String {
+            match result {
+                Ok(_) => panic!("the step was refused"),
+                Err(e) => e.to_string(),
+            }
+        }
+        let keys = kkt_keys::testing::Memory::new();
+        assert_eq!(
+            on_steps(false, &keys, |s| said(s.install_docker(None, &[]))),
+            "set HOME to keep the access key"
+        );
+        assert_eq!(
+            on_steps(false, &keys, |s| said(s.stage_key("k"))),
+            "set HOME to keep the key in ~/.config/kkt"
+        );
+        let unfinished = setup::Unfinished {
+            purpose: setup::Purpose::Service,
+            tailscale: false,
+            allow_hosts: Vec::new(),
+            clients: Vec::new(),
+            tailscale_login: None,
+            record: None,
+        };
+        assert_eq!(
+            on_steps(false, &keys, |s| said(s.save_unfinished(&unfinished))),
+            "set HOME to note the install"
+        );
+        assert_eq!(
+            on_steps(true, &keys, |s| said(
+                s.discard_key(Path::new("/h/.config/kkt/k.partial"))
+            )),
+            "could not remove /h/.config/kkt/k.partial: no such file"
+        );
+        let name =
+            AdminName::new("ops", kkt_names::MAX_ADMIN_NAME_CHARS).expect("a valid admin name");
+        assert_eq!(
+            on_steps(true, &keys, |s| said(s.add_admin_key(
+                &record(setup::Mode::Service { tailscale: false }, None),
+                &name
+            ))),
+            "an admin key needs the server to have an access key"
+        );
+        assert_eq!(
+            on_steps(true, &keys, |s| said(s.add_admin_key(
+                &record(
+                    setup::Mode::Client,
+                    Some("/h/.config/kkt/client-access-key")
+                ),
+                &name
+            ))),
+            "an admin key is made on the server's machine"
+        );
+    }
+
+    /// The doctor's lines for the checks that failed, and nothing for the
+    /// ones that passed.
+    #[test]
+    fn only_the_failed_checks_are_said() {
+        let failed = kkt_diagnostics::Check {
+            name: "server",
+            ok: false,
+            detail: "no answer at http://h/mcp".into(),
+            fix: Some("start the server".into()),
+        };
+        let passed = kkt_diagnostics::Check::ok("key", "accepted");
+        assert_eq!(only_problems(vec![passed.clone()]), Ok(()));
+        assert_eq!(
+            only_problems(vec![passed, failed.clone()]),
+            Err(kkt_diagnostics::report(vec![failed])
+                .0
+                .trim_end()
+                .to_string())
+        );
+    }
 
     fn docker(tailscale: bool) -> setup::Mode {
         setup::Mode::Docker(setup::DockerSetup {
