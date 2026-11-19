@@ -34,3 +34,6 @@ kkt-bare-service = { path = "../kkt-bare-service", features = ["testing"] }
 kkt-keys = { path = "../kkt-keys", features = ["testing"] }
 kkt-diagnostics = { path = "../kkt-diagnostics", features = ["testing"] }
 futures.workspace = true
+# A fixed clock and backups in memory, for `kkt upgrade`'s test.
+kkt-clock = { path = "../kkt-clock", features = ["testing"] }
+kkt-backup = { path = "../kkt-backup", features = ["testing"] }
