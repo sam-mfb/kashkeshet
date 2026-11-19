@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "b43604e1",
+ "commit": "41fbc289",
  "crates": [
   {
    "bins": [
@@ -8589,12 +8589,14 @@ window.KKT_GRAPH = {
       "exists",
       "file_names",
       "is_file",
+      "mode",
       "read",
       "read_if_present",
       "remove_file",
       "remove_if_present",
       "rename",
       "restrict",
+      "set_mode",
       "write",
       "write_by_rename"
      ],
@@ -8609,6 +8611,7 @@ window.KKT_GRAPH = {
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
      "fs::create_dir_all",
+     "fs::metadata",
      "fs::read_dir",
      "fs::read_to_string",
      "fs::remove_file",
@@ -12566,11 +12569,13 @@ window.KKT_GRAPH = {
       "create_dir_all",
       "create_private",
       "exists",
+      "mode",
       "process_id",
       "read",
       "remove_file",
       "rename",
-      "restrict"
+      "restrict",
+      "set_mode"
      ],
      "path": "Host"
     },

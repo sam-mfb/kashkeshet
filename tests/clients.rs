@@ -209,9 +209,11 @@ fn json_clients_merge_without_losing_other_settings_and_back_up_once() {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
+            // Agy's file holds the key, so it ends private; OpenCode's
+            // only names the key file, so it keeps the mode it had.
             assert_eq!(
                 std::fs::metadata(&file).expect("mode").permissions().mode() & 0o777,
-                0o600
+                if client == Client::Agy { 0o600 } else { 0o644 }
             );
             let backup = file.with_file_name(format!(
                 "{}.bak",

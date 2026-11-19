@@ -31,6 +31,7 @@ fn private(text: &str) -> File {
     File {
         text: text.into(),
         private: true,
+        mode: 0o600,
     }
 }
 
@@ -387,6 +388,44 @@ fn allowing_kkt_backs_up_a_file_it_changes() {
     let new = host.file(&settings).expect("settings").text;
     assert!(new.contains("\"Bash(ls)\""), "{new}");
     assert!(new.contains("\"mcp__kkt\""), "{new}");
+}
+
+#[test]
+fn allowing_kkt_keeps_an_existing_settings_files_mode() {
+    let host = FakeHost::default();
+    let env = env();
+    let settings = PathBuf::from("/home/sam/.claude/settings.json");
+    host.put(&settings, r#"{"permissions": {"allow": ["Bash(ls)"]}}"#);
+    host.files
+        .borrow_mut()
+        .get_mut(&settings)
+        .expect("settings")
+        .mode = 0o640;
+    allow_kkt(Client::ClaudeCode, &env, &host).expect("allowed");
+    let written = host.file(&settings).expect("settings");
+    assert_eq!(written.mode, 0o640);
+    assert!(!written.private);
+}
+
+#[test]
+fn a_key_holding_config_replaced_whole_ends_private() {
+    let host = FakeHost::default();
+    let env = env();
+    let path = Client::MuseCode.file(&env, &host).expect("path");
+    let key_file = Path::new("/keys/kkt.key");
+    host.put(key_file, &format!("{KEY}\n"));
+    host.put(&path, "{}");
+    configure(
+        Client::MuseCode,
+        &setup(&env, &path, Some(key_file)),
+        true,
+        &host,
+        &host,
+    )
+    .expect("write");
+    let written = host.file(&path).expect("config");
+    assert_eq!(written.mode, 0o600);
+    assert!(written.private);
 }
 
 #[test]

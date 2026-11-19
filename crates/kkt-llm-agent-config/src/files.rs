@@ -118,13 +118,20 @@ pub(super) fn restrict(host: &dyn Host, path: &Path) -> Result<(), ClientConfigE
 
 /// Writes `text` to a private temporary file beside `path` and moves it
 /// over `path`, so a reader sees the old file or the new one, never part
-/// of either. A temporary file left by a failure is removed.
+/// of either. A file that was there keeps the mode it had; a new file is
+/// private, as the temporary file is. A temporary file left by a failure
+/// is removed.
 fn atomic(host: &dyn Host, path: &Path, text: &str) -> Result<(), ClientConfigError> {
     let parent = path
         .parent()
         .ok_or(ClientConfigError::NoFolder(Folder::ConfigPath))?;
     host.create_dir_all(parent)
         .map_err(|e| ClientConfigError::file(FileAction::Create, parent, e))?;
+    let mode = match host.mode(path) {
+        Ok(mode) => mode,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+        Err(e) => return Err(ClientConfigError::file(FileAction::Write, path, e)),
+    };
     let mut name = path.as_os_str().to_os_string();
     name.push(format!(".kkt-{}", host.process_id()));
     let temporary = PathBuf::from(name);
@@ -143,6 +150,10 @@ fn atomic(host: &dyn Host, path: &Path, text: &str) -> Result<(), ClientConfigEr
             });
         }
         return Err(ClientConfigError::file(FileAction::Write, path, error));
+    }
+    if let Some(mode) = mode {
+        host.set_mode(path, mode)
+            .map_err(|e| ClientConfigError::file(FileAction::Write, path, e))?;
     }
     Ok(())
 }
@@ -189,14 +200,18 @@ pub(super) fn apply_claude(
     // failure beside it if that failed too.
     let error = Box::new(ClientConfigError::Command(failed));
     Err(match original {
-        Some(text) => match atomic(host, client_config, text) {
-            Ok(()) => *error,
-            Err(restore) => ClientConfigError::NotRestored {
-                error,
-                restore: Box::new(restore),
+        // The restored config may hold a key, so it ends private, as a
+        // key-holding file does, rather than keeping its mode.
+        Some(text) => {
+            match atomic(host, client_config, text).and_then(|()| restrict(host, client_config)) {
+                Ok(()) => *error,
+                Err(restore) => ClientConfigError::NotRestored {
+                    error,
+                    restore: Box::new(restore),
+                }
+                .with_setting(source),
             }
-            .with_setting(source),
-        },
+        }
         None if host.exists(client_config) => match host.remove_file(client_config) {
             Ok(()) => *error,
             Err(cause) => ClientConfigError::NotRemoved {

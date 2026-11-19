@@ -12,11 +12,13 @@ use std::path::{Path, PathBuf};
 /// The directory relative paths are taken from.
 pub const CURRENT_DIR: &str = "/work";
 
-/// A stored file: its text, and whether only its owner may read it.
+/// A stored file: its text, whether only its owner may read it, and its
+/// permission bits.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct File {
     pub text: String,
     pub private: bool,
+    pub mode: u32,
 }
 
 #[derive(Default)]
@@ -32,8 +34,8 @@ pub struct FakeHost {
     /// Every rename fails.
     pub rename_fails: Cell<bool>,
     /// Each operation named here fails, as `refused`: `read`,
-    /// `create_private`, `restrict`, `create_dir_all`, `remove_file`,
-    /// `absolute`, `canonicalize`.
+    /// `create_private`, `restrict`, `mode`, `set_mode`, `create_dir_all`,
+    /// `remove_file`, `absolute`, `canonicalize`.
     pub refused: RefCell<BTreeSet<&'static str>>,
 }
 
@@ -71,6 +73,7 @@ impl FakeHost {
             File {
                 text: text.into(),
                 private: false,
+                mode: 0o644,
             },
         );
     }
@@ -105,6 +108,7 @@ impl Host for FakeHost {
             File {
                 text: text.into(),
                 private: true,
+                mode: 0o600,
             },
         );
         Ok(())
@@ -113,7 +117,23 @@ impl Host for FakeHost {
     fn restrict(&self, path: &Path) -> io::Result<()> {
         self.check("restrict")?;
         let mut files = self.files.borrow_mut();
-        files.get_mut(path).ok_or_else(not_found)?.private = true;
+        let file = files.get_mut(path).ok_or_else(not_found)?;
+        file.private = true;
+        file.mode = 0o600;
+        Ok(())
+    }
+
+    fn mode(&self, path: &Path) -> io::Result<Option<u32>> {
+        self.check("mode")?;
+        self.file(path).map(|f| Some(f.mode)).ok_or_else(not_found)
+    }
+
+    fn set_mode(&self, path: &Path, mode: u32) -> io::Result<()> {
+        self.check("set_mode")?;
+        let mut files = self.files.borrow_mut();
+        let file = files.get_mut(path).ok_or_else(not_found)?;
+        file.mode = mode;
+        file.private = mode & 0o077 == 0;
         Ok(())
     }
 

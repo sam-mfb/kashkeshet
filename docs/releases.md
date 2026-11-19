@@ -51,7 +51,7 @@ it (replace the example version with a published release):
 VERSION=v0.8.0
 ARCHIVE=kashkeshet-x86_64-unknown-linux-gnu.tar.xz
 gh release download "$VERSION" -R sam-mfb/kashkeshet --pattern "$ARCHIVE" --pattern "$ARCHIVE.sha256"
-sha256sum -c "$ARCHIVE.sha256" # on macOS: shasum -a 256 -c "$ARCHIVE.sha256"
+grep . "$ARCHIVE.sha256" | sha256sum -c - # on macOS: grep . "$ARCHIVE.sha256" | shasum -a 256 -c -
 gh attestation verify "$ARCHIVE" --repo sam-mfb/kashkeshet --signer-workflow sam-mfb/kashkeshet/.github/workflows/release.yml
 tar -xf "$ARCHIVE"
 ```

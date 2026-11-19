@@ -195,10 +195,25 @@ fn client_config_overrides_select_file_client_previews_writes_and_backups() {
             #[cfg(unix)]
             {
                 use std::os::unix::fs::PermissionsExt;
-                for private_file in [&file, &backup].into_iter().filter(|path| path.exists()) {
+                // The backup is always private. The config itself ends
+                // private when it is new or holds the key (agy, muse-code);
+                // an existing config that only names the key file (codex,
+                // opencode) keeps the mode it had.
+                let file_mode = std::fs::metadata(&file)
+                    .expect("config")
+                    .permissions()
+                    .mode()
+                    & 0o777;
+                let holds_key = matches!(client, "agy" | "muse-code");
+                assert_eq!(
+                    file_mode,
+                    if !existing || holds_key { 0o600 } else { 0o644 },
+                    "{client} existing={existing}"
+                );
+                if backup.exists() {
                     assert_eq!(
-                        std::fs::metadata(private_file)
-                            .expect("private file")
+                        std::fs::metadata(&backup)
+                            .expect("backup")
                             .permissions()
                             .mode()
                             & 0o777,
