@@ -134,6 +134,9 @@ pub struct Installed {
 /// What `kkt setup` does to the machine. It includes what `kkt switch` does
 /// ([`SwitchSteps`]) and how setup finds a server to adopt ([`AdoptSteps`]).
 pub trait Steps: SwitchSteps + AdoptSteps {
+    /// The notice to give before an install that reuses Docker data.
+    fn docker_data_notice(&self) -> Option<String>;
+
     /// Installs and starts the server as a service that also answers to
     /// `allow_hosts`.
     fn install_service(
@@ -346,6 +349,12 @@ pub fn run(
         if let Some(left) = &left {
             keeps_noted_server(left, purpose)?;
         }
+    }
+    if purpose == Some(Purpose::Docker)
+        && !matches!(&plan, Plan::Resume(note) if note.record.is_some())
+        && let Some(notice) = steps.docker_data_notice()
+    {
+        ask.tell(&notice);
     }
     // With no record of a server here, a client setup keeps the noted one
     // managed by recording it, with only its clients switched.

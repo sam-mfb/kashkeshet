@@ -149,6 +149,9 @@ pub struct Provisioned {
 
 /// Running and managing a kkt container installation.
 pub trait ServiceContainer {
+    /// Whether setup will reuse its folder or the named data volume.
+    fn reuses_data(&self, folder: &Folder, volume: &str) -> Result<bool, ContainerError>;
+
     /// Create or finish the installation, start it, and save its keys.
     fn provision<'a>(
         &'a self,

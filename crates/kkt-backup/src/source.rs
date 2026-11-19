@@ -1,6 +1,6 @@
 //! Which server `kkt backup` acts on, by where this machine's server is:
 //! kkt in Docker in its managed folder, or the local database `kkt serve`
-//! would use. A client machine has no server to act on.
+//! would use. A client may name a local target explicitly.
 
 use crate::BackupOfError;
 use std::path::{Path, PathBuf};
@@ -50,8 +50,8 @@ pub fn backup_of(
                 into: into.map(Path::to_path_buf),
             })
         }
-        ServerHere::Elsewhere => Err(BackupOfError::OnAClient),
-        ServerHere::ThisMachine => {
+        ServerHere::Elsewhere if !local_options => Err(BackupOfError::OnAClient),
+        ServerHere::ThisMachine | ServerHere::Elsewhere => {
             let into = into.ok_or(BackupOfError::NoFolder)?;
             Ok(BackupOf::Local {
                 into: into.to_path_buf(),

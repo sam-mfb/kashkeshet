@@ -40,6 +40,7 @@ type Answer = Box<dyn Fn(&Request) -> Result<(Option<i32>, String, String), Proj
 /// tool is called `tool`.
 pub struct MemoryProjects {
     services: Vec<String>,
+    volumes: BTreeSet<String>,
     answer: Answer,
     available: bool,
     files: RefCell<BTreeMap<PathBuf, (String, bool)>>,
@@ -57,6 +58,7 @@ impl MemoryProjects {
             services: services.iter().map(|s| s.to_string()).collect(),
             answer: Box::new(|_| Ok((Some(0), String::new(), String::new()))),
             available: true,
+            volumes: BTreeSet::new(),
             files: RefCell::default(),
             folders: RefCell::default(),
             running: RefCell::default(),
@@ -71,6 +73,12 @@ impl MemoryProjects {
         answer: impl Fn(&Request) -> Result<(Option<i32>, String, String), ProjectError> + 'static,
     ) -> MemoryProjects {
         self.answer = Box::new(answer);
+        self
+    }
+
+    /// A named volume present before setup.
+    pub fn with_volume(mut self, name: &str) -> Self {
+        self.volumes.insert(name.to_owned());
         self
     }
 
@@ -152,6 +160,10 @@ impl Projects for MemoryProjects {
                 cause: "not installed".into(),
             })
         }
+    }
+
+    fn has_volume(&self, _: &Project, name: &str) -> Result<bool, ProjectError> {
+        Ok(self.volumes.contains(name))
     }
 
     fn tool(&self) -> &str {

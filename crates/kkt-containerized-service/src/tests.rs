@@ -95,6 +95,13 @@ fn tailscale(env: &str) -> MemoryProjects {
 // ------------------------------------------------------------ settings file
 
 #[test]
+fn a_volume_can_outlive_its_managed_folder() {
+    let container = service(MemoryProjects::new(&["kkt"]).with_volume("older_kkt-data"));
+    assert!(container.reuses_data(&folder(), "older_kkt-data").unwrap());
+    assert!(!container.reuses_data(&folder(), "other_kkt-data").unwrap());
+}
+
+#[test]
 fn the_settings_file_is_there_only_when_something_is_at_its_path() {
     let none = service(MemoryProjects::new(&["kkt"]));
     assert!(!none.has_settings(&folder()));
@@ -269,6 +276,10 @@ fn up_and_down_run_the_projects_services_and_down_may_remove_the_data() {
 struct Failing(ProjectError);
 
 impl Projects for Failing {
+    fn has_volume(&self, _: &Project, _: &str) -> Result<bool, ProjectError> {
+        Err(self.0.clone())
+    }
+
     fn available(&self, _: &Project) -> Result<(), ProjectError> {
         Ok(())
     }

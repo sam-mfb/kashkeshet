@@ -87,6 +87,21 @@ impl Projects for Docker {
         self.succeed(&command, Output::Captured).map(|_| ())
     }
 
+    fn has_volume(&self, project: &Project, name: &str) -> Result<bool, ProjectError> {
+        let command = docker(
+            project.shielded,
+            vec![
+                "volume".into(),
+                "ls".into(),
+                "--quiet".into(),
+                "--filter".into(),
+                format!("name={name}"),
+            ],
+        );
+        let names = self.succeed(&command, Output::Captured)?;
+        Ok(names.lines().any(|volume| volume == name))
+    }
+
     fn tool(&self) -> &str {
         "Docker"
     }
