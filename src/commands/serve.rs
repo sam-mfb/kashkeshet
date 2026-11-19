@@ -85,13 +85,16 @@ pub async fn run(
     platform: Platform,
     config: Option<PathBuf>,
     flags: ServeOptions,
+    default_log_file: Option<PathBuf>,
 ) -> Result<(), ServeError> {
     let loaded = load_serve_options(env, config, flags)?;
     let sources = loaded.sources();
+    let mut options = loaded.flags.over(loaded.from_file);
+    options.log_file = options.log_file.or(default_log_file);
     let settings = resolve(
         env,
         platform,
-        loaded.flags.over(loaded.from_file),
+        options,
         DefaultDb::Made(DbHome::Keep),
         Report::Traced(&sources),
     )?;
@@ -373,7 +376,7 @@ mod tests {
 
     #[tokio::test]
     async fn without_a_home_or_a_db_serve_refuses_before_other_settings() {
-        let err = run(&test_env(None), TEST_PLATFORM, None, bad_pack())
+        let err = run(&test_env(None), TEST_PLATFORM, None, bad_pack(), None)
             .await
             .map_err(|e| e.to_string());
         assert_eq!(
@@ -389,7 +392,7 @@ mod tests {
         let folder = kkt_deployment::default_db(&env, TEST_PLATFORM)
             .and_then(|db| db.parent().map(PathBuf::from))
             .expect("a folder");
-        let err = run(&env, TEST_PLATFORM, None, bad_pack())
+        let err = run(&env, TEST_PLATFORM, None, bad_pack(), None)
             .await
             .expect_err("bad pack")
             .to_string();
@@ -409,7 +412,7 @@ mod tests {
             no_access_key: Some(true),
             ..bad_pack()
         };
-        let err = run(&test_env(None), TEST_PLATFORM, None, flags)
+        let err = run(&test_env(None), TEST_PLATFORM, None, flags, None)
             .await
             .expect_err("bad pack")
             .to_string();

@@ -72,6 +72,32 @@ async fn start(home: &Path, log: &Path) -> (Child, String) {
     (child, bind)
 }
 
+#[tokio::test]
+async fn service_log_follows_the_config_at_each_start() {
+    let home = temp_home("service-config");
+    let config = home.join("service.toml");
+    let fallback = home.join("default.log");
+    for name in [None, Some("custom.log"), Some("moved.log")] {
+        let text = name
+            .map(|name| format!("log_file = \"{name}\"\n"))
+            .unwrap_or_default();
+        std::fs::write(&config, text).expect("config");
+        let (child, _) = serving::start_quiet(|_| {
+            let mut cmd = Command::new(KKT);
+            cmd.arg("serve")
+                .arg("--config")
+                .arg(&config)
+                .arg("--default-log-file")
+                .arg(&fallback)
+                .own_home(&home);
+            cmd
+        })
+        .await;
+        stop(child).await;
+        assert!(read(&home.join(name.unwrap_or("default.log"))).contains("listening"));
+    }
+}
+
 /// Stops the server with SIGTERM, as a service manager would, waits for it
 /// to exit cleanly, and returns what it printed.
 #[expect(

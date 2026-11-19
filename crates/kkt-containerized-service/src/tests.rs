@@ -1440,6 +1440,20 @@ fn no_key_reaches_a_line_said_when_an_upgrade_cannot_save_the_key_copies() {
 }
 
 #[test]
+fn upgrade_says_where_the_backup_went() {
+    let (service, said, clock) = installed(
+        Rc::new(kkt_keys::testing::Memory::new()),
+        LOCAL_SETTINGS,
+        with_backup(|_| Ok((Some(0), String::new(), String::new()))),
+    );
+    block_on(service.upgrade(&*clock, &folder(), "0.5.0", None)).unwrap();
+    assert_eq!(
+        *said.0.borrow(),
+        vec!["Backed up to /data/docker/backups/kkt-backup-1".to_string()]
+    );
+}
+
+#[test]
 fn set_version_replaces_or_adds_the_version_line_and_keeps_the_rest() {
     assert_eq!(
         crate::files::set_version("A=1\nKKT_VERSION=0.1\nB=2\n", "0.2"),

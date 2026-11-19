@@ -518,6 +518,27 @@
      "note": "the program's own work"
     },
     {
+     "own": "Read the log path from the service config",
+     "suppliers": [
+      {
+       "crate": "kkt-config-file",
+       "item": "parse_file"
+      },
+      {
+       "crate": "kkt-files",
+       "item": "Files"
+      }
+     ],
+     "crate": "kkt-bare-service-launchd",
+     "to": [
+      {
+       "at": "Launchd::with_configured_log",
+       "param": "read"
+      }
+     ],
+     "note": "The default config or the config named in the plist, with relative paths resolved."
+    },
+    {
      "impl": "kkt-bare-service-launchd::Launchd",
      "crate": "kkt-install-commands",
      "to": [

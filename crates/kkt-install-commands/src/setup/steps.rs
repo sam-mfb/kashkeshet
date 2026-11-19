@@ -975,6 +975,12 @@ mod tests {
         fn restrict(&self, _: &Path) -> std::io::Result<()> {
             unreachable!("clients")
         }
+        fn mode(&self, _: &Path) -> std::io::Result<Option<u32>> {
+            unreachable!("clients")
+        }
+        fn set_mode(&self, _: &Path, _: u32) -> std::io::Result<()> {
+            unreachable!("clients")
+        }
         fn create_dir_all(&self, _: &Path) -> std::io::Result<()> {
             unreachable!("clients")
         }
@@ -1043,6 +1049,13 @@ mod tests {
         }
     }
     impl crate::ServiceDefaults for Unused {
+        fn endpoint(
+            &self,
+            _: &[String],
+        ) -> Result<(std::net::SocketAddr, Option<PathBuf>), crate::PartError> {
+            unreachable!("service endpoint")
+        }
+
         fn matches_defaults(&self, _: &[String]) -> Result<bool, crate::PartError> {
             unreachable!("service_defaults")
         }

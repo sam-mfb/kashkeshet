@@ -118,13 +118,28 @@ pub(super) fn restrict(host: &dyn Host, path: &Path) -> Result<(), ClientConfigE
 
 /// Writes `text` to a private temporary file beside `path` and moves it
 /// over `path`, so a reader sees the old file or the new one, never part
-/// of either. A temporary file left by a failure is removed.
-fn atomic(host: &dyn Host, path: &Path, text: &str) -> Result<(), ClientConfigError> {
+/// of either. The final mode is decided before the move and set on the
+/// temporary file, so the file lands already correct: a key-holding file
+/// (`private`) is 0600, a file that was there otherwise keeps the mode it
+/// had, and a new file is private, as the temporary file is. A temporary
+/// file left by a failure is removed.
+fn atomic(
+    host: &dyn Host,
+    path: &Path,
+    text: &str,
+    private: bool,
+) -> Result<(), ClientConfigError> {
     let parent = path
         .parent()
         .ok_or(ClientConfigError::NoFolder(Folder::ConfigPath))?;
     host.create_dir_all(parent)
         .map_err(|e| ClientConfigError::file(FileAction::Create, parent, e))?;
+    let mode = match host.mode(path) {
+        Ok(mode) => mode,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => None,
+        Err(e) => return Err(ClientConfigError::file(FileAction::Write, path, e)),
+    };
+    let final_mode = if private { Some(0o600) } else { mode };
     let mut name = path.as_os_str().to_os_string();
     name.push(format!(".kkt-{}", host.process_id()));
     let temporary = PathBuf::from(name);
@@ -132,7 +147,12 @@ fn atomic(host: &dyn Host, path: &Path, text: &str) -> Result<(), ClientConfigEr
         Err(e) if !host.exists(&temporary) => {
             return Err(ClientConfigError::file(FileAction::Prepare, path, e));
         }
-        written => written.and_then(|()| host.rename(&temporary, path)),
+        written => written.and_then(|()| {
+            if let Some(mode) = final_mode {
+                host.set_mode(&temporary, mode)?;
+            }
+            host.rename(&temporary, path)
+        }),
     };
     if let Err(error) = written {
         if let Err(cleanup) = host.remove_file(&temporary) {
@@ -152,9 +172,10 @@ pub(super) fn replace(
     path: &Path,
     original: Option<&str>,
     updated: &str,
+    private: bool,
 ) -> Result<(), ClientConfigError> {
     backup(host, path, original)?;
-    atomic(host, path, updated)
+    atomic(host, path, updated, private)
 }
 
 /// Apply a Claude Code change through its CLI. `client_config` is absolute;
@@ -189,7 +210,9 @@ pub(super) fn apply_claude(
     // failure beside it if that failed too.
     let error = Box::new(ClientConfigError::Command(failed));
     Err(match original {
-        Some(text) => match atomic(host, client_config, text) {
+        // The restored config may hold a key, so it is private from the
+        // moment it lands, as a key-holding file is.
+        Some(text) => match atomic(host, client_config, text, true) {
             Ok(()) => *error,
             Err(restore) => ClientConfigError::NotRestored {
                 error,

@@ -13,6 +13,8 @@ use std::process::Stdio;
 /// The files and commands the service manager is worked through: the real
 /// system ([`OsSystem`]), a dry run ([`DryRun`]), or a test's fake.
 pub(crate) trait System {
+    /// Prints a diagnostic before an attached command such as tail starts.
+    fn warn(&self, message: &str);
     /// The user's numeric ID, which names their launchd domain.
     fn user_id(&self) -> io::Result<u32>;
     /// Whether `path` is there: `Ok(false)` only when it is not, and an
@@ -98,6 +100,10 @@ impl Finished {
 pub(crate) struct OsSystem;
 
 impl System for OsSystem {
+    fn warn(&self, message: &str) {
+        eprintln!("{message}");
+    }
+
     fn user_id(&self) -> io::Result<u32> {
         let finished = self.run(&Command::query("id", &["-u"]))?;
         finished
@@ -179,6 +185,10 @@ impl<'a> DryRun<'a> {
 }
 
 impl System for DryRun<'_> {
+    fn warn(&self, message: &str) {
+        self.real.warn(message);
+    }
+
     fn user_id(&self) -> io::Result<u32> {
         self.real.user_id()
     }

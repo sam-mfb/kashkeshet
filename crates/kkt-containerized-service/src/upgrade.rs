@@ -5,7 +5,7 @@
 
 use crate::ContainerError;
 use crate::KeyCopies;
-use crate::backup::backup_in_container;
+use crate::backup::{backup_in_container, backups};
 use crate::files::{ENV_FILE, is_shared, set_version};
 use crate::in_server::SERVER;
 use crate::setup::{Parts, save_keys, say_saved, write_embedded, write_env};
@@ -30,7 +30,11 @@ pub(crate) async fn upgrade(
     let env = projects
         .read(project, Path::new(ENV_FILE))
         .map_err(ContainerError::from)?;
-    backup_in_container(projects, project)?;
+    let name = backup_in_container(projects, project)?;
+    tell.say(&format!(
+        "Backed up to {}",
+        backups(project.folder).join(name).display()
+    ));
     write_embedded(projects, project, is_shared(&env))?;
     write_env(projects, project, &set_version(&env, new_version))?;
     let result = projects

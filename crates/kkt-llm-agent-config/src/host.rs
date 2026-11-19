@@ -17,6 +17,14 @@ pub trait Host {
     /// Makes the file readable only by its owner.
     fn restrict(&self, path: &Path) -> io::Result<()>;
 
+    /// The file's permission bits; `None` on a system that has none. An
+    /// error when the file cannot be looked at.
+    fn mode(&self, path: &Path) -> io::Result<Option<u32>>;
+
+    /// Sets the file's permission bits; does nothing on a system that
+    /// has none.
+    fn set_mode(&self, path: &Path, mode: u32) -> io::Result<()>;
+
     fn create_dir_all(&self, path: &Path) -> io::Result<()>;
 
     /// Replaces `to` with `from` in one step.

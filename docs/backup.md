@@ -63,8 +63,11 @@ first, which upgrades it, then with this version.
 ## Restoring
 
 1. Stop the server.
-2. Delete `kashkeshet.db-wal` and `kashkeshet.db-shm` beside the database
-   file, if they exist. They belong to the database being replaced.
+2. Delete the database file's own `-wal` and `-shm` files beside it, if
+   they exist: for `kashkeshet.db` those are `kashkeshet.db-wal` and
+   `kashkeshet.db-shm`, and for any other database name they follow that
+   name (for `my.db`, `my.db-wal` and `my.db-shm`). They belong to the
+   database being replaced.
 3. Copy the backup's `kashkeshet.db` over the database file.
 4. If the config or keys were lost too, restore the backup's `config.toml`,
    `access-key` and `web-key` to their respective source paths listed in
@@ -75,6 +78,14 @@ first, which upgrades it, then with this version.
    server has no admin endpoint. Restore its `admin-key.name` with it;
    without the name, the admin key may only read.
 5. Start the server.
+
+A restored database gives out message IDs again from the backup's highest
+ID, so new messages can have IDs that a watcher has already seen. A
+`kkt watch` whose state file holds a higher ID will skip those messages.
+Before restarting such a watch, delete its state file, and give
+`--after-id` with the backup's highest message ID if you know it; without
+`--after-id`, the watch starts after the latest message (see
+[Waiting](waiting.md)).
 
 To go back to an older version of kkt, restore a backup made by that version
 or before, then start that version. A backup made before an upgrade has the

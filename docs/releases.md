@@ -10,8 +10,8 @@ curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/latest/download/kashke
 kkt --version
 ```
 
-Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
-already set up here.
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` to upgrade a
+server running here (client-only machines need no further step).
 
 The shell installer selects the native archive and installs `kkt`
 into `$CARGO_HOME/bin` (or `~/.cargo/bin`). Linux builds use GNU libc on
@@ -28,8 +28,8 @@ curl -fsSL https://github.com/sam-mfb/kashkeshet/releases/download/v0.8.0/kashke
 kkt --version # kashkeshet 0.8.0
 ```
 
-Next: run `kkt setup` to set up this machine, or `kkt upgrade` if kkt was
-already set up here.
+Next: run `kkt setup` to set up this machine, or `kkt upgrade` to upgrade a
+server running here (client-only machines need no further step).
 
 ## Container image
 
@@ -51,7 +51,7 @@ it (replace the example version with a published release):
 VERSION=v0.8.0
 ARCHIVE=kashkeshet-x86_64-unknown-linux-gnu.tar.xz
 gh release download "$VERSION" -R sam-mfb/kashkeshet --pattern "$ARCHIVE" --pattern "$ARCHIVE.sha256"
-sha256sum -c "$ARCHIVE.sha256" # on macOS: shasum -a 256 -c "$ARCHIVE.sha256"
+grep . "$ARCHIVE.sha256" | sha256sum -c - # on macOS: grep . "$ARCHIVE.sha256" | shasum -a 256 -c -
 gh attestation verify "$ARCHIVE" --repo sam-mfb/kashkeshet --signer-workflow sam-mfb/kashkeshet/.github/workflows/release.yml
 tar -xf "$ARCHIVE"
 ```
