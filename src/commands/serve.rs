@@ -338,6 +338,30 @@ fn backup_before_upgrade(
         ),
         &[],
     );
+    // Only metadata. The migration proceeds independently of this read of
+    // the completed snapshot, even if its message table cannot be read.
+    tokio::task::spawn_blocking(move || {
+        let result =
+            crate::machine::database::highest_message_id(&written.join(backup::DATABASE_FILE))
+                .map_err(|e| e.to_string())
+                .and_then(|highest| match highest {
+                    Some(id) => OsBackups::new(crate::machine::database::copy)
+                        .record_highest(&written, id)
+                        .map_err(|e| e.to_string()),
+                    None => Ok(()),
+                });
+        if let Err(reason) = result {
+            TracingLog.record(
+                Level::Warn,
+                module_path!(),
+                format_args!(
+                    "Highest message ID not recorded in {}: {reason}",
+                    written.join(backup::ABOUT_FILE).display()
+                ),
+                &[],
+            );
+        }
+    });
     // The backup is made, so the upgrade is safe; an old backup left behind
     // only takes space.
     match OsBackups::new(crate::machine::database::copy).prune(&folder, keep) {

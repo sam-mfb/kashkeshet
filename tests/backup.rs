@@ -296,9 +296,8 @@ async fn a_backup_to_a_non_utf8_folder_records_the_highest_id() {
     assert!(about.contains("highest message ID: 3\n"), "{about}");
 }
 
-/// The highest ID is optional: a source the backup cannot read for it
-/// (locked, read-only, empty, or from before this storage) still backs
-/// up, byte for byte unchanged, with the reason printed in one line.
+/// Metadata comes from the finished copy, including for locked, read-only
+/// and legacy sources. A missing message table leaves a usable backup.
 #[tokio::test]
 async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
     async fn run_backup(home: &Path, db: &Path) -> (PathBuf, (bool, String)) {
@@ -408,7 +407,7 @@ async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
         let (folder, (success, text)) = run_backup(&home, &db).await;
         assert!(success, "{text}");
         assert!(
-            text.contains("Highest message ID not recorded in about.txt"),
+            !text.contains("Highest message ID not recorded in about.txt"),
             "{text}"
         );
         assert_eq!(std::fs::read(&db).expect("bytes after"), before);
@@ -416,7 +415,7 @@ async fn a_backup_that_cannot_read_the_highest_id_still_copies_its_source() {
         let backup = backups_in(&folder).pop().expect("one backup");
         assert_eq!(files_in(&backup), ["about.txt", "kashkeshet.db"]);
         let about = std::fs::read_to_string(backup.join("about.txt")).expect("about");
-        assert!(!about.contains("highest message ID"), "{about}");
+        assert!(about.contains("highest message ID: 1\n"), "{about}");
     }
 }
 
@@ -443,6 +442,17 @@ async fn a_backup_keeps_both_keys_private_and_restores_them() {
     assert!(success, "{text}");
     assert!(text.contains("access key"), "{text}");
     let backup = backups_in(&folder).pop().expect("one backup");
+    #[cfg(unix)]
+    for file in std::fs::read_dir(&backup).unwrap() {
+        use std::os::unix::fs::PermissionsExt;
+        let file = file.unwrap();
+        assert_eq!(
+            file.metadata().unwrap().permissions().mode() & 0o777,
+            0o600,
+            "{:?}",
+            file.path()
+        );
+    }
     let name = backup
         .file_name()
         .expect("name")
@@ -710,6 +720,10 @@ fn serve_args(db: &Path) -> Vec<String> {
 }
 
 #[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "bound the wait for the real server's optional metadata task"
+)]
 async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
     let home = temp_home("upgrade");
     let data = home.join("data");
@@ -733,7 +747,6 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
         &args.iter().map(String::as_str).collect::<Vec<_>>(),
     ))
     .await;
-    server.child.kill().await.expect("stop kkt");
     let log = server.log;
 
     assert!(log.contains("backed up the database to"), "{log}");
@@ -757,6 +770,18 @@ async fn an_upgrade_backs_up_the_database_first_and_keeps_the_newest_backups() {
         .collect();
     files.sort();
     assert_eq!(files, ["about.txt", "kashkeshet.db"]);
+    tokio::time::timeout(TIMEOUT, async {
+        loop {
+            let about = std::fs::read_to_string(backups[1].join("about.txt")).unwrap();
+            if about.contains("highest message ID: 1\n") {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("server records the highest ID in the migration backup");
+    server.child.kill().await.expect("stop kkt");
     // The backup is the database as it was before the upgrade.
     let copy = backups[1].join("kashkeshet.db");
     assert_eq!(schema_version(&copy), 21);

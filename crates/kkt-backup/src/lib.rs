@@ -42,6 +42,8 @@ pub trait Backups {
     /// finished backup at `backup`, which the caller read from its copied
     /// database. The backup itself is already complete without it.
     fn record_highest(&self, backup: &Path, highest: i64) -> Result<(), BackupError>;
+    /// Finished backup directories in name order. A missing folder is empty.
+    fn finished(&self, folder: &Path) -> Result<Vec<PathBuf>, BackupError>;
     /// Removes the backups in `folder` that [`old_names`] picks to go,
     /// keeping the newest `keep`. A missing folder has no backups. Returns
     /// the backups removed, oldest first.
@@ -137,18 +139,18 @@ impl<'a> Layout<'a> {
 pub fn layout<'a>(at: Time, version: &str, contents: &Contents<'a>) -> Layout<'a> {
     let name = name(at, version);
     let copies = [
-        (contents.config, CONFIG_FILE, false),
-        (contents.access_key, ACCESS_KEY_FILE, true),
-        (contents.web_key, WEB_KEY_FILE, true),
-        (contents.admin_key, ADMIN_KEY_FILE, true),
-        (contents.admin_name, ADMIN_NAME_FILE, false),
+        (contents.config, CONFIG_FILE),
+        (contents.access_key, ACCESS_KEY_FILE),
+        (contents.web_key, WEB_KEY_FILE),
+        (contents.admin_key, ADMIN_KEY_FILE),
+        (contents.admin_name, ADMIN_NAME_FILE),
     ]
     .into_iter()
-    .filter_map(|(source, name, private)| {
+    .filter_map(|(source, name)| {
         source.map(|source| FileCopy {
             source,
             name,
-            private,
+            private: true,
         })
     })
     .collect();
