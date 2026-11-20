@@ -85,16 +85,15 @@ pub fn pending_upgrade(path: &Path) -> Result<Option<PendingUpgrade>, PendingErr
 }
 
 /// The highest message ID in the database at `path`, for a backup's
-/// about file, read read-only: the file is not created, initialised,
-/// migrated or put into a journal mode by this read, and any of those
-/// being needed (or the file being locked, read-only or from before
-/// kkt-db) is an error the caller may simply omit the line for.
+/// about file. Reads only the finished copy, even if its schema is older.
+/// The query needs the messages table and its ID column. It never migrates
+/// the file, creates journal files or waits for a writer.
 /// `Ok(None)` when there are no messages. The read runs on this
 /// runtime's blocking pool, as the database's own reads do, so it is
 /// called from inside the runtime, on the finished copy a backup made.
 pub fn highest_message_id(path: &Path) -> Result<Option<i64>, HighestError> {
     let backend = place(path)
-        .open_read_only(&[kkt_rules::schema()])
+        .open_snapshot(&[kkt_rules::schema()])
         .map_err(|source| HighestError::Open {
             path: path.to_path_buf(),
             source,

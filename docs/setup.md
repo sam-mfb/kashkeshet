@@ -370,7 +370,11 @@ backs up, updates its managed
 files to that version's image and starts it, then saves the host copies of
 the access and web keys as setup does. If saving them fails, it says how to
 get the keys and the upgrade still finishes. A service backs up and
-reinstalls the service using the installed program. See
+reinstalls the service using the installed program. It names any completed
+pre-migration database backup as well. An older Docker image can omit the
+highest message ID from its backup, as can a database with no messages or
+a copy whose ID could not be recorded. After restoring, clear the watch
+state file and use `--after-id 0` if you need to replay from the beginning. See
 [backups](backup.md) for restoring an older database when rolling back.
 The installed version is the upgrade target. If it is already selected,
 `upgrade` reports that and makes no changes. It refuses a lower version or
