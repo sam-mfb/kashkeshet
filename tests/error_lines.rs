@@ -143,11 +143,18 @@ fn every_command_says_why_it_failed_and_exits_with_one() {
              directory (os error 2)"
         )
     );
+    // A `--clients` name checked after the parser is wrong usage: the
+    // same plain line, but exit 2, as `tests/exit_codes.rs` pins.
     assert_eq!(
         printed(&["setup", "--clients", "bogus"]),
-        on_stderr(
-            "unknown client \"bogus\" in --clients: use claude-code, codex, opencode, agy, \
-             muse-code or none"
+        (
+            Vec::new(),
+            vec![
+                "error: unknown client \"bogus\" in --clients: use claude-code, codex, \
+                 opencode, agy, muse-code or none"
+                    .to_string()
+            ],
+            Some(2)
         )
     );
     let key = home.join("k");

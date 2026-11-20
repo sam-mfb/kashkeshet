@@ -102,14 +102,13 @@ impl Files {
         }
         let same_inode =
             |a: &fs::Metadata, b: &fs::Metadata| a.dev() == b.dev() && a.ino() == b.ino();
-        if let Ok(other_meta) = fs::metadata(other)
-            && same_inode(&meta, &other_meta)
-        {
+        let Ok(other_meta) = fs::metadata(other) else {
             return Ok(None);
-        }
-        if let Ok(other_meta) = fs::symlink_metadata(other)
-            && same_inode(&meta, &other_meta)
-        {
+        };
+        let Ok(other_link) = fs::symlink_metadata(other) else {
+            return Ok(None);
+        };
+        if same_inode(&meta, &other_meta) || same_inode(&meta, &other_link) {
             return Ok(None);
         }
         let mut file = match fs::File::open(candidate) {
@@ -456,5 +455,60 @@ mod tests {
             dir.join("a").canonicalize().expect("canonical")
         );
         assert!(Files.canonicalize(&dir.join("missing")).is_err());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn read_independent_file_declines_when_other_metadata_cannot_be_read() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch::Dir::new("files-independent-unreadable");
+        let locked = dir.join("locked");
+        let other = locked.join("config.toml");
+        let candidate = dir.join("config.toml.bak");
+        Files.create_dir_all(&locked).expect("made");
+        Files.write(&other, "original\n").expect("written");
+        fs::hard_link(&other, &candidate).expect("hard link");
+
+        // Accessible hard link is rejected.
+        assert_eq!(
+            Files
+                .read_independent_file(&candidate, &other)
+                .expect("checked"),
+            None
+        );
+
+        // Missing `other` cannot be verified as independent, so reuse is declined.
+        assert_eq!(
+            Files
+                .read_independent_file(&candidate, &dir.join("missing"))
+                .expect("missing other"),
+            None
+        );
+
+        // Inaccessible `other` (PermissionDenied) must also decline reuse.
+        let set = |m| fs::set_permissions(&locked, fs::Permissions::from_mode(m));
+        set(0o000).expect("locked");
+        let holds = fs::metadata(&other).is_err();
+        let result = Files.read_independent_file(&candidate, &other);
+        set(0o755).expect("unlocked");
+        if holds {
+            assert_eq!(result.expect("declined"), None);
+        }
+    }
+
+    #[test]
+    #[cfg(not(unix))]
+    fn read_independent_file_declines_reuse_on_non_unix() {
+        let dir = scratch::Dir::new("files-independent-non-unix");
+        let other = dir.join("config.toml");
+        let candidate = dir.join("config.toml.bak");
+        Files.write(&other, "original\n").expect("written");
+        Files.write(&candidate, "original\n").expect("written");
+        assert_eq!(
+            Files
+                .read_independent_file(&candidate, &other)
+                .expect("declined"),
+            None
+        );
     }
 }
