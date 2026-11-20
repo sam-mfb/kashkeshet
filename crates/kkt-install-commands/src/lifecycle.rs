@@ -1010,6 +1010,14 @@ mod tests {
             self.0.borrow_mut().push("clients.read");
             Err(std::io::ErrorKind::NotFound.into())
         }
+        fn read_independent_file(&self, _: &Path, _: &Path) -> std::io::Result<Option<String>> {
+            self.0.borrow_mut().push("clients.read_independent_file");
+            Ok(None)
+        }
+        fn list_dir(&self, _: &Path) -> std::io::Result<Vec<std::ffi::OsString>> {
+            self.0.borrow_mut().push("clients.list_dir");
+            Ok(Vec::new())
+        }
         fn exists(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("clients.exists");
             false

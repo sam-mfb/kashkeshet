@@ -58,6 +58,8 @@ This release reorganizes kkt's code into crates that other programs can build on
 The shared crates are reorganized so that every dependency is injected and each crate is one kind: a contract (traits and plain values), logic, an effect on the machine, or the assembly. A crate such as kkt-pro that depends on them by git must follow these changes. Each item below gives where a thing is now. Nothing an agent, a person or an install sees changes, apart from what the sections above list.
 
 #### Since 1.0.0-rc.3
+- **`kkt-files`:** `Files` gains `dir_entries(&self, folder: &Path) -> io::Result<Vec<OsString>>` and `read_independent_file(&self, candidate: &Path, other: &Path) -> io::Result<Option<String>>` (reads a regular, non-symlink file that does not share an inode with `other`).
+- **`kkt-llm-agent-config`:** `Host` gains required methods `list_dir(&self, dir: &Path) -> io::Result<Vec<OsString>>` and `read_independent_file(&self, candidate: &Path, other: &Path) -> io::Result<Option<String>>`; every implementation of `Host` must add them.
 - **`kkt-setup`:** `Question` gains field `topic: &'a str` (a plain lowercase phrase completing `no terminal to ask {topic}` and `no answer when asked {topic}`; falls back to `text` when empty). Callers constructing `Question` struct literals must supply `topic`.
 
 #### Since 1.0.0-rc.2

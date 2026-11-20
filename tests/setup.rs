@@ -3314,3 +3314,89 @@ async fn switch_closing_line_names_only_the_clients_that_moved() {
     local.kill().await.expect("stop local");
     other.kill().await.expect("stop other");
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn client_backup_requires_an_independent_regular_file_and_scans_past_gaps() {
+    let original = "model = \"o3\"\n[mcp_servers.kkt]\nurl = \"https://old.example/mcp\"\n";
+
+    // 1. Symlink .bak pointing at config.toml must NOT count as a backup.
+    let home = temp_home("bak-symlink");
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().unwrap()).unwrap();
+    std::fs::write(&codex, original).unwrap();
+    let bak = home.join(".codex/config.toml.bak");
+    std::os::unix::fs::symlink(&codex, &bak).unwrap();
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "connect",
+            "codex",
+            "--url",
+            "https://new.example/mcp",
+            "--write",
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    let bak1 = home.join(".codex/config.toml.bak.1");
+    assert_eq!(
+        std::fs::read_to_string(&bak1).expect("real independent backup created at .bak.1"),
+        original
+    );
+    assert!(
+        std::fs::read_to_string(&codex)
+            .unwrap()
+            .contains("https://new.example/mcp")
+    );
+
+    // 2. Hard link .bak to config.toml must NOT count as a backup.
+    let home = temp_home("bak-hardlink");
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().unwrap()).unwrap();
+    std::fs::write(&codex, original).unwrap();
+    let bak = home.join(".codex/config.toml.bak");
+    std::fs::hard_link(&codex, &bak).unwrap();
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "connect",
+            "codex",
+            "--url",
+            "https://new.example/mcp",
+            "--write",
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    let bak1 = home.join(".codex/config.toml.bak.1");
+    assert_eq!(
+        std::fs::read_to_string(&bak1).expect("real independent backup created at .bak.1"),
+        original
+    );
+
+    // 3. Matching independent .bak.2 past a gap (no .bak) must NOT create a redundant .bak.
+    let home = temp_home("bak-gap");
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().unwrap()).unwrap();
+    std::fs::write(&codex, original).unwrap();
+    std::fs::write(home.join(".codex/config.toml.bak.2"), original).unwrap();
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "connect",
+            "codex",
+            "--url",
+            "https://new.example/mcp",
+            "--write",
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(!home.join(".codex/config.toml.bak").exists());
+    assert!(!home.join(".codex/config.toml.bak.1").exists());
+    assert_eq!(
+        std::fs::read_to_string(home.join(".codex/config.toml.bak.2")).unwrap(),
+        original
+    );
+}

@@ -156,10 +156,19 @@ pub fn switch(
             problem,
         })?;
 
-    let chosen = match &how.clients {
+    let mut chosen = match &how.clients {
         Some(chosen) => chosen.clone(),
         None => steps.connected_clients().map_err(SwitchError::Clients)?,
     };
+    let mut seen = Vec::with_capacity(chosen.len());
+    chosen.retain(|c| {
+        if seen.contains(c) {
+            false
+        } else {
+            seen.push(*c);
+            true
+        }
+    });
     let switched = record.switched(server, version);
     if record.runs_server() && switched.clients.is_some() {
         ask.tell(&switch_note(&record, &switched.for_clients().url));
@@ -199,8 +208,7 @@ pub fn switch(
                  `kkt connect <client> --write` adds one.",
             );
             ask.tell(&format!(
-                "This machine's clients now use {}. `kkt watch`, `kkt register`, \
-                 `kkt reclaim` and `kkt doctor` use it too.",
+                "`kkt watch`, `kkt register`, `kkt reclaim` and `kkt doctor` now use {}.",
                 after.url
             ));
         } else {

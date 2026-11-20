@@ -1007,6 +1007,12 @@ mod tests {
         fn read(&self, _: &Path) -> std::io::Result<String> {
             unreachable!("clients")
         }
+        fn read_independent_file(&self, _: &Path, _: &Path) -> std::io::Result<Option<String>> {
+            unreachable!("clients")
+        }
+        fn list_dir(&self, _: &Path) -> std::io::Result<Vec<std::ffi::OsString>> {
+            unreachable!("clients")
+        }
         fn exists(&self, _: &Path) -> bool {
             unreachable!("clients")
         }

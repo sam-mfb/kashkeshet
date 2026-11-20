@@ -935,4 +935,24 @@ fn backup_skips_new_bak_when_an_existing_bak_has_identical_content() {
         !host.exists(&beside(&path, ".bak.3")),
         "duplicate backup file should not be created"
     );
+
+    // Gap scan: with matching .bak.2 present and .bak removed, no redundant .bak is created.
+    host.remove_file(&beside(&path, ".bak")).unwrap();
+    host.remove_file(&beside(&path, ".bak.1")).unwrap();
+    let current = host.read(&path).unwrap();
+    let bak2 = host.read(&beside(&path, ".bak.2")).unwrap();
+    assert_eq!(current, bak2);
+    let setup = Setup {
+        env: &env,
+        url: "https://c.example/mcp",
+        executable: Path::new("/usr/local/bin/kkt"),
+        key_file: None,
+        client_config: &path,
+        source: "HOME",
+    };
+    configure(Client::Codex, &setup, true, &host, &claude).expect("configure past gap");
+    assert!(
+        !host.exists(&beside(&path, ".bak")),
+        "existing .bak.2 past a gap should prevent creating a redundant .bak"
+    );
 }

@@ -3786,6 +3786,38 @@ mod flow {
                 )),
                 "{told}"
             );
+
+            // Zero connected clients (no --clients flag): must not say "This machine's clients now use".
+            let steps = Fake {
+                connected: Vec::new(),
+                ..on(client_record())
+            };
+            let ask = Script::default();
+            switch(&to(OTHER), "0.8.0", &ask, &steps).expect("switch");
+            let told = ask.told.borrow().join("\n");
+            assert!(told.contains("No client here has kkt set up"), "{told}");
+            assert!(
+                told.contains(&format!(
+                    "`kkt watch`, `kkt register`, `kkt reclaim` and `kkt doctor` now use {OTHER}."
+                )),
+                "{told}"
+            );
+            assert!(!told.contains("This machine's clients now use"), "{told}");
+
+            // Repeated client in --clients is deduplicated.
+            let steps = Fake {
+                connected: vec![Client::Codex, Client::OpenCode],
+                ..on(client_record())
+            };
+            let ask = Script::default();
+            let how = Switch {
+                clients: Some(vec![Client::Codex, Client::Codex]),
+                ..to(OTHER)
+            };
+            switch(&how, "0.8.0", &ask, &steps).expect("switch");
+            let told = ask.told.borrow().join("\n");
+            assert!(told.contains(&format!("Codex now uses {OTHER}.")), "{told}");
+            assert!(!told.contains("Codex and Codex"), "{told}");
         }
     }
 }
