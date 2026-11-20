@@ -106,11 +106,59 @@ pub(super) fn read(host: &dyn Host, path: &Path) -> Result<Option<String>, Clien
     }
 }
 
+/// Whether `entry_name` is a backup sibling of `base_name`: `<base>.bak` or
+/// `<base>.bak.<N>` for a positive decimal integer `N`. Matches on native
+/// encoded bytes so non-UTF-8 file names are handled without loss.
+fn is_backup_name(base_name: &std::ffi::OsStr, entry_name: &std::ffi::OsStr) -> bool {
+    let Some(rest) = entry_name
+        .as_encoded_bytes()
+        .strip_prefix(base_name.as_encoded_bytes())
+    else {
+        return false;
+    };
+    if rest == b".bak" {
+        return true;
+    }
+    let Some(num) = rest.strip_prefix(b".bak.") else {
+        return false;
+    };
+    !num.is_empty()
+        && num.iter().all(u8::is_ascii_digit)
+        && std::str::from_utf8(num)
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .is_some_and(|n| n >= 1)
+}
+
 /// Saves `text`, the file's old contents, beside `path` as `<path>.bak`,
-/// or `.bak.1`, `.bak.2` and on if that is taken. Nothing to save, nothing
-/// saved.
+/// or `.bak.1`, `.bak.2` and on if that is taken. If any existing regular,
+/// independent `.bak` or `.bak.N` beside `path` (even past a gap) already
+/// holds the exact same `text`, no new backup file is created. Nothing to
+/// save, nothing saved.
 fn backup(host: &dyn Host, path: &Path, text: Option<&str>) -> Result<(), ClientConfigError> {
     let Some(text) = text else { return Ok(()) };
+    if let Some(base_name) = path.file_name() {
+        let dir = match path.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => parent,
+            _ => Path::new("."),
+        };
+        if let Ok(entries) = host.list_dir(dir) {
+            for entry in entries {
+                if is_backup_name(base_name, &entry) {
+                    let candidate = dir.join(&entry);
+                    if host
+                        .read_independent_file(&candidate, path)
+                        .ok()
+                        .flatten()
+                        .as_deref()
+                        == Some(text)
+                    {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    }
     for number in 0u64.. {
         let suffix = if number == 0 {
             ".bak".to_string()
@@ -119,9 +167,21 @@ fn backup(host: &dyn Host, path: &Path, text: Option<&str>) -> Result<(), Client
         };
         let mut name = path.as_os_str().to_os_string();
         name.push(suffix);
-        match host.create_private(&PathBuf::from(name), text) {
+        let candidate = PathBuf::from(name);
+        match host.create_private(&candidate, text) {
             Ok(()) => return Ok(()),
-            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+                if host
+                    .read_independent_file(&candidate, path)
+                    .ok()
+                    .flatten()
+                    .as_deref()
+                    == Some(text)
+                {
+                    return Ok(());
+                }
+                continue;
+            }
             Err(e) => return Err(ClientConfigError::file(FileAction::BackUp, path, e)),
         }
     }

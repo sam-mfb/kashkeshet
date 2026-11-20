@@ -99,6 +99,14 @@ fn every_command_says_why_it_failed_and_exits_with_one() {
         )
     );
     assert_eq!(
+        printed(&["setup"]),
+        on_stderr("no terminal to ask what this machine is for; pass --mode")
+    );
+    assert_eq!(
+        printed(&["setup", "--mode", "client"]),
+        on_stderr("no terminal to ask for the server's MCP address; pass --url")
+    );
+    assert_eq!(
         printed(&["connect", "codex", "--url", "ftp://x"]),
         on_stderr("URL must be an absolute http:// or https:// address")
     );

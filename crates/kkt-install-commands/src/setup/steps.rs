@@ -67,6 +67,15 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
             for host in allow_hosts {
                 allow_host_in_config(self.parts.config_file, self.parts.serve, host)?;
             }
+            let had_web_key = self
+                .parts
+                .serve
+                .configured_access_key()
+                .ok()
+                .flatten()
+                .or_else(|| self.parts.serve.default_access_key())
+                .map(|access| kkt_keys::web_key_path(&access))
+                .is_some_and(|path| self.parts.key_files.try_exists(&path).unwrap_or(false));
             tokio::runtime::Handle::current().block_on(service::run(
                 self.parts,
                 ServiceAction::Install(ServiceInstall {
@@ -89,7 +98,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 }
                 None => connection.url,
             };
-            if let Some(access) = &connection.key_file {
+            if had_web_key && let Some(access) = &connection.key_file {
                 self.parts.output.output(format_args!(
                     "The web key is in {}. Read it with `kkt key show --web`.\n",
                     kkt_keys::web_key_path(access).display()
@@ -996,6 +1005,12 @@ mod tests {
     }
     impl clients::Host for Unused {
         fn read(&self, _: &Path) -> std::io::Result<String> {
+            unreachable!("clients")
+        }
+        fn read_independent_file(&self, _: &Path, _: &Path) -> std::io::Result<Option<String>> {
+            unreachable!("clients")
+        }
+        fn list_dir(&self, _: &Path) -> std::io::Result<Vec<std::ffi::OsString>> {
             unreachable!("clients")
         }
         fn exists(&self, _: &Path) -> bool {

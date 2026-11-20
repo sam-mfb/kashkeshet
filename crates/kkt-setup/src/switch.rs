@@ -104,6 +104,7 @@ pub enum Target {
 
 const KEY_FILE: Question = Question {
     text: "The new server's access key file (an absolute path, or none if it has no key):",
+    topic: "for the new server's access key file",
     flag: "--key-file",
     default: None,
 };
@@ -155,10 +156,19 @@ pub fn switch(
             problem,
         })?;
 
-    let chosen = match &how.clients {
+    let mut chosen = match &how.clients {
         Some(chosen) => chosen.clone(),
         None => steps.connected_clients().map_err(SwitchError::Clients)?,
     };
+    let mut seen = Vec::with_capacity(chosen.len());
+    chosen.retain(|c| {
+        if seen.contains(c) {
+            false
+        } else {
+            seen.push(*c);
+            true
+        }
+    });
     let switched = record.switched(server, version);
     if record.runs_server() && switched.clients.is_some() {
         ask.tell(&switch_note(&record, &switched.for_clients().url));
@@ -186,18 +196,54 @@ pub fn switch(
     steps.write_record(&switched).map_err(SwitchError::Record)?;
 
     let after = switched.for_clients();
+    let all_moved = how.clients.is_none()
+        || steps
+            .connected_clients()
+            .ok()
+            .is_some_and(|all| all.iter().all(|c| chosen.contains(c)));
     if chosen.is_empty() {
-        ask.tell(
-            "No client here has kkt set up, so no client config was changed; \
-             `kkt connect <client> --write` adds one.",
-        );
+        if how.clients.is_none() {
+            ask.tell(
+                "No client here has kkt set up, so no client config was changed; \
+                 `kkt connect <client> --write` adds one.",
+            );
+            ask.tell(&format!(
+                "`kkt watch`, `kkt register`, `kkt reclaim` and `kkt doctor` now use {}.",
+                after.url
+            ));
+        } else {
+            ask.tell(&format!(
+                "No client configs were changed. `kkt watch`, `kkt register`, \
+                 `kkt reclaim` and `kkt doctor` now use {}.",
+                after.url
+            ));
+        }
+    } else if all_moved {
+        ask.tell(&format!(
+            "This machine's clients now use {}. `kkt watch`, `kkt register`, \
+             `kkt reclaim` and `kkt doctor` use it too.",
+            after.url
+        ));
+    } else {
+        ask.tell(&format!(
+            "{} now {} {}. `kkt watch`, `kkt register`, `kkt reclaim` and `kkt doctor` use it too.",
+            join_clients(&chosen),
+            if chosen.len() == 1 { "uses" } else { "use" },
+            after.url
+        ));
     }
-    ask.tell(&format!(
-        "This machine's clients now use {}. `kkt watch`, `kkt register`, \
-         `kkt reclaim` and `kkt doctor` use it too.",
-        after.url
-    ));
     Ok(switched)
+}
+
+/// Joins client display names in plain English: `"Codex"`, `"Codex and OpenCode"`,
+/// `"Claude Code, Codex and OpenCode"`.
+fn join_clients(clients: &[Client]) -> String {
+    let names: Vec<&str> = clients.iter().map(|c| c.display_name()).collect();
+    match names.as_slice() {
+        [] => String::new(),
+        [one] => (*one).to_string(),
+        [head @ .., last] => format!("{} and {last}", head.join(", ")),
+    }
 }
 
 /// Places `(before: <previous>)` on the first line of `done` (the

@@ -3294,3 +3294,216 @@ async fn switch_puts_previous_url_on_configured_line_for_keyed_agy_and_muse_code
 
     new_server.kill().await.expect("stop new");
 }
+
+#[tokio::test]
+async fn switch_closing_line_names_only_the_clients_that_moved() {
+    let (_local_home, mut local, local_url, local_key) = keyed_server("switch-subset-local").await;
+    let (_other_home, mut other, other_url, other_key) = keyed_server("switch-subset-other").await;
+    let home = temp_home("switch-subset-home");
+
+    // Record a service at local_url while Claude Code, Codex and OpenCode all point at other_url.
+    let (ok, said) = setup_client(&home, &other_url, &other_key, &["--clients", "none"]).await;
+    assert!(ok, "{said}");
+    std::fs::write(
+        home.join(".config/kkt/setup.toml"),
+        format!(
+            "format = 1\nmode = \"service\"\nwritten_by = \"1.0.0\"\nurl = \"{local_url}\"\nkey_file = \"{}\"\n\n[service]\ntailscale = false\n",
+            local_key.display()
+        ),
+    )
+    .expect("service record");
+
+    std::fs::write(
+        home.join(".claude.json"),
+        format!(r#"{{"mcpServers":{{"kkt":{{"url":"{other_url}"}}}}}}"#),
+    )
+    .unwrap();
+    let codex_path = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &codex_path,
+        format!("[mcp_servers.kkt]\nurl = \"{other_url}\"\n"),
+    )
+    .unwrap();
+    let opencode_path = home.join(".config/opencode/opencode.json");
+    std::fs::create_dir_all(opencode_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &opencode_path,
+        format!(r#"{{"mcp":{{"kkt":{{"type":"remote","url":"{other_url}"}}}}}}"#),
+    )
+    .unwrap();
+
+    // Switch only codex and opencode to --local; Claude Code stays on other_url.
+    let (ok, said) = kkt(&home, &["switch", "--local", "--clients", "codex,opencode"]).await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains(&format!("Codex and OpenCode now use {local_url}.")),
+        "{said}"
+    );
+    assert!(!said.contains("This machine's clients now use"), "{said}");
+    assert!(
+        std::fs::read_to_string(home.join(".claude.json"))
+            .unwrap()
+            .contains(&other_url)
+    );
+
+    local.kill().await.expect("stop local");
+    other.kill().await.expect("stop other");
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn client_backup_requires_an_independent_regular_file_and_scans_past_gaps() {
+    let original = "model = \"o3\"\n[mcp_servers.kkt]\nurl = \"https://old.example/mcp\"\n";
+
+    // 1. Symlink .bak pointing at config.toml must NOT count as a backup.
+    let home = temp_home("bak-symlink");
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().unwrap()).unwrap();
+    std::fs::write(&codex, original).unwrap();
+    let bak = home.join(".codex/config.toml.bak");
+    std::os::unix::fs::symlink(&codex, &bak).unwrap();
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "connect",
+            "codex",
+            "--url",
+            "https://new.example/mcp",
+            "--write",
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    let bak1 = home.join(".codex/config.toml.bak.1");
+    assert_eq!(
+        std::fs::read_to_string(&bak1).expect("real independent backup created at .bak.1"),
+        original
+    );
+    assert!(
+        std::fs::read_to_string(&codex)
+            .unwrap()
+            .contains("https://new.example/mcp")
+    );
+
+    // 2. Hard link .bak to config.toml must NOT count as a backup.
+    let home = temp_home("bak-hardlink");
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().unwrap()).unwrap();
+    std::fs::write(&codex, original).unwrap();
+    let bak = home.join(".codex/config.toml.bak");
+    std::fs::hard_link(&codex, &bak).unwrap();
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "connect",
+            "codex",
+            "--url",
+            "https://new.example/mcp",
+            "--write",
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    let bak1 = home.join(".codex/config.toml.bak.1");
+    assert_eq!(
+        std::fs::read_to_string(&bak1).expect("real independent backup created at .bak.1"),
+        original
+    );
+
+    // 3. Matching independent .bak.2 past a gap (no .bak) must NOT create a redundant .bak.
+    let home = temp_home("bak-gap");
+    let codex = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex.parent().unwrap()).unwrap();
+    std::fs::write(&codex, original).unwrap();
+    std::fs::write(home.join(".codex/config.toml.bak.2"), original).unwrap();
+    let (ok, said) = kkt(
+        &home,
+        &[
+            "connect",
+            "codex",
+            "--url",
+            "https://new.example/mcp",
+            "--write",
+        ],
+    )
+    .await;
+    assert!(ok, "{said}");
+    assert!(!home.join(".codex/config.toml.bak").exists());
+    assert!(!home.join(".codex/config.toml.bak.1").exists());
+    assert_eq!(
+        std::fs::read_to_string(home.join(".codex/config.toml.bak.2")).unwrap(),
+        original
+    );
+
+    // 4. Bare relative `--client-config config.toml` (empty parent) scans `.` past a gap.
+    let home = temp_home("bak-relative-gap");
+    let work = home.join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    std::fs::write(work.join("config.toml"), original).unwrap();
+    std::fs::write(work.join("config.toml.bak.2"), original).unwrap();
+    let out = tokio::process::Command::new(KKT)
+        .args([
+            "connect",
+            "codex",
+            "--client-config",
+            "config.toml",
+            "--url",
+            "https://new.example/mcp",
+            "--write",
+        ])
+        .current_dir(&work)
+        .own_home(&home)
+        .stdin(Stdio::null())
+        .output()
+        .await
+        .expect("run kkt connect");
+    assert!(
+        out.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!work.join("config.toml.bak").exists());
+    assert!(!work.join("config.toml.bak.1").exists());
+    assert_eq!(
+        std::fs::read_to_string(work.join("config.toml.bak.2")).unwrap(),
+        original
+    );
+}
+
+/// Matching an existing `.bak.2` past a gap works when the config file's own
+/// name is not valid UTF-8. Linux only: macOS requires file names in UTF-8.
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn client_backup_scans_past_gaps_for_non_utf8_config_name() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+    let home = temp_home("bak-non-utf8-gap");
+    let dir = home.join("opencode");
+    std::fs::create_dir_all(&dir).unwrap();
+    let original = r#"{"mcp":{"kkt":{"type":"remote","url":"https://old.example/mcp"}}}"#;
+    let config = dir.join(OsString::from_vec(b"opencode-\xff.json".to_vec()));
+    let bak2 = dir.join(OsString::from_vec(b"opencode-\xff.json.bak.2".to_vec()));
+    let bak = dir.join(OsString::from_vec(b"opencode-\xff.json.bak".to_vec()));
+    std::fs::write(&config, original).unwrap();
+    std::fs::write(&bak2, original).unwrap();
+
+    let out = tokio::process::Command::new(KKT)
+        .args(["connect", "opencode", "--client-config"])
+        .arg(&config)
+        .args(["--url", "https://new.example/mcp", "--write"])
+        .own_home(&home)
+        .stdin(Stdio::null())
+        .output()
+        .await
+        .expect("run kkt connect");
+    assert!(
+        out.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!bak.exists(), "redundant .bak should not be created");
+    assert_eq!(std::fs::read_to_string(&bak2).unwrap(), original);
+}

@@ -1050,6 +1050,14 @@ mod tests {
             self.0.borrow_mut().push("clients.read");
             Err(std::io::ErrorKind::NotFound.into())
         }
+        fn read_independent_file(&self, _: &Path, _: &Path) -> std::io::Result<Option<String>> {
+            self.0.borrow_mut().push("clients.read_independent_file");
+            Ok(None)
+        }
+        fn list_dir(&self, _: &Path) -> std::io::Result<Vec<std::ffi::OsString>> {
+            self.0.borrow_mut().push("clients.list_dir");
+            Ok(Vec::new())
+        }
         fn exists(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("clients.exists");
             false
@@ -3061,11 +3069,17 @@ mod tests {
             show_hint(&other_service_record, "/home/k/.config/kkt/web-key"),
             "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
         );
-        // With no setup record, the hint still names the explicit file.
+        // With no setup record yet, bare `kkt key show --web` resolves the
+        // default web key, so the default place omits `--key-file` while a
+        // custom place still names it.
         let no_record = Recorded(None);
         assert_eq!(
             show_hint(&no_record, "/home/k/.config/kkt/web-key"),
-            "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
+            "kkt key show --web"
+        );
+        assert_eq!(
+            show_hint(&no_record, "/custom/dir/web-key"),
+            "kkt key show --web --key-file '/custom/dir/web-key'"
         );
     }
 
@@ -3125,6 +3139,240 @@ mod tests {
         assert!(
             mode_pos < web_key_pos,
             "expected Mode before Web key:\n{out}"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fresh_service_setup_prints_web_key_line_once_without_key_file_flag() {
+        struct LocalConn;
+        impl ConnectionSource for LocalConn {
+            type KeySource = ();
+            fn recorded(
+                &self,
+            ) -> Result<
+                Option<kkt_deployment::connection::RecordedServer>,
+                kkt_deployment::connection::SourceError,
+            > {
+                Ok(None)
+            }
+            fn serve(
+                &self,
+                _: kkt_deployment::connection::ConnectionOptions,
+            ) -> Result<
+                kkt_deployment::connection::ServeConnection<()>,
+                kkt_deployment::connection::SourceError,
+            > {
+                Ok(kkt_deployment::connection::ServeConnection {
+                    url: "http://127.0.0.1:7420/mcp".into(),
+                    access_key: kkt_keys::AccessKey::File(PathBuf::from(
+                        "/home/k/.config/kkt/access-key",
+                    )),
+                    key_source: (),
+                })
+            }
+            fn make_default_key(
+                &self,
+                _: &kkt_keys::AccessKey,
+            ) -> Result<(), kkt_deployment::connection::SourceError> {
+                Ok(())
+            }
+            fn check_key(
+                &self,
+                _: &Path,
+                _: &(),
+            ) -> Result<(), kkt_deployment::connection::SourceError> {
+                Ok(())
+            }
+            fn absolute(
+                &self,
+                path: &Path,
+            ) -> Result<PathBuf, kkt_deployment::connection::SourceError> {
+                Ok(path.to_path_buf())
+            }
+        }
+        struct FreshFiles;
+        impl crate::SetupFiles for FreshFiles {
+            fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
+                Ok(None)
+            }
+            fn read_unfinished(
+                &self,
+                _: &Path,
+            ) -> Result<Option<setup::Unfinished>, crate::PartError> {
+                Ok(None)
+            }
+            fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), crate::PartError> {
+                Ok(())
+            }
+            fn write_unfinished(
+                &self,
+                _: &Path,
+                _: &setup::Unfinished,
+            ) -> Result<(), crate::PartError> {
+                Ok(())
+            }
+            fn remove_unfinished(&self, _: &Path) -> Result<(), crate::PartError> {
+                Ok(())
+            }
+            fn kkt_path(&self) -> Result<PathBuf, crate::PartError> {
+                Ok(PathBuf::from("/bin/kkt"))
+            }
+            fn path_dirs(&self) -> Vec<PathBuf> {
+                Vec::new()
+            }
+            fn on_path(&self, _: &[PathBuf], _: &str) -> bool {
+                false
+            }
+            fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
+                Ok(path.to_path_buf())
+            }
+            fn program_path(&self) -> std::io::Result<PathBuf> {
+                Ok(PathBuf::from("/bin/kkt"))
+            }
+            fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+                Ok(path.to_path_buf())
+            }
+            fn remove_record(&self, _: &Path) -> Result<(), crate::PartError> {
+                Ok(())
+            }
+        }
+        struct HealthyProber;
+        impl kkt_diagnostics::Prober for HealthyProber {
+            fn key_file(
+                &self,
+                _: &Path,
+            ) -> Result<kkt_diagnostics::KeyFile, kkt_diagnostics::KeyFileUnread> {
+                Ok(kkt_diagnostics::KeyFile {
+                    mode: Some(0o600),
+                    text: Ok("a".repeat(32)),
+                })
+            }
+            fn answer<'a>(
+                &'a self,
+                _: &'a str,
+            ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Answered> {
+                Box::pin(async {
+                    Ok(Ok(kkt_diagnostics::Status {
+                        code: 200,
+                        reason: None,
+                    }))
+                })
+            }
+            fn initialize<'a>(
+                &'a self,
+                _: &'a str,
+                _: Option<&'a str>,
+            ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Initialized> {
+                Box::pin(async {
+                    Ok(kkt_diagnostics::Initialized::Replied {
+                        cleanup: None,
+                        reply: Ok(kkt_diagnostics::Reply::ServerInfo {
+                            name: Some("kashkeshet".into()),
+                            version: Some("1.0.0".into()),
+                        }),
+                    })
+                })
+            }
+        }
+        struct QuietLines;
+        impl setup::Lines for QuietLines {
+            fn interactive(&self) -> bool {
+                false
+            }
+            fn say(&self, _: &str) {}
+            fn read_line(&self, _: &str) -> Result<Option<String>, setup::LineError> {
+                Ok(None)
+            }
+        }
+
+        let env = Env {
+            home: Some(PathBuf::from("/home/k")),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let untouched = Untouched::default();
+        let empty = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let remote = Tailscale::default();
+        let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> { Ok(()) };
+        let backups = kkt_backup::testing::Memory::new();
+        let service = kkt_bare_service::testing::Memory::new();
+        let entropy = kkt_entropy::testing::SeqEntropy::new(0);
+        let answers = || setup::Answers {
+            purpose: Some(setup::Purpose::Service),
+            tailscale: Some(false),
+            allow_hosts: Some(Vec::new()),
+            clients: Some(Vec::new()),
+            allow_kkt: Some(false),
+            admin_key: Some(false),
+            ..Default::default()
+        };
+        let options = || crate::setup::InstallOptions {
+            kkt_version: "1.0.0".into(),
+            docker_project: "kkt".into(),
+            docker_port: 7420,
+        };
+
+        // Fresh install: no web key exists yet -> prints `Created a new web key`
+        // once, with bare `kkt key show --web` and no duplicate `The web key is in`.
+        let said = Said::default();
+        let key_files = kkt_keys::testing::Memory::new().with_dir("/home/k/.config/kkt");
+        let parts = InstallParts {
+            container: &empty,
+            container_configs: &untouched,
+            service: &service,
+            try_bind: &try_bind,
+            remote: &remote,
+            clients: &untouched,
+            client_command: &untouched,
+            prober: &HealthyProber,
+            import_lanes: &untouched,
+            connection: &LocalConn,
+            clock: std::sync::Arc::new(kkt_clock::testing::FixedClock::new(
+                kkt_clock::Time::from_parts(2026, 11, 19, 12, 0, 0).expect("a time"),
+            )),
+            serve: &Defaulted,
+            service_defaults: &untouched,
+            setup_files: &FreshFiles,
+            key_files: &key_files,
+            entropy: &entropy,
+            database: &Present,
+            backups: &backups,
+            output: &said,
+            mcp_path: "/mcp",
+            login_link: &untouched,
+            lines: &QuietLines,
+            config_file: &untouched,
+        };
+        crate::setup::run(&env, Platform::Xdg, &parts, answers(), options())
+            .await
+            .expect("fresh service setup");
+        let out = said.0.borrow().clone();
+        assert_eq!(out.matches("web key").count(), 1, "{out}");
+        assert!(
+            out.contains(
+                "Created a new web key at /home/k/.config/kkt/web-key. Read it with `kkt key show --web`."
+            ),
+            "{out}"
+        );
+        assert!(!out.contains("--key-file"), "{out}");
+
+        // Existing web key: prints `The web key is in ...` once.
+        let said_existing = Said::default();
+        let parts_existing = InstallParts {
+            output: &said_existing,
+            ..parts
+        };
+        crate::setup::run(&env, Platform::Xdg, &parts_existing, answers(), options())
+            .await
+            .expect("existing web key service setup");
+        let out_existing = said_existing.0.borrow().clone();
+        assert_eq!(out_existing.matches("web key").count(), 1, "{out_existing}");
+        assert!(
+            out_existing.contains(
+                "The web key is in /home/k/.config/kkt/web-key. Read it with `kkt key show --web`."
+            ),
+            "{out_existing}"
         );
     }
 }

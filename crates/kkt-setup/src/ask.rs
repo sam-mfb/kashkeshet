@@ -5,6 +5,10 @@
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Question<'a> {
     pub text: &'a str,
+    /// Plain lowercase phrase completing `"no terminal to ask {topic}"` and
+    /// `"no answer when asked {topic}"`, such as `"for the server's MCP address"`
+    /// or `"what this machine is for"`. Falls back to `text` when empty.
+    pub topic: &'a str,
     /// Such as `--mode`. Empty for a question only asked at a terminal,
     /// such as whether to try a failed step again.
     pub flag: &'static str,
@@ -26,7 +30,7 @@ pub enum AskError {
     #[error("{}", no_terminal(text, flag))]
     NoTerminal { text: String, flag: &'static str },
     /// The input ended before an answer.
-    #[error("no answer: {}", no_terminal(text, flag))]
+    #[error("{}", no_answer(text, flag))]
     NoAnswer { text: String, flag: &'static str },
     /// The terminal could not be read.
     #[error(transparent)]
@@ -35,9 +39,25 @@ pub enum AskError {
 
 fn no_terminal(text: &str, flag: &str) -> String {
     if flag.is_empty() {
-        format!("{text} No terminal to ask on.")
+        format!("no terminal to ask {text}")
     } else {
-        format!("{text} No terminal to ask on: pass {flag}.")
+        format!("no terminal to ask {text}; pass {flag}")
+    }
+}
+
+fn no_answer(text: &str, flag: &str) -> String {
+    if flag.is_empty() {
+        format!("no answer when asked {text}")
+    } else {
+        format!("no answer when asked {text}; pass {flag}")
+    }
+}
+
+fn error_topic(question: Question<'_>) -> String {
+    if question.topic.is_empty() {
+        question.text.to_string()
+    } else {
+        question.topic.to_string()
     }
 }
 
@@ -68,7 +88,7 @@ pub trait Ask {
 /// answers it.
 pub fn unanswered(question: Question) -> AskError {
     AskError::NoTerminal {
-        text: question.text.to_string(),
+        text: error_topic(question),
         flag: question.flag,
     }
 }
@@ -172,7 +192,7 @@ impl<'a> Prompter<'a> {
         }
         let Some(line) = self.lines.read_line(prompt).map_err(AskError::Read)? else {
             return Err(AskError::NoAnswer {
-                text: question.text.to_string(),
+                text: error_topic(question),
                 flag: question.flag,
             });
         };
@@ -226,6 +246,7 @@ mod terminal_ask_tests {
     fn question(default: Option<bool>) -> setup::Question<'static> {
         setup::Question {
             text: "Connect Codex to kkt?",
+            topic: "whether to connect Codex to kkt",
             flag: "--clients",
             default,
         }
@@ -234,6 +255,7 @@ mod terminal_ask_tests {
     fn mode_question() -> setup::Question<'static> {
         setup::Question {
             text: "What is this machine for?",
+            topic: "what this machine is for",
             flag: "--mode",
             default: None,
         }
@@ -301,26 +323,19 @@ mod terminal_ask_tests {
     fn end_of_input_never_supplies_a_default() {
         let lines = ScriptedLines::new([None, None, None]);
         let ask = Prompter::new(&lines);
-        let expected = Err(format!(
-            "no answer: {}",
-            setup::unanswered(question(Some(true)))
-        ));
         assert_eq!(
             ask.confirm(question(Some(true))).map_err(|e| e.to_string()),
-            expected
+            Err("no answer when asked whether to connect Codex to kkt; pass --clients".to_string())
         );
         assert_eq!(
             ask.text(question(Some(true)), "default")
                 .map_err(|e| e.to_string()),
-            Err(format!(
-                "no answer: {}",
-                setup::unanswered(question(Some(true)))
-            ))
+            Err("no answer when asked whether to connect Codex to kkt; pass --clients".to_string())
         );
         assert_eq!(
             ask.choose(mode_question(), &MODES, 0)
                 .map_err(|e| e.to_string()),
-            Err(format!("no answer: {}", setup::unanswered(mode_question())))
+            Err("no answer when asked what this machine is for; pass --mode".to_string())
         );
     }
 
@@ -329,29 +344,27 @@ mod terminal_ask_tests {
     fn every_unanswered_question_says_what_it_always_said() {
         let flagless = setup::Question {
             text: "Continue?",
+            topic: "whether to continue",
             flag: "",
             default: None,
         };
         assert_eq!(
             setup::unanswered(flagless).to_string(),
-            "Continue? No terminal to ask on."
+            "no terminal to ask whether to continue"
         );
         let not_there = NotInteractive;
         assert_eq!(
             Prompter::new(&not_there)
                 .confirm(question(None))
                 .map_err(|e| e.to_string()),
-            Err("Connect Codex to kkt? No terminal to ask on: pass --clients.".to_string())
+            Err("no terminal to ask whether to connect Codex to kkt; pass --clients".to_string())
         );
         let ended = ScriptedLines::new([None]);
         assert_eq!(
             Prompter::new(&ended)
                 .confirm(question(None))
                 .map_err(|e| e.to_string()),
-            Err(
-                "no answer: Connect Codex to kkt? No terminal to ask on: pass --clients."
-                    .to_string()
-            )
+            Err("no answer when asked whether to connect Codex to kkt; pass --clients".to_string())
         );
         let broken = Broken;
         assert_eq!(

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "e3297909",
+ "commit": "7753f2b1",
  "crates": [
   {
    "bins": [
@@ -8635,12 +8635,14 @@ window.KKT_GRAPH = {
       "canonicalize",
       "create_dir_all",
       "create_private",
+      "dir_entries",
       "exists",
       "file_names",
       "is_file",
       "mode",
       "read",
       "read_if_present",
+      "read_independent_file",
       "remove_file",
       "remove_if_present",
       "rename",
@@ -8656,6 +8658,8 @@ window.KKT_GRAPH = {
    "machine_work": {
     "src/lib.rs": [
      "fs",
+     "fs::File::open",
+     "fs::Metadata",
      "fs::OpenOptions",
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
@@ -8666,13 +8670,16 @@ window.KKT_GRAPH = {
      "fs::remove_file",
      "fs::rename",
      "fs::set_permissions",
+     "fs::symlink_metadata",
      "fs::write",
+     "os::unix::fs::MetadataExt",
      "os::unix::fs::OpenOptionsExt",
      "os::unix::fs::PermissionsExt",
      "path::absolute",
      "Path::canonicalize",
      "Path::exists",
-     "Path::is_file"
+     "Path::is_file",
+     "Path::metadata"
     ]
    },
    "name": "kkt-files",
@@ -12622,9 +12629,11 @@ window.KKT_GRAPH = {
       "create_dir_all",
       "create_private",
       "exists",
+      "list_dir",
       "mode",
       "process_id",
       "read",
+      "read_independent_file",
       "remove_file",
       "rename",
       "restrict",
@@ -17623,6 +17632,7 @@ window.KKT_GRAPH = {
      "doc": "A question, and the flag that answers it without asking.",
      "fields": [
       "text",
+      "topic",
       "flag",
       "default"
      ],
@@ -17933,6 +17943,7 @@ window.KKT_GRAPH = {
      "doc": "A question, and the flag that answers it without asking.",
      "fields": [
       "text",
+      "topic",
       "flag",
       "default"
      ],
@@ -26106,6 +26117,7 @@ window.KKT_GRAPH = {
     "KeyFile",
     "KeyFileUnread",
     "Probing",
+    "Status",
     "testing::Memory"
    ],
    "to": "kkt-diagnostics"
@@ -26573,6 +26585,8 @@ window.KKT_GRAPH = {
     "KeyFileUnread",
     "Prober",
     "Probing",
+    "Reply",
+    "Status",
     "report",
     "testing::Memory"
    ],
@@ -26587,6 +26601,7 @@ window.KKT_GRAPH = {
       "Initialized",
       "KeyFileUnread",
       "Probing",
+      "Reply",
       "report"
      ],
      "role": "uses"

@@ -194,39 +194,46 @@ pub trait Steps: SwitchSteps + AdoptSteps {
 
 const MODE: Question = Question {
     text: "What is this machine for?",
+    topic: "what this machine is for",
     flag: "--mode",
     default: None,
 };
 const TAILSCALE: Question = Question {
     text: "Share the server over Tailscale, so your other machines can reach it?",
+    topic: "whether to share the server over Tailscale",
     flag: "--tailscale or --no-tailscale",
     default: Some(DEFAULT_SETUP_TAILSCALE),
 };
 const CONTAINERS: Question = Question {
     text: "Will agents in Docker containers on this machine use this server? They reach it as \
            host.docker.internal.",
+    topic: "whether agents in Docker containers will use this server",
     flag: "--allow-host host.docker.internal, or --allow-host none",
     default: Some(DEFAULT_SETUP_CONTAINERS),
 };
 const TRY_AGAIN: Question = Question {
     text: "Try again?",
+    topic: "whether to try again",
     flag: "",
     default: Some(DEFAULT_SETUP_TRY_AGAIN),
 };
 const CONTINUE: Question = Question {
     text: "Continue that setup?",
+    topic: "whether to continue the unfinished setup",
     flag: "",
     default: Some(DEFAULT_SETUP_CONTINUE),
 };
 const ADMIN_KEY: Question = Question {
     text: "Make an admin key, so an agent holding it can supervise the server at /mcp-admin? \
            It sees every channel, closed ones included.",
+    topic: "whether to make an admin key",
     flag: "--admin-key or --no-admin-key",
     default: Some(DEFAULT_SETUP_ADMIN_KEY),
 };
 const ADMIN_NAME: Question = Question {
     text: "The admin agent's name, such as sentinel (it becomes admin-sentinel). Its changes \
            are announced as \"operator (via admin-sentinel)\":",
+    topic: "for the admin agent's name",
     flag: "--admin-name",
     default: None,
 };
@@ -235,16 +242,19 @@ const LANES_FLAG: &str = "--lanes";
 const ALLOW_KKT: Question = Question {
     text: "Allow the clients set up here to always use kkt's tools and `kkt watch`, without \
            asking each time?",
+    topic: "whether clients may always use kkt",
     flag: "--allow-kkt or --no-allow-kkt",
     default: Some(DEFAULT_SETUP_ALLOW_KKT),
 };
 const URL: Question = Question {
     text: "The server's MCP address, such as https://kkt.tail1234.ts.net/mcp:",
+    topic: "for the server's MCP address",
     flag: "--url",
     default: None,
 };
 const KEY: Question = Question {
     text: "The server's access key (run `kkt key show` there), or nothing if it has none:",
+    topic: "for the server's access key",
     flag: "--key-file",
     default: None,
 };
@@ -1131,6 +1141,7 @@ fn choose_clients(
     for client in steps.detect_clients() {
         let question = Question {
             text: &format!("Connect {} to kkt?", client.display_name()),
+            topic: &format!("whether to connect {} to kkt", client.display_name()),
             flag: "--clients",
             default: Some(DEFAULT_SETUP_CONNECT_CLIENT),
         };
