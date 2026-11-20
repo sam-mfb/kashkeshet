@@ -85,7 +85,13 @@ async fn main() -> std::process::ExitCode {
             } else {
                 Terminal.errors(format_args!("error: {e}\n"));
             }
-            std::process::ExitCode::FAILURE
+            // A flag's value checked after the parser and found unusable
+            // is wrong usage, as the parser's own refusals are: exit 2.
+            if matches!(&e, CommandError::Cli(error) if error.is_usage()) {
+                std::process::ExitCode::from(2)
+            } else {
+                std::process::ExitCode::FAILURE
+            }
         }
     }
 }
