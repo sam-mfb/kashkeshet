@@ -167,7 +167,9 @@ pub fn backup<D>(
         }
         backup::BackupOf::Local { into } => {
             let on_client = matches!(mode, Some(setup::Mode::Client));
-            Ok(local_backup(parts, &into, db, config, on_client)?)
+            let copy = local_backup(parts, &into, db, config, on_client)?;
+            record_highest_message_id(parts, &copy.written);
+            Ok(())
         }
     }
 }
@@ -361,6 +363,14 @@ pub async fn upgrade<D: ServiceDefaults>(
         parts.output.output(format_args!("{}\n", plan.said));
         return Ok(());
     };
+    let finish = || {
+        // The record now names the version the server runs.
+        let mut record = record;
+        record.written_by = Build::CURRENT.version.to_string();
+        write_setup_record(parts.serve, parts.setup_files, &record)?;
+        parts.output.output(format_args!("{}\n", plan.said));
+        Ok(())
+    };
     match how {
         kkt_deployment::Replace::Docker { folder, key_file } => {
             parts
@@ -376,41 +386,77 @@ pub async fn upgrade<D: ServiceDefaults>(
                 )
                 .await
                 .map_err(|e| UpgradeCommandError::Container(Box::new(e)))?;
+            finish()
         }
         kkt_deployment::Replace::Service => {
             // Validate the replacement service before doing anything. Its
             // program is this one, the binary just installed by the user.
             let service = service_plan(parts, ServiceInstall::NONE)?;
             let folder = backup::service_backup_folder(parts.serve.config_dir())?;
-            local_backup(parts, &folder, None, None, false)?;
-            if let Some(key) = &service.new_web_key {
-                new_key_file(parts.key_files, parts.entropy, key, false)?;
-                parts.output.output(format_args!(
-                    "Created a new web key at {}. Read it with `kkt key show --web`.\n",
-                    key.display()
-                ));
+            let copy = local_backup(parts, &folder, None, None, false)?;
+            let migration_folder = backup::upgrade_backup_folder(&copy.database)?;
+            let before = parts.backups.finished(&migration_folder);
+            let installed = async {
+                if let Some(key) = &service.new_web_key {
+                    new_key_file(parts.key_files, parts.entropy, key, false)?;
+                    parts.output.output(format_args!(
+                        "Created a new web key at {}. Read it with `kkt key show --web`.\n",
+                        key.display()
+                    ));
+                }
+                parts.service.ready().map_err(UpgradeCommandError::Ready)?;
+                parts
+                    .service
+                    .install(
+                        parts.clock.as_ref(),
+                        kkt_bare_service::Settings::DEFAULT,
+                        &service.spec,
+                    )
+                    .await
+                    .map_err(UpgradeCommandError::Install)
             }
-            parts.service.ready().map_err(UpgradeCommandError::Ready)?;
-            for line in parts
-                .service
-                .install(
-                    parts.clock.as_ref(),
-                    kkt_bare_service::Settings::DEFAULT,
-                    &service.spec,
-                )
-                .await
-                .map_err(UpgradeCommandError::Install)?
-            {
-                parts.output.output(format_args!("{line}\n"));
-            }
+            .await;
+            report_migration_backup(parts, &migration_folder, before);
+            let result = installed.and_then(|lines| {
+                for line in lines {
+                    parts.output.output(format_args!("{line}\n"));
+                }
+                finish()
+            });
+            // Even a failed restart leaves a useful full backup. Its optional
+            // metadata never stands between a successful install and its record.
+            record_highest_message_id(parts, &copy.written);
+            result
         }
     }
-    // The record now names the version the server runs.
-    let mut record = record;
-    record.written_by = Build::CURRENT.version.to_string();
-    write_setup_record(parts.serve, parts.setup_files, &record)?;
-    parts.output.output(format_args!("{}\n", plan.said));
-    Ok(())
+}
+
+/// The service publishes each completed migration copy by renaming its
+/// partial directory. Compare names across the restart so an earlier
+/// upgrade's copy cannot be reported as this one's.
+fn report_migration_backup<D>(
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
+    folder: &Path,
+    before: Result<Vec<PathBuf>, backup::BackupError>,
+) {
+    if let Ok(before) = before
+        && let Ok(after) = parts.backups.finished(folder)
+    {
+        let mut reported = false;
+        for path in after {
+            if before.binary_search(&path).is_err() {
+                parts.output.output(format_args!(
+                    "Database backup before schema migration: {}\n",
+                    path.display()
+                ));
+                reported = true;
+            }
+        }
+        if reported {
+            return;
+        }
+    }
+    parts.output.output(format_args!("If the service upgrades the database schema, it saves a database-only backup under {}. `kkt service logs` gives the completed path.\n", folder.display()));
 }
 
 /// `kkt uninstall`: stops and removes the recorded server, then removes the
@@ -507,13 +553,13 @@ fn existing_db<D>(
 }
 
 /// Reads the highest message ID from the finished backup copy and records it
-/// in `about.txt`. Returns a plain reason if it could not be recorded; never
+/// in `about.txt`. Prints a plain reason if it could not be recorded; never
 /// fails the backup.
 fn record_highest_message_id<D>(
     parts: &InstallParts<'_, impl ConnectionSource, D>,
     written: &Path,
-) -> Option<String> {
-    match parts
+) {
+    let problem = match parts
         .database
         .highest_message_id(&written.join(backup::DATABASE_FILE))
     {
@@ -524,7 +570,17 @@ fn record_highest_message_id<D>(
             .map(|e| e.to_string()),
         Ok(None) => None,
         Err(e) => Some(e.to_string()),
+    };
+    if let Some(why) = problem {
+        parts.output.output(format_args!(
+            "Highest message ID not recorded in about.txt: {why}\n"
+        ));
     }
+}
+
+struct LocalCopy {
+    database: PathBuf,
+    written: PathBuf,
 }
 
 /// Backs up the database `kkt serve` would use (or `db`), with the config
@@ -538,7 +594,7 @@ fn local_backup<D>(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
     on_client: bool,
-) -> Result<(), LocalBackupError> {
+) -> Result<LocalCopy, LocalBackupError> {
     if on_client && config.is_none() {
         let database = existing_db(parts, db, None)?;
         let contents = backup::Contents {
@@ -551,7 +607,6 @@ fn local_backup<D>(
         };
         let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
         let written = parts.backups.write(folder, &layout)?;
-        let not_recorded = record_highest_message_id(parts, &written);
         let out = parts.output;
         out.output(format_args!("Backed up to {}\n", written.display()));
         out.output(format_args!("  database {}\n", database.display()));
@@ -559,12 +614,7 @@ fn local_backup<D>(
             "Backed up only the database: no --config was given on a client machine, so default \
              config and key files were skipped.\n"
         ));
-        if let Some(why) = &not_recorded {
-            out.output(format_args!(
-                "Highest message ID not recorded in about.txt: {why}\n"
-            ));
-        }
-        return Ok(());
+        return Ok(LocalCopy { database, written });
     }
     let config = parts
         .serve
@@ -597,11 +647,6 @@ fn local_backup<D>(
     };
     let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
     let written = parts.backups.write(folder, &layout)?;
-    // The highest message ID is read from the finished copy, read-only,
-    // so it is exact and the database being backed up is never opened.
-    // It is optional: any failure leaves the backup complete without
-    // the line, and says so in one line below instead of failing.
-    let not_recorded = record_highest_message_id(parts, &written);
     let out = parts.output;
     out.output(format_args!("Backed up to {}\n", written.display()));
     out.output(format_args!("  database {}\n", database.display()));
@@ -621,12 +666,7 @@ fn local_backup<D>(
     if let Some(path) = &admin_name {
         out.output(format_args!("  admin name {}\n", path.display()));
     }
-    if let Some(why) = &not_recorded {
-        out.output(format_args!(
-            "Highest message ID not recorded in about.txt: {why}\n"
-        ));
-    }
-    Ok(())
+    Ok(LocalCopy { database, written })
 }
 
 /// Clients switched to another server keep using it after the local install goes.
@@ -1287,6 +1327,9 @@ mod tests {
         }
         fn record_highest(&self, _: &Path, _: i64) -> Result<(), backup::BackupError> {
             self.refused("backups.record_highest").map_err(not_asked)
+        }
+        fn finished(&self, _: &Path) -> Result<Vec<PathBuf>, kkt_backup::BackupError> {
+            unreachable!("no backups listed")
         }
         fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, backup::BackupError> {
             self.refused("backups.prune").map_err(not_asked)

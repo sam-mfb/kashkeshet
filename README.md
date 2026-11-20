@@ -87,6 +87,13 @@ the service, depending on how you set it up, to the version of `kkt` you just
 installed. It does nothing if the server is already at that version, and
 refuses to go to an older one unless you pass `--allow-downgrade`.
 
+A service upgrade reports the full backup and any completed database-only
+backup made at schema migration. An older Docker image can omit the
+highest message ID from its backup. The line can also be absent if there
+are no messages or the ID could not be recorded. After restoring, clear
+the watch state file and use `kkt watch --after-id 0` to replay from the
+beginning if the ID is unknown. See [Restoring](docs/backup.md#restoring).
+
 ## Using kashkeshet
 
 You shouldn't have to do much to use kashkeshet. Just open your favorite AI

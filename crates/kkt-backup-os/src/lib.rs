@@ -10,7 +10,8 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 /// Backups in folders on this machine's disk, the database copied by
-/// `copy_database(from, to)`, which says why when it fails.
+/// `copy_database(from, to)`, which creates its destination privately
+/// (mode 0600 on Unix) and says why when it fails.
 pub struct OsBackups<C> {
     copy_database: C,
 }
@@ -40,6 +41,18 @@ where
             .map_err(|e| BackupError::file(FileAction::Write, &about, e))?;
         file.write_all(kkt_backup::highest_line(highest).as_bytes())
             .map_err(|e| BackupError::file(FileAction::Write, &about, e))
+    }
+
+    fn finished(&self, folder: &Path) -> Result<Vec<PathBuf>, BackupError> {
+        let mut finished = Vec::new();
+        for path in backup_paths(folder, 0)? {
+            let entry = std::fs::symlink_metadata(&path)
+                .map_err(|e| BackupError::file(FileAction::List, folder, e))?;
+            if entry.is_dir() {
+                finished.push(path);
+            }
+        }
+        Ok(finished)
     }
 
     fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {
@@ -101,20 +114,19 @@ fn fill(
     })?;
     for file in layout.copies() {
         let to = into.join(file.name);
-        if file.private {
-            copy_private(file.source, &to, layout.private_file_mode())?;
-        } else {
-            std::fs::copy(file.source, &to)
-                .map_err(|e| BackupError::file(FileAction::Copy, file.source, e))?;
-        }
+        let mut source = std::fs::File::open(file.source)
+            .map_err(|e| BackupError::file(FileAction::Read, file.source, e))?;
+        let mut dest = private_file(&to, layout.private_file_mode())?;
+        std::io::copy(&mut source, &mut dest)
+            .map_err(|e| BackupError::file(FileAction::Copy, file.source, e))?;
     }
     let about = into.join(layout.about_file());
-    std::fs::write(&about, layout.about())
+    private_file(&about, layout.private_file_mode())?
+        .write_all(layout.about().as_bytes())
         .map_err(|e| BackupError::file(FileAction::Write, about, e))
 }
 
-fn copy_private(from: &Path, to: &Path, mode: u32) -> Result<(), BackupError> {
-    let text = std::fs::read(from).map_err(|e| BackupError::file(FileAction::Read, from, e))?;
+fn private_file(to: &Path, mode: u32) -> Result<std::fs::File, BackupError> {
     let mut options = OpenOptions::new();
     options.write(true).create_new(true);
     #[cfg(unix)]
@@ -126,13 +138,11 @@ fn copy_private(from: &Path, to: &Path, mode: u32) -> Result<(), BackupError> {
     let _ = mode;
     options
         .open(to)
-        .and_then(|mut file| file.write_all(&text))
         .map_err(|e| BackupError::file(FileAction::Write, to, e))
 }
 
-/// Lists the folder, asks the backup logic which names are old, and
-/// removes only those. A missing folder has no backups.
-fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {
+/// Paths selected by the layout's naming and retention rules, in time order.
+fn backup_paths(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {
     let entries = match std::fs::read_dir(folder) {
         Ok(entries) => entries,
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -145,14 +155,19 @@ fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {
             names.push(name.to_string());
         }
     }
-    let mut removed = Vec::new();
-    for name in kkt_backup::old_names(names, keep) {
-        let path = folder.join(name);
-        std::fs::remove_dir_all(&path)
-            .map_err(|e| BackupError::file(FileAction::Remove, &path, e))?;
-        removed.push(path);
+    Ok(kkt_backup::old_names(names, keep)
+        .into_iter()
+        .map(|name| folder.join(name))
+        .collect())
+}
+
+fn prune(folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {
+    let paths = backup_paths(folder, keep)?;
+    for path in &paths {
+        std::fs::remove_dir_all(path)
+            .map_err(|e| BackupError::file(FileAction::Remove, path, e))?;
     }
-    Ok(removed)
+    Ok(paths)
 }
 
 #[cfg(test)]

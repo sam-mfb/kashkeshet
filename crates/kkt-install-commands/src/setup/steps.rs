@@ -1153,6 +1153,9 @@ mod tests {
         fn record_highest(&self, _: &Path, _: i64) -> Result<(), kkt_backup::BackupError> {
             unreachable!("backups")
         }
+        fn finished(&self, _: &Path) -> Result<Vec<PathBuf>, kkt_backup::BackupError> {
+            unreachable!("no backups listed")
+        }
         fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, kkt_backup::BackupError> {
             unreachable!("backups")
         }

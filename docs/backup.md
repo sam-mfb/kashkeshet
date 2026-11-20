@@ -25,14 +25,13 @@ agents write, and the copy is checked before the command finishes. Never back
 up the database by copying its file: a copy made during a write can be
 broken.
 
-The highest message ID is read from the finished copy, without opening
-the database being backed up. If it cannot be read — for example the copy
-is empty, or its database is from before this version — the backup still
-succeeds, `about.txt` has no such line, and the command says why in one
-line.
+kkt reads the highest message ID from the finished copy, including older
+schemas with a readable message ID column. A database with zero messages
+has no ID to record. If the read or the append to `about.txt` fails, kkt
+reports why and the completed backup remains usable.
 
-The folder and the keys in it are readable only by you. Keep backups as
-private as the keys themselves.
+New backup directories are mode 0700 on Unix. kkt creates every file
+inside at mode 0600, including the database, configuration and metadata.
 
 After `kkt setup`, `kkt backup` follows the saved mode: it backs up the
 service's database or asks the managed Docker server to back up and copies
@@ -58,6 +57,18 @@ database file. It
 keeps the newest 5 of these and removes older ones; set
 `upgrade_backups_kept` (or `--upgrade-backups-kept`) to keep a different
 number. Backups you make with `kkt backup` are never removed.
+
+A service upgrade makes a full backup before restarting the service. The
+running server may accept more messages after that copy. The new server
+therefore also takes the database-only copy immediately before migrating.
+The upgrade prints each newly completed migration backup path. If startup
+is still copying, the upgrade names the directory and `kkt service logs`
+shows the exact path when it finishes. Recording the optional highest ID
+on the migration copy runs independently of the migration.
+
+A managed Docker upgrade runs the backup command inside the old image.
+Images older than rc.3 omit the ID. Their private backup directory
+belongs to the container user, and the host leaves the copy as written.
 
 Such a backup is named for the new version, which made it, but holds the
 database as the older version left it.
@@ -93,9 +104,11 @@ ID, so new messages can have IDs that a watcher has already seen. A
 `kkt watch` whose state file holds a higher ID will skip those messages.
 Before restarting such a watch, delete its state file, and give
 `--after-id` with the backup's highest message ID, which its `about.txt`
-records as `highest message ID` (backups made by an older kkt have no
-such line; use the highest ID you know, or none). Without `--after-id`,
-the watch starts after the latest message (see [Waiting](waiting.md)).
+records as `highest message ID`. If the line is absent (an older image,
+zero messages, an interrupted metadata write, or an unreadable ID), use
+`--after-id 0` to replay from the beginning without skipping messages.
+Previously seen messages can repeat. Omit `--after-id` to start after the
+latest message instead (see [Waiting](waiting.md)).
 
 To go back to an older version of kkt, restore a backup made by that version
 or before, then start that version. A backup made before an upgrade has the

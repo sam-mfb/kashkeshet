@@ -512,6 +512,21 @@ impl SqlitePlace {
         })
     }
 
+    /// Opens a finished, immutable copy for reads of columns shared between
+    /// schema versions. The supplied sets describe the queries' column
+    /// types. No migration history is consulted or changed; a query using
+    /// a column absent from the copy fails at read time.
+    pub fn open_snapshot(&self, sets: &[Set]) -> Result<Arc<dyn Backend>, DbError> {
+        let conn = immutable(&self.path)?;
+        conn.busy_timeout(Duration::ZERO).map_err(failed)?;
+        Ok(Arc::new(Store(Arc::new(Connections {
+            writer: Arc::new(Mutex::new(conn)),
+            readers: Vec::new(),
+            next_reader: AtomicUsize::new(0),
+            schema: Schema::latest(sets)?,
+        }))))
+    }
+
     /// The upgrades opening the file with `sets` would make. Changes
     /// nothing; a file that is not there would be made from nothing.
     pub fn pending(&self, sets: &[Set]) -> Result<Vec<Upgrade>, DbError> {
@@ -667,12 +682,25 @@ pub fn copy_database(
     busy_timeout: Duration,
 ) -> Result<(), DbError> {
     use rusqlite::backup::{Backup, StepResult};
-    if to.exists() {
-        return Err(DbError::Backend(format!("{} already exists", to.display())));
-    }
     let source = read_only(from)?;
     configure(&source, busy_timeout)?;
-    let mut copy = Connection::open(to).map_err(failed)?;
+    // Reserve a private destination before SQLite opens it. create_new also
+    // makes refusal of an existing destination atomic.
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    options.open(to).map_err(|e| match e.kind() {
+        std::io::ErrorKind::AlreadyExists => {
+            DbError::Backend(format!("{} already exists", to.display()))
+        }
+        _ => DbError::Backend(format!("could not create {}: {e}", to.display())),
+    })?;
+    let mut copy = Connection::open_with_flags(to, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)
+        .map_err(failed)?;
     configure(&copy, busy_timeout)?;
     {
         let backup = Backup::new(&source, &mut copy).map_err(failed)?;

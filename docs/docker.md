@@ -79,6 +79,12 @@ the database, it first backs it up inside the volume, in
 `/data/.local/share/kashkeshet/upgrade-backups`, and refuses to start if it
 can't. Making your own backup first, as above, also puts one on the host.
 
+For a managed upgrade, the old image writes the host backup. An image
+older than rc.3 omits the highest message ID in `about.txt`. A backup
+with zero messages or an ID that could not be recorded also has no line.
+After restoring a copy with no ID, delete the watch state file and run
+`kkt watch --after-id 0` to replay from the beginning.
+
 ## Upgrading a manual install from 0.3.0 or earlier
 
 Those images have no `kkt backup` command. Before changing `KKT_VERSION`,

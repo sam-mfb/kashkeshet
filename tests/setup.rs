@@ -2605,9 +2605,45 @@ async fn setup_adopts_an_installed_service_with_no_record() {
     assert!(said.contains("Mode: service"), "{said}");
     assert!(!said.contains("Unrecorded"), "{said}");
 
+    // On restart, the stand-in service manager publishes the directory a
+    // migrating server would create. An older directory must not be named.
+    let database = if cfg!(target_os = "macos") {
+        home.join("Library/Application Support/kashkeshet")
+    } else {
+        home.join(".local/share/kashkeshet")
+    };
+    let migration_backups = database.join("upgrade-backups");
+    let old = migration_backups.join("kkt-20200101T000000.000Z-v0.10.0");
+    let new = migration_backups.join(format!(
+        "kkt-20261120T010203.004Z-v{}",
+        env!("CARGO_PKG_VERSION")
+    ));
+    std::fs::create_dir_all(&old).unwrap();
+    let manager = if cfg!(target_os = "macos") {
+        "launchctl"
+    } else {
+        "systemctl"
+    };
+    script(
+        &bin,
+        manager,
+        &format!(
+            r#"case "$*" in *bootstrap*|*restart*) /bin/mkdir -p {} ;; print*) echo 'state = running' ;; esac
+exit 0"#,
+            kkt_diagnostics::shell_word(new.to_str().unwrap())
+        ),
+    );
     // Its version is not known, so upgrade backs up and installs it again.
     let (ok, said) = kkt_with_docker(&home, &bin, &log, &["upgrade"]).await;
     assert!(ok, "{said}");
+    assert!(
+        said.contains(&format!(
+            "Database backup before schema migration: {}",
+            new.display()
+        )),
+        "{said}"
+    );
+    assert!(!said.contains(&old.display().to_string()), "{said}");
     assert!(said.contains("Upgraded the server to kkt"), "{said}");
     assert!(!said.contains(key.trim()), "{said}");
     assert!(home.join(".config/kkt/backups").is_dir());
