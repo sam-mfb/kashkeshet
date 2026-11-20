@@ -119,6 +119,13 @@ impl Backups for Memory {
         ))
     }
 
+    fn finished(&self, folder: &Path) -> Result<Vec<PathBuf>, BackupError> {
+        self.check()?;
+        Ok(old_names(self.names(folder), 0)
+            .into_iter()
+            .map(|name| folder.join(name))
+            .collect())
+    }
     fn prune(&self, folder: &Path, keep: usize) -> Result<Vec<PathBuf>, BackupError> {
         self.check()?;
         let mut folders = self.folders.borrow_mut();

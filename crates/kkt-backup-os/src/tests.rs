@@ -98,6 +98,8 @@ fn a_backup_holds_each_file_and_keeps_the_key_private() {
     #[cfg(unix)]
     {
         assert_eq!(mode(&written), 0o700);
+        assert_eq!(mode(&written.join(CONFIG_FILE)), 0o600);
+        assert_eq!(mode(&written.join(ABOUT_FILE)), 0o600);
         assert_eq!(mode(&written.join(ACCESS_KEY_FILE)), 0o600);
         assert_eq!(mode(&written.join(WEB_KEY_FILE)), 0o600);
     }
@@ -187,6 +189,8 @@ fn an_admin_keys_name_is_backed_up_beside_it() {
         std::fs::read_to_string(written.join(ADMIN_NAME_FILE)).expect("admin name"),
         "admin-sentinel\n"
     );
+    #[cfg(unix)]
+    assert_eq!(mode(&written.join(ADMIN_NAME_FILE)), 0o600);
     let about = std::fs::read_to_string(written.join(ABOUT_FILE)).expect("about");
     assert!(
         about.ends_with(&format!("admin-key.name: copy of {}\n", name.display())),
@@ -352,7 +356,7 @@ fn every_backup_message_says_what_it_always_said() {
         )
     );
 
-    // A file that is not private cannot be copied.
+    // A config file cannot be read.
     let missing = dir.join("no-such-config");
     let cause = std::fs::copy(&missing, dir.join("copied")).expect_err("missing");
     let contents = Contents {
@@ -361,7 +365,7 @@ fn every_backup_message_says_what_it_always_said() {
     };
     assert_eq!(
         write(&dir.join("config"), at(0), "0.3.0", &contents, copy_text).expect_err("fails"),
-        format!("could not copy {}: {cause}", missing.display())
+        format!("could not read {}: {cause}", missing.display())
     );
 
     // A private file cannot be read.

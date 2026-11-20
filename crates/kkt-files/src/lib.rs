@@ -69,6 +69,74 @@ impl Files {
         Ok(names)
     }
 
+    /// The entry names in `folder`, in no set order, as raw OS strings so an
+    /// unrelated non-UTF-8 entry never fails the listing.
+    pub fn dir_entries(&self, folder: &Path) -> io::Result<Vec<std::ffi::OsString>> {
+        let mut names = Vec::new();
+        for entry in fs::read_dir(folder)? {
+            names.push(entry?.file_name());
+        }
+        Ok(names)
+    }
+
+    /// Reads `candidate` as UTF-8 text if and only if it is a regular file
+    /// (never a symbolic link) that is not the same underlying file as `other`
+    /// (never a hard link to it). Returns `Ok(None)` when `candidate` is
+    /// missing, is not a regular file, shares an inode with `other`, or when
+    /// file independence cannot be established (such as on non-Unix systems).
+    #[cfg(unix)]
+    pub fn read_independent_file(
+        &self,
+        candidate: &Path,
+        other: &Path,
+    ) -> io::Result<Option<String>> {
+        use std::io::Read;
+        use std::os::unix::fs::MetadataExt;
+        let meta = match fs::symlink_metadata(candidate) {
+            Ok(meta) => meta,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        if !meta.file_type().is_file() {
+            return Ok(None);
+        }
+        let same_inode =
+            |a: &fs::Metadata, b: &fs::Metadata| a.dev() == b.dev() && a.ino() == b.ino();
+        let Ok(other_meta) = fs::metadata(other) else {
+            return Ok(None);
+        };
+        let Ok(other_link) = fs::symlink_metadata(other) else {
+            return Ok(None);
+        };
+        if same_inode(&meta, &other_meta) || same_inode(&meta, &other_link) {
+            return Ok(None);
+        }
+        let mut file = match fs::File::open(candidate) {
+            Ok(file) => file,
+            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(e) => return Err(e),
+        };
+        let open_meta = file.metadata()?;
+        if !open_meta.file_type().is_file() || !same_inode(&meta, &open_meta) {
+            return Ok(None);
+        }
+        let mut text = String::new();
+        file.read_to_string(&mut text)?;
+        Ok(Some(text))
+    }
+
+    /// Reads `candidate` as UTF-8 text if and only if it is an independent
+    /// regular file. On non-Unix systems where inode identity cannot be
+    /// checked, declines reuse by returning `Ok(None)`.
+    #[cfg(not(unix))]
+    pub fn read_independent_file(
+        &self,
+        _candidate: &Path,
+        _other: &Path,
+    ) -> io::Result<Option<String>> {
+        Ok(None)
+    }
+
     /// Makes the folder at `path` and any folders above it that are missing.
     pub fn create_dir_all(&self, path: &Path) -> io::Result<()> {
         fs::create_dir_all(path)
@@ -387,5 +455,60 @@ mod tests {
             dir.join("a").canonicalize().expect("canonical")
         );
         assert!(Files.canonicalize(&dir.join("missing")).is_err());
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn read_independent_file_declines_when_other_metadata_cannot_be_read() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = scratch::Dir::new("files-independent-unreadable");
+        let locked = dir.join("locked");
+        let other = locked.join("config.toml");
+        let candidate = dir.join("config.toml.bak");
+        Files.create_dir_all(&locked).expect("made");
+        Files.write(&other, "original\n").expect("written");
+        fs::hard_link(&other, &candidate).expect("hard link");
+
+        // Accessible hard link is rejected.
+        assert_eq!(
+            Files
+                .read_independent_file(&candidate, &other)
+                .expect("checked"),
+            None
+        );
+
+        // Missing `other` cannot be verified as independent, so reuse is declined.
+        assert_eq!(
+            Files
+                .read_independent_file(&candidate, &dir.join("missing"))
+                .expect("missing other"),
+            None
+        );
+
+        // Inaccessible `other` (PermissionDenied) must also decline reuse.
+        let set = |m| fs::set_permissions(&locked, fs::Permissions::from_mode(m));
+        set(0o000).expect("locked");
+        let holds = fs::metadata(&other).is_err();
+        let result = Files.read_independent_file(&candidate, &other);
+        set(0o755).expect("unlocked");
+        if holds {
+            assert_eq!(result.expect("declined"), None);
+        }
+    }
+
+    #[test]
+    #[cfg(not(unix))]
+    fn read_independent_file_declines_reuse_on_non_unix() {
+        let dir = scratch::Dir::new("files-independent-non-unix");
+        let other = dir.join("config.toml");
+        let candidate = dir.join("config.toml.bak");
+        Files.write(&other, "original\n").expect("written");
+        Files.write(&candidate, "original\n").expect("written");
+        assert_eq!(
+            Files
+                .read_independent_file(&candidate, &other)
+                .expect("declined"),
+            None
+        );
     }
 }

@@ -13,6 +13,18 @@ checks the server connection with `kkt doctor`, then applies the chosen clients'
 through `kkt connect`.
 Restart connected clients so they load their settings.
 
+Every `kkt` command exits 0 when it succeeds. Wrong usage — a flag or
+value the parser cannot read (including a `--clients` name it does not
+know), or a subcommand that is missing — exits 2 and prints the usage
+or an `error:` line; `kkt agent` with no subcommand prints its help
+and exits 2. Every other failure exits 1. The commands that work
+before the server's log starts (every command but `kkt serve` once it
+is running) print an error message beginning with `error:` on
+standard error; a running `kkt serve` reports through its log
+instead. (`kkt watch
+--once` also has its own exit 3 when its time runs out with nothing
+new; see [Waiting](waiting.md).)
+
 ## Questions and defaults
 
 At a terminal, every question shows its default; pressing Enter accepts it.
@@ -370,7 +382,11 @@ backs up, updates its managed
 files to that version's image and starts it, then saves the host copies of
 the access and web keys as setup does. If saving them fails, it says how to
 get the keys and the upgrade still finishes. A service backs up and
-reinstalls the service using the installed program. See
+reinstalls the service using the installed program. It names any completed
+pre-migration database backup as well. An older Docker image can omit the
+highest message ID from its backup, as can a database with no messages or
+a copy whose ID could not be recorded. After restoring, clear the watch
+state file and use `--after-id 0` if you need to replay from the beginning. See
 [backups](backup.md) for restoring an older database when rolling back.
 The installed version is the upgrade target. If it is already selected,
 `upgrade` reports that and makes no changes. It refuses a lower version or

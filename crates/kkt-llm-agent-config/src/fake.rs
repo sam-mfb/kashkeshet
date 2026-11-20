@@ -94,6 +94,25 @@ impl Host for FakeHost {
         self.file(path).map(|f| f.text).ok_or_else(not_found)
     }
 
+    fn read_independent_file(&self, candidate: &Path, other: &Path) -> io::Result<Option<String>> {
+        if candidate == other {
+            return Ok(None);
+        }
+        Ok(self.file(candidate).map(|f| f.text))
+    }
+
+    fn list_dir(&self, dir: &Path) -> io::Result<Vec<std::ffi::OsString>> {
+        let mut names = Vec::new();
+        for path in self.files.borrow().keys() {
+            if path.parent() == Some(dir)
+                && let Some(name) = path.file_name()
+            {
+                names.push(name.to_os_string());
+            }
+        }
+        Ok(names)
+    }
+
     fn exists(&self, path: &Path) -> bool {
         self.files.borrow().contains_key(path) || self.dirs.borrow().contains(path)
     }

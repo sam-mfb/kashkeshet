@@ -167,7 +167,9 @@ pub fn backup<D>(
         }
         backup::BackupOf::Local { into } => {
             let on_client = matches!(mode, Some(setup::Mode::Client));
-            Ok(local_backup(parts, &into, db, config, on_client)?)
+            let copy = local_backup(parts, &into, db, config, on_client)?;
+            record_highest_message_id(parts, &copy.written);
+            Ok(())
         }
     }
 }
@@ -361,6 +363,14 @@ pub async fn upgrade<D: ServiceDefaults>(
         parts.output.output(format_args!("{}\n", plan.said));
         return Ok(());
     };
+    let finish = || {
+        // The record now names the version the server runs.
+        let mut record = record;
+        record.written_by = Build::CURRENT.version.to_string();
+        write_setup_record(parts.serve, parts.setup_files, &record)?;
+        parts.output.output(format_args!("{}\n", plan.said));
+        Ok(())
+    };
     match how {
         kkt_deployment::Replace::Docker { folder, key_file } => {
             parts
@@ -376,41 +386,77 @@ pub async fn upgrade<D: ServiceDefaults>(
                 )
                 .await
                 .map_err(|e| UpgradeCommandError::Container(Box::new(e)))?;
+            finish()
         }
         kkt_deployment::Replace::Service => {
             // Validate the replacement service before doing anything. Its
             // program is this one, the binary just installed by the user.
             let service = service_plan(parts, ServiceInstall::NONE)?;
             let folder = backup::service_backup_folder(parts.serve.config_dir())?;
-            local_backup(parts, &folder, None, None, false)?;
-            if let Some(key) = &service.new_web_key {
-                new_key_file(parts.key_files, parts.entropy, key, false)?;
-                parts.output.output(format_args!(
-                    "Created a new web key at {}. Read it with `kkt key show --web`.\n",
-                    key.display()
-                ));
+            let copy = local_backup(parts, &folder, None, None, false)?;
+            let migration_folder = backup::upgrade_backup_folder(&copy.database)?;
+            let before = parts.backups.finished(&migration_folder);
+            let installed = async {
+                if let Some(key) = &service.new_web_key {
+                    new_key_file(parts.key_files, parts.entropy, key, false)?;
+                    parts.output.output(format_args!(
+                        "Created a new web key at {}. Read it with `kkt key show --web`.\n",
+                        key.display()
+                    ));
+                }
+                parts.service.ready().map_err(UpgradeCommandError::Ready)?;
+                parts
+                    .service
+                    .install(
+                        parts.clock.as_ref(),
+                        kkt_bare_service::Settings::DEFAULT,
+                        &service.spec,
+                    )
+                    .await
+                    .map_err(UpgradeCommandError::Install)
             }
-            parts.service.ready().map_err(UpgradeCommandError::Ready)?;
-            for line in parts
-                .service
-                .install(
-                    parts.clock.as_ref(),
-                    kkt_bare_service::Settings::DEFAULT,
-                    &service.spec,
-                )
-                .await
-                .map_err(UpgradeCommandError::Install)?
-            {
-                parts.output.output(format_args!("{line}\n"));
-            }
+            .await;
+            report_migration_backup(parts, &migration_folder, before);
+            let result = installed.and_then(|lines| {
+                for line in lines {
+                    parts.output.output(format_args!("{line}\n"));
+                }
+                finish()
+            });
+            // Even a failed restart leaves a useful full backup. Its optional
+            // metadata never stands between a successful install and its record.
+            record_highest_message_id(parts, &copy.written);
+            result
         }
     }
-    // The record now names the version the server runs.
-    let mut record = record;
-    record.written_by = Build::CURRENT.version.to_string();
-    write_setup_record(parts.serve, parts.setup_files, &record)?;
-    parts.output.output(format_args!("{}\n", plan.said));
-    Ok(())
+}
+
+/// The service publishes each completed migration copy by renaming its
+/// partial directory. Compare names across the restart so an earlier
+/// upgrade's copy cannot be reported as this one's.
+fn report_migration_backup<D>(
+    parts: &InstallParts<'_, impl ConnectionSource, D>,
+    folder: &Path,
+    before: Result<Vec<PathBuf>, backup::BackupError>,
+) {
+    if let Ok(before) = before
+        && let Ok(after) = parts.backups.finished(folder)
+    {
+        let mut reported = false;
+        for path in after {
+            if before.binary_search(&path).is_err() {
+                parts.output.output(format_args!(
+                    "Database backup before schema migration: {}\n",
+                    path.display()
+                ));
+                reported = true;
+            }
+        }
+        if reported {
+            return;
+        }
+    }
+    parts.output.output(format_args!("If the service upgrades the database schema, it saves a database-only backup under {}. `kkt service logs` gives the completed path.\n", folder.display()));
 }
 
 /// `kkt uninstall`: stops and removes the recorded server, then removes the
@@ -507,13 +553,13 @@ fn existing_db<D>(
 }
 
 /// Reads the highest message ID from the finished backup copy and records it
-/// in `about.txt`. Returns a plain reason if it could not be recorded; never
+/// in `about.txt`. Prints a plain reason if it could not be recorded; never
 /// fails the backup.
 fn record_highest_message_id<D>(
     parts: &InstallParts<'_, impl ConnectionSource, D>,
     written: &Path,
-) -> Option<String> {
-    match parts
+) {
+    let problem = match parts
         .database
         .highest_message_id(&written.join(backup::DATABASE_FILE))
     {
@@ -524,7 +570,17 @@ fn record_highest_message_id<D>(
             .map(|e| e.to_string()),
         Ok(None) => None,
         Err(e) => Some(e.to_string()),
+    };
+    if let Some(why) = problem {
+        parts.output.output(format_args!(
+            "Highest message ID not recorded in about.txt: {why}\n"
+        ));
     }
+}
+
+struct LocalCopy {
+    database: PathBuf,
+    written: PathBuf,
 }
 
 /// Backs up the database `kkt serve` would use (or `db`), with the config
@@ -538,7 +594,7 @@ fn local_backup<D>(
     db: Option<PathBuf>,
     config: Option<PathBuf>,
     on_client: bool,
-) -> Result<(), LocalBackupError> {
+) -> Result<LocalCopy, LocalBackupError> {
     if on_client && config.is_none() {
         let database = existing_db(parts, db, None)?;
         let contents = backup::Contents {
@@ -551,7 +607,6 @@ fn local_backup<D>(
         };
         let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
         let written = parts.backups.write(folder, &layout)?;
-        let not_recorded = record_highest_message_id(parts, &written);
         let out = parts.output;
         out.output(format_args!("Backed up to {}\n", written.display()));
         out.output(format_args!("  database {}\n", database.display()));
@@ -559,12 +614,7 @@ fn local_backup<D>(
             "Backed up only the database: no --config was given on a client machine, so default \
              config and key files were skipped.\n"
         ));
-        if let Some(why) = &not_recorded {
-            out.output(format_args!(
-                "Highest message ID not recorded in about.txt: {why}\n"
-            ));
-        }
-        return Ok(());
+        return Ok(LocalCopy { database, written });
     }
     let config = parts
         .serve
@@ -597,11 +647,6 @@ fn local_backup<D>(
     };
     let layout = backup::layout(parts.clock.now(), Build::CURRENT.version, &contents);
     let written = parts.backups.write(folder, &layout)?;
-    // The highest message ID is read from the finished copy, read-only,
-    // so it is exact and the database being backed up is never opened.
-    // It is optional: any failure leaves the backup complete without
-    // the line, and says so in one line below instead of failing.
-    let not_recorded = record_highest_message_id(parts, &written);
     let out = parts.output;
     out.output(format_args!("Backed up to {}\n", written.display()));
     out.output(format_args!("  database {}\n", database.display()));
@@ -621,12 +666,7 @@ fn local_backup<D>(
     if let Some(path) = &admin_name {
         out.output(format_args!("  admin name {}\n", path.display()));
     }
-    if let Some(why) = &not_recorded {
-        out.output(format_args!(
-            "Highest message ID not recorded in about.txt: {why}\n"
-        ));
-    }
-    Ok(())
+    Ok(LocalCopy { database, written })
 }
 
 /// Clients switched to another server keep using it after the local install goes.
@@ -1010,6 +1050,14 @@ mod tests {
             self.0.borrow_mut().push("clients.read");
             Err(std::io::ErrorKind::NotFound.into())
         }
+        fn read_independent_file(&self, _: &Path, _: &Path) -> std::io::Result<Option<String>> {
+            self.0.borrow_mut().push("clients.read_independent_file");
+            Ok(None)
+        }
+        fn list_dir(&self, _: &Path) -> std::io::Result<Vec<std::ffi::OsString>> {
+            self.0.borrow_mut().push("clients.list_dir");
+            Ok(Vec::new())
+        }
         fn exists(&self, _: &Path) -> bool {
             self.0.borrow_mut().push("clients.exists");
             false
@@ -1287,6 +1335,9 @@ mod tests {
         }
         fn record_highest(&self, _: &Path, _: i64) -> Result<(), backup::BackupError> {
             self.refused("backups.record_highest").map_err(not_asked)
+        }
+        fn finished(&self, _: &Path) -> Result<Vec<PathBuf>, kkt_backup::BackupError> {
+            unreachable!("no backups listed")
         }
         fn prune(&self, _: &Path, _: usize) -> Result<Vec<PathBuf>, backup::BackupError> {
             self.refused("backups.prune").map_err(not_asked)
@@ -3018,11 +3069,17 @@ mod tests {
             show_hint(&other_service_record, "/home/k/.config/kkt/web-key"),
             "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
         );
-        // With no setup record, the hint still names the explicit file.
+        // With no setup record yet, bare `kkt key show --web` resolves the
+        // default web key, so the default place omits `--key-file` while a
+        // custom place still names it.
         let no_record = Recorded(None);
         assert_eq!(
             show_hint(&no_record, "/home/k/.config/kkt/web-key"),
-            "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
+            "kkt key show --web"
+        );
+        assert_eq!(
+            show_hint(&no_record, "/custom/dir/web-key"),
+            "kkt key show --web --key-file '/custom/dir/web-key'"
         );
     }
 
@@ -3082,6 +3139,240 @@ mod tests {
         assert!(
             mode_pos < web_key_pos,
             "expected Mode before Web key:\n{out}"
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn fresh_service_setup_prints_web_key_line_once_without_key_file_flag() {
+        struct LocalConn;
+        impl ConnectionSource for LocalConn {
+            type KeySource = ();
+            fn recorded(
+                &self,
+            ) -> Result<
+                Option<kkt_deployment::connection::RecordedServer>,
+                kkt_deployment::connection::SourceError,
+            > {
+                Ok(None)
+            }
+            fn serve(
+                &self,
+                _: kkt_deployment::connection::ConnectionOptions,
+            ) -> Result<
+                kkt_deployment::connection::ServeConnection<()>,
+                kkt_deployment::connection::SourceError,
+            > {
+                Ok(kkt_deployment::connection::ServeConnection {
+                    url: "http://127.0.0.1:7420/mcp".into(),
+                    access_key: kkt_keys::AccessKey::File(PathBuf::from(
+                        "/home/k/.config/kkt/access-key",
+                    )),
+                    key_source: (),
+                })
+            }
+            fn make_default_key(
+                &self,
+                _: &kkt_keys::AccessKey,
+            ) -> Result<(), kkt_deployment::connection::SourceError> {
+                Ok(())
+            }
+            fn check_key(
+                &self,
+                _: &Path,
+                _: &(),
+            ) -> Result<(), kkt_deployment::connection::SourceError> {
+                Ok(())
+            }
+            fn absolute(
+                &self,
+                path: &Path,
+            ) -> Result<PathBuf, kkt_deployment::connection::SourceError> {
+                Ok(path.to_path_buf())
+            }
+        }
+        struct FreshFiles;
+        impl crate::SetupFiles for FreshFiles {
+            fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
+                Ok(None)
+            }
+            fn read_unfinished(
+                &self,
+                _: &Path,
+            ) -> Result<Option<setup::Unfinished>, crate::PartError> {
+                Ok(None)
+            }
+            fn write_record(&self, _: &Path, _: &setup::Record) -> Result<(), crate::PartError> {
+                Ok(())
+            }
+            fn write_unfinished(
+                &self,
+                _: &Path,
+                _: &setup::Unfinished,
+            ) -> Result<(), crate::PartError> {
+                Ok(())
+            }
+            fn remove_unfinished(&self, _: &Path) -> Result<(), crate::PartError> {
+                Ok(())
+            }
+            fn kkt_path(&self) -> Result<PathBuf, crate::PartError> {
+                Ok(PathBuf::from("/bin/kkt"))
+            }
+            fn path_dirs(&self) -> Vec<PathBuf> {
+                Vec::new()
+            }
+            fn on_path(&self, _: &[PathBuf], _: &str) -> bool {
+                false
+            }
+            fn absolute(&self, path: &Path) -> std::io::Result<PathBuf> {
+                Ok(path.to_path_buf())
+            }
+            fn program_path(&self) -> std::io::Result<PathBuf> {
+                Ok(PathBuf::from("/bin/kkt"))
+            }
+            fn canonicalize(&self, path: &Path) -> std::io::Result<PathBuf> {
+                Ok(path.to_path_buf())
+            }
+            fn remove_record(&self, _: &Path) -> Result<(), crate::PartError> {
+                Ok(())
+            }
+        }
+        struct HealthyProber;
+        impl kkt_diagnostics::Prober for HealthyProber {
+            fn key_file(
+                &self,
+                _: &Path,
+            ) -> Result<kkt_diagnostics::KeyFile, kkt_diagnostics::KeyFileUnread> {
+                Ok(kkt_diagnostics::KeyFile {
+                    mode: Some(0o600),
+                    text: Ok("a".repeat(32)),
+                })
+            }
+            fn answer<'a>(
+                &'a self,
+                _: &'a str,
+            ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Answered> {
+                Box::pin(async {
+                    Ok(Ok(kkt_diagnostics::Status {
+                        code: 200,
+                        reason: None,
+                    }))
+                })
+            }
+            fn initialize<'a>(
+                &'a self,
+                _: &'a str,
+                _: Option<&'a str>,
+            ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Initialized> {
+                Box::pin(async {
+                    Ok(kkt_diagnostics::Initialized::Replied {
+                        cleanup: None,
+                        reply: Ok(kkt_diagnostics::Reply::ServerInfo {
+                            name: Some("kashkeshet".into()),
+                            version: Some("1.0.0".into()),
+                        }),
+                    })
+                })
+            }
+        }
+        struct QuietLines;
+        impl setup::Lines for QuietLines {
+            fn interactive(&self) -> bool {
+                false
+            }
+            fn say(&self, _: &str) {}
+            fn read_line(&self, _: &str) -> Result<Option<String>, setup::LineError> {
+                Ok(None)
+            }
+        }
+
+        let env = Env {
+            home: Some(PathBuf::from("/home/k")),
+            named: Default::default(),
+            xdg_config_home: None,
+            xdg_data_home: None,
+        };
+        let untouched = Untouched::default();
+        let empty = kkt_containerized_service::testing::Memory::new(None, String::new());
+        let remote = Tailscale::default();
+        let try_bind = |_: std::net::SocketAddr| -> std::io::Result<()> { Ok(()) };
+        let backups = kkt_backup::testing::Memory::new();
+        let service = kkt_bare_service::testing::Memory::new();
+        let entropy = kkt_entropy::testing::SeqEntropy::new(0);
+        let answers = || setup::Answers {
+            purpose: Some(setup::Purpose::Service),
+            tailscale: Some(false),
+            allow_hosts: Some(Vec::new()),
+            clients: Some(Vec::new()),
+            allow_kkt: Some(false),
+            admin_key: Some(false),
+            ..Default::default()
+        };
+        let options = || crate::setup::InstallOptions {
+            kkt_version: "1.0.0".into(),
+            docker_project: "kkt".into(),
+            docker_port: 7420,
+        };
+
+        // Fresh install: no web key exists yet -> prints `Created a new web key`
+        // once, with bare `kkt key show --web` and no duplicate `The web key is in`.
+        let said = Said::default();
+        let key_files = kkt_keys::testing::Memory::new().with_dir("/home/k/.config/kkt");
+        let parts = InstallParts {
+            container: &empty,
+            container_configs: &untouched,
+            service: &service,
+            try_bind: &try_bind,
+            remote: &remote,
+            clients: &untouched,
+            client_command: &untouched,
+            prober: &HealthyProber,
+            import_lanes: &untouched,
+            connection: &LocalConn,
+            clock: std::sync::Arc::new(kkt_clock::testing::FixedClock::new(
+                kkt_clock::Time::from_parts(2026, 11, 19, 12, 0, 0).expect("a time"),
+            )),
+            serve: &Defaulted,
+            service_defaults: &untouched,
+            setup_files: &FreshFiles,
+            key_files: &key_files,
+            entropy: &entropy,
+            database: &Present,
+            backups: &backups,
+            output: &said,
+            mcp_path: "/mcp",
+            login_link: &untouched,
+            lines: &QuietLines,
+            config_file: &untouched,
+        };
+        crate::setup::run(&env, Platform::Xdg, &parts, answers(), options())
+            .await
+            .expect("fresh service setup");
+        let out = said.0.borrow().clone();
+        assert_eq!(out.matches("web key").count(), 1, "{out}");
+        assert!(
+            out.contains(
+                "Created a new web key at /home/k/.config/kkt/web-key. Read it with `kkt key show --web`."
+            ),
+            "{out}"
+        );
+        assert!(!out.contains("--key-file"), "{out}");
+
+        // Existing web key: prints `The web key is in ...` once.
+        let said_existing = Said::default();
+        let parts_existing = InstallParts {
+            output: &said_existing,
+            ..parts
+        };
+        crate::setup::run(&env, Platform::Xdg, &parts_existing, answers(), options())
+            .await
+            .expect("existing web key service setup");
+        let out_existing = said_existing.0.borrow().clone();
+        assert_eq!(out_existing.matches("web key").count(), 1, "{out_existing}");
+        assert!(
+            out_existing.contains(
+                "The web key is in /home/k/.config/kkt/web-key. Read it with `kkt key show --web`."
+            ),
+            "{out_existing}"
         );
     }
 }

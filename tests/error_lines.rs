@@ -99,6 +99,14 @@ fn every_command_says_why_it_failed_and_exits_with_one() {
         )
     );
     assert_eq!(
+        printed(&["setup"]),
+        on_stderr("no terminal to ask what this machine is for; pass --mode")
+    );
+    assert_eq!(
+        printed(&["setup", "--mode", "client"]),
+        on_stderr("no terminal to ask for the server's MCP address; pass --url")
+    );
+    assert_eq!(
         printed(&["connect", "codex", "--url", "ftp://x"]),
         on_stderr("URL must be an absolute http:// or https:// address")
     );
@@ -135,11 +143,18 @@ fn every_command_says_why_it_failed_and_exits_with_one() {
              directory (os error 2)"
         )
     );
+    // A `--clients` name checked after the parser is wrong usage: the
+    // same plain line, but exit 2, as `tests/exit_codes.rs` pins.
     assert_eq!(
         printed(&["setup", "--clients", "bogus"]),
-        on_stderr(
-            "unknown client \"bogus\" in --clients: use claude-code, codex, opencode, agy, \
-             muse-code or none"
+        (
+            Vec::new(),
+            vec![
+                "error: unknown client \"bogus\" in --clients: use claude-code, codex, \
+                 opencode, agy, muse-code or none"
+                    .to_string()
+            ],
+            Some(2)
         )
     );
     let key = home.join("k");

@@ -1,12 +1,22 @@
 //! What client configuration needs from the machine: files and paths. The
 //! program adapts the real host; unit tests use a fake.
 
+use std::ffi::OsString;
 use std::io;
 use std::path::{Path, PathBuf};
 
 pub trait Host {
     /// The file's text.
     fn read(&self, path: &Path) -> io::Result<String>;
+
+    /// Reads `candidate` if and only if it is a regular file (never a symlink)
+    /// that is independent of `other` (never a hard link to it). Returns
+    /// `Ok(None)` if `candidate` is missing, is a symlink/directory, shares
+    /// an underlying file with `other`, or independence cannot be established.
+    fn read_independent_file(&self, candidate: &Path, other: &Path) -> io::Result<Option<String>>;
+
+    /// The entry names in `dir`, in no set order.
+    fn list_dir(&self, dir: &Path) -> io::Result<Vec<OsString>>;
 
     fn exists(&self, path: &Path) -> bool;
 

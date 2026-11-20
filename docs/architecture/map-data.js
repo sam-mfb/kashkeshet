@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "73507e03",
+ "commit": "226ee739",
  "crates": [
   {
    "bins": [
@@ -431,7 +431,7 @@ window.KKT_GRAPH = {
      "path": "machine::database::copy"
     },
     {
-     "doc": "The highest message ID in the database at `path`, for a backup's about file, read read-only: the file is not created, initialised, migrated or put into a journal mode by this read, and any of those being needed (or the file being locked,...",
+     "doc": "The highest message ID in the database at `path`, for a backup's about file.",
      "kind": "fn",
      "path": "machine::database::highest_message_id"
     },
@@ -4060,6 +4060,7 @@ window.KKT_GRAPH = {
      "doc": "Where backups are written and pruned.",
      "kind": "trait",
      "methods": [
+      "finished",
       "prune",
       "record_highest",
       "write"
@@ -4323,7 +4324,7 @@ window.KKT_GRAPH = {
      "path": "CopyError"
     },
     {
-     "doc": "Backups in folders on this machine's disk, the database copied by `copy_database(from, to)`, which says why when it fails.",
+     "doc": "Backups in folders on this machine's disk, the database copied by `copy_database(from, to)`, which creates its destination privately (mode 0600 on Unix) and says why when it fails.",
      "kind": "struct",
      "methods": [
       "new"
@@ -4337,18 +4338,19 @@ window.KKT_GRAPH = {
      "fs",
      "fs::DirBuilder",
      "fs::DirBuilder::new",
+     "fs::File",
+     "fs::File::open",
      "fs::OpenOptions",
      "fs::OpenOptions::new",
-     "fs::copy",
      "fs::create_dir_all",
-     "fs::read",
      "fs::read_dir",
      "fs::remove_dir_all",
      "fs::rename",
-     "fs::write",
+     "fs::symlink_metadata",
      "os::unix::fs::DirBuilderExt",
      "os::unix::fs::OpenOptionsExt",
-     "Path::exists"
+     "Path::exists",
+     "Path::is_dir"
     ]
    },
    "name": "kkt-backup-os",
@@ -6882,6 +6884,7 @@ window.KKT_GRAPH = {
       "new",
       "open",
       "open_read_only",
+      "open_snapshot",
       "pending"
      ],
      "path": "SqlitePlace"
@@ -6895,6 +6898,8 @@ window.KKT_GRAPH = {
    "lib": "kkt_db_sqlite",
    "machine_work": {
     "src/open.rs": [
+     "fs::OpenOptions::new",
+     "os::unix::fs::OpenOptionsExt",
      "Path::exists"
     ]
    },
@@ -8630,12 +8635,14 @@ window.KKT_GRAPH = {
       "canonicalize",
       "create_dir_all",
       "create_private",
+      "dir_entries",
       "exists",
       "file_names",
       "is_file",
       "mode",
       "read",
       "read_if_present",
+      "read_independent_file",
       "remove_file",
       "remove_if_present",
       "rename",
@@ -8651,6 +8658,8 @@ window.KKT_GRAPH = {
    "machine_work": {
     "src/lib.rs": [
      "fs",
+     "fs::File::open",
+     "fs::Metadata",
      "fs::OpenOptions",
      "fs::OpenOptions::new",
      "fs::Permissions::from_mode",
@@ -8661,13 +8670,16 @@ window.KKT_GRAPH = {
      "fs::remove_file",
      "fs::rename",
      "fs::set_permissions",
+     "fs::symlink_metadata",
      "fs::write",
+     "os::unix::fs::MetadataExt",
      "os::unix::fs::OpenOptionsExt",
      "os::unix::fs::PermissionsExt",
      "path::absolute",
      "Path::canonicalize",
      "Path::exists",
-     "Path::is_file"
+     "Path::is_file",
+     "Path::metadata"
     ]
    },
    "name": "kkt-files",
@@ -12617,9 +12629,11 @@ window.KKT_GRAPH = {
       "create_dir_all",
       "create_private",
       "exists",
+      "list_dir",
       "mode",
       "process_id",
       "read",
+      "read_independent_file",
       "remove_file",
       "rename",
       "restrict",
@@ -17618,6 +17632,7 @@ window.KKT_GRAPH = {
      "doc": "A question, and the flag that answers it without asking.",
      "fields": [
       "text",
+      "topic",
       "flag",
       "default"
      ],
@@ -17928,6 +17943,7 @@ window.KKT_GRAPH = {
      "doc": "A question, and the flag that answers it without asking.",
      "fields": [
       "text",
+      "topic",
       "flag",
       "default"
      ],
@@ -20325,9 +20341,11 @@ window.KKT_GRAPH = {
    "features": [],
    "from": "kashkeshet",
    "items": [
+    "ABOUT_FILE",
     "BackupError",
     "Backups",
     "Contents",
+    "DATABASE_FILE",
     "FolderError",
     "Settings",
     "layout",
@@ -20339,9 +20357,11 @@ window.KKT_GRAPH = {
    "roles": [
     {
      "detail": [
+      "ABOUT_FILE",
       "BackupError",
       "Backups",
       "Contents",
+      "DATABASE_FILE",
       "FolderError",
       "Settings",
       "layout",
@@ -25712,7 +25732,8 @@ window.KKT_GRAPH = {
     "backup_keys",
     "backup_of",
     "layout",
-    "service_backup_folder"
+    "service_backup_folder",
+    "upgrade_backup_folder"
    ],
    "kind": "normal",
    "optional": false,
@@ -25734,7 +25755,8 @@ window.KKT_GRAPH = {
       "backup_keys",
       "backup_of",
       "layout",
-      "service_backup_folder"
+      "service_backup_folder",
+      "upgrade_backup_folder"
      ],
      "role": "uses"
     }
@@ -26095,6 +26117,7 @@ window.KKT_GRAPH = {
     "KeyFile",
     "KeyFileUnread",
     "Probing",
+    "Status",
     "testing::Memory"
    ],
    "to": "kkt-diagnostics"
@@ -26562,6 +26585,8 @@ window.KKT_GRAPH = {
     "KeyFileUnread",
     "Prober",
     "Probing",
+    "Reply",
+    "Status",
     "report",
     "testing::Memory"
    ],
@@ -26576,6 +26601,7 @@ window.KKT_GRAPH = {
       "Initialized",
       "KeyFileUnread",
       "Probing",
+      "Reply",
       "report"
      ],
      "role": "uses"

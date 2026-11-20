@@ -238,6 +238,7 @@ pub(super) fn adoptable(
     }
     let question = Question {
         text: &format!("{} Record it and continue?", found.summary()),
+        topic: "whether to adopt the existing server",
         flag: "--adopt",
         default: Some(DEFAULT_SETUP_ADOPT),
     };

@@ -150,6 +150,12 @@ impl kkt_llm_agent_config::Host for NoClients {
     fn read(&self, _: &Path) -> io::Result<String> {
         Err(io::ErrorKind::NotFound.into())
     }
+    fn read_independent_file(&self, _: &Path, _: &Path) -> io::Result<Option<String>> {
+        Ok(None)
+    }
+    fn list_dir(&self, _: &Path) -> io::Result<Vec<std::ffi::OsString>> {
+        Ok(Vec::new())
+    }
     fn exists(&self, _: &Path) -> bool {
         false
     }

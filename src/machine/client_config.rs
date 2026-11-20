@@ -20,6 +20,12 @@ impl Host for ClientHost {
     fn read(&self, path: &Path) -> io::Result<String> {
         Files.read(path)
     }
+    fn read_independent_file(&self, candidate: &Path, other: &Path) -> io::Result<Option<String>> {
+        Files.read_independent_file(candidate, other)
+    }
+    fn list_dir(&self, dir: &Path) -> io::Result<Vec<std::ffi::OsString>> {
+        Files.dir_entries(dir)
+    }
     fn exists(&self, path: &Path) -> bool {
         Files.exists(path)
     }
