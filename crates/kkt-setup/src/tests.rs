@@ -221,12 +221,13 @@ fn the_record_lives_in_the_config_directory() {
 fn with_no_one_to_ask_a_question_names_its_flag() {
     let q = Question {
         text: "What is this machine for?",
+        topic: "what this machine is for",
         flag: "--mode",
         default: None,
     };
     assert_eq!(
         unanswered(q).to_string(),
-        "What is this machine for? No terminal to ask on: pass --mode."
+        "no terminal to ask what this machine is for; pass --mode"
     );
 }
 
@@ -1352,7 +1353,7 @@ mod flow {
         // Pinned exactly: what a person is told.
         assert_eq!(
             error.to_string(),
-            "Connect Codex to kkt? No terminal to ask on: pass --clients."
+            "no terminal to ask whether to connect Codex to kkt; pass --clients"
         );
         assert!(error.contains("pass --clients"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -1447,7 +1448,7 @@ mod flow {
         // Pinned exactly: what a person is told.
         assert_eq!(
             error,
-            "launchctl failed\nTry again? No terminal to ask on.\nAn earlier `kkt setup` began to install a server here as a service, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."
+            "launchctl failed\nno terminal to ask whether to try again\nAn earlier `kkt setup` began to install a server here as a service, but stopped before the install finished; parts of it may be running. Until then, `kkt upgrade` and `kkt uninstall` do not manage it. Run `kkt setup` again to finish: it continues from the install."
         );
     }
 
@@ -2975,7 +2976,7 @@ mod flow {
         // Pinned exactly: what a person is told.
         assert_eq!(
             error.to_string(),
-            "What is this machine for? No terminal to ask on: pass --mode."
+            "no terminal to ask what this machine is for; pass --mode"
         );
         assert!(error.contains("--mode"), "{error}");
         assert!(steps.done().is_empty(), "{:?}", steps.done());
@@ -3709,6 +3710,82 @@ mod flow {
                 "{error}"
             );
             assert!(!steps.recorded());
+        }
+
+        #[test]
+        fn switch_closing_line_names_only_the_clients_that_moved() {
+            // Partial subset (2 of 3 connected): names only Codex and OpenCode.
+            let steps = Fake {
+                connected: vec![Client::ClaudeCode, Client::Codex, Client::OpenCode],
+                ..on(client_record())
+            };
+            let ask = Script::default();
+            let how = Switch {
+                clients: Some(vec![Client::Codex, Client::OpenCode]),
+                ..to(OTHER)
+            };
+            switch(&how, "0.8.0", &ask, &steps).expect("switch");
+            let told = ask.told.borrow().join("\n");
+            assert!(
+                told.contains(&format!(
+                    "Codex and OpenCode now use {OTHER}. `kkt watch`, `kkt register`, \
+                     `kkt reclaim` and `kkt doctor` use it too."
+                )),
+                "{told}"
+            );
+            assert!(!told.contains("This machine's clients now use"), "{told}");
+
+            // Single client moved (1 of 2 connected): singular verb "uses".
+            let steps = Fake {
+                connected: vec![Client::ClaudeCode, Client::Codex],
+                ..on(client_record())
+            };
+            let ask = Script::default();
+            let how = Switch {
+                clients: Some(vec![Client::Codex]),
+                ..to(OTHER)
+            };
+            switch(&how, "0.8.0", &ask, &steps).expect("switch");
+            let told = ask.told.borrow().join("\n");
+            assert!(told.contains(&format!("Codex now uses {OTHER}.")), "{told}");
+            assert!(!told.contains("This machine's clients now use"), "{told}");
+
+            // All connected clients moved: keeps "This machine's clients now use".
+            let steps = Fake {
+                connected: vec![Client::Codex, Client::OpenCode],
+                ..on(client_record())
+            };
+            let ask = Script::default();
+            let how = Switch {
+                clients: Some(vec![Client::Codex, Client::OpenCode]),
+                ..to(OTHER)
+            };
+            switch(&how, "0.8.0", &ask, &steps).expect("switch");
+            let told = ask.told.borrow().join("\n");
+            assert!(
+                told.contains(&format!("This machine's clients now use {OTHER}.")),
+                "{told}"
+            );
+
+            // Explicit --clients none: says no client configs were changed.
+            let steps = Fake {
+                connected: vec![Client::ClaudeCode],
+                ..on(client_record())
+            };
+            let ask = Script::default();
+            let how = Switch {
+                clients: Some(vec![]),
+                ..to(OTHER)
+            };
+            switch(&how, "0.8.0", &ask, &steps).expect("switch");
+            let told = ask.told.borrow().join("\n");
+            assert!(
+                told.contains(&format!(
+                    "No client configs were changed. `kkt watch`, `kkt register`, \
+                     `kkt reclaim` and `kkt doctor` now use {OTHER}."
+                )),
+                "{told}"
+            );
         }
     }
 }

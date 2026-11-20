@@ -3258,3 +3258,59 @@ async fn switch_puts_previous_url_on_configured_line_for_keyed_agy_and_muse_code
 
     new_server.kill().await.expect("stop new");
 }
+
+#[tokio::test]
+async fn switch_closing_line_names_only_the_clients_that_moved() {
+    let (_local_home, mut local, local_url, local_key) = keyed_server("switch-subset-local").await;
+    let (_other_home, mut other, other_url, other_key) = keyed_server("switch-subset-other").await;
+    let home = temp_home("switch-subset-home");
+
+    // Record a service at local_url while Claude Code, Codex and OpenCode all point at other_url.
+    let (ok, said) = setup_client(&home, &other_url, &other_key, &["--clients", "none"]).await;
+    assert!(ok, "{said}");
+    std::fs::write(
+        home.join(".config/kkt/setup.toml"),
+        format!(
+            "format = 1\nmode = \"service\"\nwritten_by = \"1.0.0\"\nurl = \"{local_url}\"\nkey_file = \"{}\"\n\n[service]\ntailscale = false\n",
+            local_key.display()
+        ),
+    )
+    .expect("service record");
+
+    std::fs::write(
+        home.join(".claude.json"),
+        format!(r#"{{"mcpServers":{{"kkt":{{"url":"{other_url}"}}}}}}"#),
+    )
+    .unwrap();
+    let codex_path = home.join(".codex/config.toml");
+    std::fs::create_dir_all(codex_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &codex_path,
+        format!("[mcp_servers.kkt]\nurl = \"{other_url}\"\n"),
+    )
+    .unwrap();
+    let opencode_path = home.join(".config/opencode/opencode.json");
+    std::fs::create_dir_all(opencode_path.parent().unwrap()).unwrap();
+    std::fs::write(
+        &opencode_path,
+        format!(r#"{{"mcp":{{"kkt":{{"type":"remote","url":"{other_url}"}}}}}}"#),
+    )
+    .unwrap();
+
+    // Switch only codex and opencode to --local; Claude Code stays on other_url.
+    let (ok, said) = kkt(&home, &["switch", "--local", "--clients", "codex,opencode"]).await;
+    assert!(ok, "{said}");
+    assert!(
+        said.contains(&format!("Codex and OpenCode now use {local_url}.")),
+        "{said}"
+    );
+    assert!(!said.contains("This machine's clients now use"), "{said}");
+    assert!(
+        std::fs::read_to_string(home.join(".claude.json"))
+            .unwrap()
+            .contains(&other_url)
+    );
+
+    local.kill().await.expect("stop local");
+    other.kill().await.expect("stop other");
+}

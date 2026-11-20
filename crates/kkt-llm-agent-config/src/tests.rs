@@ -894,3 +894,45 @@ fn every_client_config_message_says_what_it_always_said() {
     ];
     assert_eq!(every_message(), expected);
 }
+
+#[test]
+fn backup_skips_new_bak_when_an_existing_bak_has_identical_content() {
+    let host = FakeHost::default();
+    let path = PathBuf::from("/home/sam/.codex/config.toml");
+    host.create_private(&path, "model = \"o3\"\n")
+        .expect("seed config");
+    let env = env();
+    let claude = testing::Recorder::default();
+
+    // Alternate between server A and server B six times.
+    let urls = [
+        "https://a.example/mcp",
+        "https://b.example/mcp",
+        "https://a.example/mcp",
+        "https://b.example/mcp",
+        "https://a.example/mcp",
+        "https://b.example/mcp",
+    ];
+    for url in urls {
+        let setup = Setup {
+            env: &env,
+            url,
+            executable: Path::new("/usr/local/bin/kkt"),
+            key_file: None,
+            client_config: &path,
+            source: "HOME",
+        };
+        configure(Client::Codex, &setup, true, &host, &claude).expect("configure");
+    }
+
+    // .bak holds the original file; .bak.1 holds the A config; .bak.2 holds the B
+    // config; subsequent switches reuse those identical backups instead of piling up
+    // .bak.3, .bak.4, .bak.5.
+    assert!(host.exists(&beside(&path, ".bak")));
+    assert!(host.exists(&beside(&path, ".bak.1")));
+    assert!(host.exists(&beside(&path, ".bak.2")));
+    assert!(
+        !host.exists(&beside(&path, ".bak.3")),
+        "duplicate backup file should not be created"
+    );
+}

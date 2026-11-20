@@ -107,8 +107,9 @@ pub(super) fn read(host: &dyn Host, path: &Path) -> Result<Option<String>, Clien
 }
 
 /// Saves `text`, the file's old contents, beside `path` as `<path>.bak`,
-/// or `.bak.1`, `.bak.2` and on if that is taken. Nothing to save, nothing
-/// saved.
+/// or `.bak.1`, `.bak.2` and on if that is taken. If an existing backup
+/// beside `path` already holds the exact same `text`, no new backup file
+/// is created. Nothing to save, nothing saved.
 fn backup(host: &dyn Host, path: &Path, text: Option<&str>) -> Result<(), ClientConfigError> {
     let Some(text) = text else { return Ok(()) };
     for number in 0u64.. {
@@ -119,9 +120,15 @@ fn backup(host: &dyn Host, path: &Path, text: Option<&str>) -> Result<(), Client
         };
         let mut name = path.as_os_str().to_os_string();
         name.push(suffix);
-        match host.create_private(&PathBuf::from(name), text) {
+        let candidate = PathBuf::from(name);
+        match host.create_private(&candidate, text) {
             Ok(()) => return Ok(()),
-            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => continue,
+            Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {
+                if host.read(&candidate).ok().as_deref() == Some(text) {
+                    return Ok(());
+                }
+                continue;
+            }
             Err(e) => return Err(ClientConfigError::file(FileAction::BackUp, path, e)),
         }
     }

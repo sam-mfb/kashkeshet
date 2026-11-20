@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "73507e03",
+ "commit": "7bcb9d49",
  "crates": [
   {
    "bins": [
@@ -17618,6 +17618,7 @@ window.KKT_GRAPH = {
      "doc": "A question, and the flag that answers it without asking.",
      "fields": [
       "text",
+      "topic",
       "flag",
       "default"
      ],
@@ -17928,6 +17929,7 @@ window.KKT_GRAPH = {
      "doc": "A question, and the flag that answers it without asking.",
      "fields": [
       "text",
+      "topic",
       "flag",
       "default"
      ],
@@ -26095,6 +26097,7 @@ window.KKT_GRAPH = {
     "KeyFile",
     "KeyFileUnread",
     "Probing",
+    "Status",
     "testing::Memory"
    ],
    "to": "kkt-diagnostics"
@@ -26562,6 +26565,8 @@ window.KKT_GRAPH = {
     "KeyFileUnread",
     "Prober",
     "Probing",
+    "Reply",
+    "Status",
     "report",
     "testing::Memory"
    ],
@@ -26576,6 +26581,7 @@ window.KKT_GRAPH = {
       "Initialized",
       "KeyFileUnread",
       "Probing",
+      "Reply",
       "report"
      ],
      "role": "uses"
