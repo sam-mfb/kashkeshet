@@ -82,13 +82,16 @@ impl Files {
     /// Reads `candidate` as UTF-8 text if and only if it is a regular file
     /// (never a symbolic link) that is not the same underlying file as `other`
     /// (never a hard link to it). Returns `Ok(None)` when `candidate` is
-    /// missing, is not a regular file, or shares an inode with `other`.
+    /// missing, is not a regular file, shares an inode with `other`, or when
+    /// file independence cannot be established (such as on non-Unix systems).
+    #[cfg(unix)]
     pub fn read_independent_file(
         &self,
         candidate: &Path,
         other: &Path,
     ) -> io::Result<Option<String>> {
         use std::io::Read;
+        use std::os::unix::fs::MetadataExt;
         let meta = match fs::symlink_metadata(candidate) {
             Ok(meta) => meta,
             Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(None),
@@ -97,23 +100,17 @@ impl Files {
         if !meta.file_type().is_file() {
             return Ok(None);
         }
-        #[cfg(unix)]
-        let same_inode = |a: &fs::Metadata, b: &fs::Metadata| {
-            use std::os::unix::fs::MetadataExt;
-            a.dev() == b.dev() && a.ino() == b.ino()
-        };
-        #[cfg(unix)]
+        let same_inode =
+            |a: &fs::Metadata, b: &fs::Metadata| a.dev() == b.dev() && a.ino() == b.ino();
+        if let Ok(other_meta) = fs::metadata(other)
+            && same_inode(&meta, &other_meta)
         {
-            if let Ok(other_meta) = fs::metadata(other)
-                && same_inode(&meta, &other_meta)
-            {
-                return Ok(None);
-            }
-            if let Ok(other_meta) = fs::symlink_metadata(other)
-                && same_inode(&meta, &other_meta)
-            {
-                return Ok(None);
-            }
+            return Ok(None);
+        }
+        if let Ok(other_meta) = fs::symlink_metadata(other)
+            && same_inode(&meta, &other_meta)
+        {
+            return Ok(None);
         }
         let mut file = match fs::File::open(candidate) {
             Ok(file) => file,
@@ -121,16 +118,24 @@ impl Files {
             Err(e) => return Err(e),
         };
         let open_meta = file.metadata()?;
-        if !open_meta.file_type().is_file() {
-            return Ok(None);
-        }
-        #[cfg(unix)]
-        if !same_inode(&meta, &open_meta) {
+        if !open_meta.file_type().is_file() || !same_inode(&meta, &open_meta) {
             return Ok(None);
         }
         let mut text = String::new();
         file.read_to_string(&mut text)?;
         Ok(Some(text))
+    }
+
+    /// Reads `candidate` as UTF-8 text if and only if it is an independent
+    /// regular file. On non-Unix systems where inode identity cannot be
+    /// checked, declines reuse by returning `Ok(None)`.
+    #[cfg(not(unix))]
+    pub fn read_independent_file(
+        &self,
+        _candidate: &Path,
+        _other: &Path,
+    ) -> io::Result<Option<String>> {
+        Ok(None)
     }
 
     /// Makes the folder at `path` and any folders above it that are missing.

@@ -3399,4 +3399,75 @@ async fn client_backup_requires_an_independent_regular_file_and_scans_past_gaps(
         std::fs::read_to_string(home.join(".codex/config.toml.bak.2")).unwrap(),
         original
     );
+
+    // 4. Bare relative `--client-config config.toml` (empty parent) scans `.` past a gap.
+    let home = temp_home("bak-relative-gap");
+    let work = home.join("work");
+    std::fs::create_dir_all(&work).unwrap();
+    std::fs::write(work.join("config.toml"), original).unwrap();
+    std::fs::write(work.join("config.toml.bak.2"), original).unwrap();
+    let out = tokio::process::Command::new(KKT)
+        .args([
+            "connect",
+            "codex",
+            "--client-config",
+            "config.toml",
+            "--url",
+            "https://new.example/mcp",
+            "--write",
+        ])
+        .current_dir(&work)
+        .own_home(&home)
+        .stdin(Stdio::null())
+        .output()
+        .await
+        .expect("run kkt connect");
+    assert!(
+        out.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!work.join("config.toml.bak").exists());
+    assert!(!work.join("config.toml.bak.1").exists());
+    assert_eq!(
+        std::fs::read_to_string(work.join("config.toml.bak.2")).unwrap(),
+        original
+    );
+}
+
+/// Matching an existing `.bak.2` past a gap works when the config file's own
+/// name is not valid UTF-8. Linux only: macOS requires file names in UTF-8.
+#[cfg(target_os = "linux")]
+#[tokio::test]
+async fn client_backup_scans_past_gaps_for_non_utf8_config_name() {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+    let home = temp_home("bak-non-utf8-gap");
+    let dir = home.join("opencode");
+    std::fs::create_dir_all(&dir).unwrap();
+    let original = r#"{"mcp":{"kkt":{"type":"remote","url":"https://old.example/mcp"}}}"#;
+    let config = dir.join(OsString::from_vec(b"opencode-\xff.json".to_vec()));
+    let bak2 = dir.join(OsString::from_vec(b"opencode-\xff.json.bak.2".to_vec()));
+    let bak = dir.join(OsString::from_vec(b"opencode-\xff.json.bak".to_vec()));
+    std::fs::write(&config, original).unwrap();
+    std::fs::write(&bak2, original).unwrap();
+
+    let out = tokio::process::Command::new(KKT)
+        .args(["connect", "opencode", "--client-config"])
+        .arg(&config)
+        .args(["--url", "https://new.example/mcp", "--write"])
+        .own_home(&home)
+        .stdin(Stdio::null())
+        .output()
+        .await
+        .expect("run kkt connect");
+    assert!(
+        out.status.success(),
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    assert!(!bak.exists(), "redundant .bak should not be created");
+    assert_eq!(std::fs::read_to_string(&bak2).unwrap(), original);
 }

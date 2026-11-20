@@ -11,8 +11,8 @@ pub trait Host {
 
     /// Reads `candidate` if and only if it is a regular file (never a symlink)
     /// that is independent of `other` (never a hard link to it). Returns
-    /// `Ok(None)` if `candidate` is missing, is a symlink/directory, or shares
-    /// an underlying file with `other`.
+    /// `Ok(None)` if `candidate` is missing, is a symlink/directory, shares
+    /// an underlying file with `other`, or independence cannot be established.
     fn read_independent_file(&self, candidate: &Path, other: &Path) -> io::Result<Option<String>>;
 
     /// The entry names in `dir`, in no set order.

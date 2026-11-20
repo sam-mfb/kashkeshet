@@ -107,26 +107,27 @@ pub(super) fn read(host: &dyn Host, path: &Path) -> Result<Option<String>, Clien
 }
 
 /// Whether `entry_name` is a backup sibling of `base_name`: `<base>.bak` or
-/// `<base>.bak.<N>` for a positive decimal integer `N`.
+/// `<base>.bak.<N>` for a positive decimal integer `N`. Matches on native
+/// encoded bytes so non-UTF-8 file names are handled without loss.
 fn is_backup_name(base_name: &std::ffi::OsStr, entry_name: &std::ffi::OsStr) -> bool {
-    let Some(base) = base_name.to_str() else {
+    let Some(rest) = entry_name
+        .as_encoded_bytes()
+        .strip_prefix(base_name.as_encoded_bytes())
+    else {
         return false;
     };
-    let Some(entry) = entry_name.to_str() else {
-        return false;
-    };
-    let Some(rest) = entry.strip_prefix(base) else {
-        return false;
-    };
-    if rest == ".bak" {
+    if rest == b".bak" {
         return true;
     }
-    let Some(num) = rest.strip_prefix(".bak.") else {
+    let Some(num) = rest.strip_prefix(b".bak.") else {
         return false;
     };
     !num.is_empty()
-        && num.bytes().all(|b| b.is_ascii_digit())
-        && num.parse::<u64>().is_ok_and(|n| n >= 1)
+        && num.iter().all(u8::is_ascii_digit)
+        && std::str::from_utf8(num)
+            .ok()
+            .and_then(|s| s.parse::<u64>().ok())
+            .is_some_and(|n| n >= 1)
 }
 
 /// Saves `text`, the file's old contents, beside `path` as `<path>.bak`,
@@ -136,20 +137,24 @@ fn is_backup_name(base_name: &std::ffi::OsStr, entry_name: &std::ffi::OsStr) -> 
 /// save, nothing saved.
 fn backup(host: &dyn Host, path: &Path, text: Option<&str>) -> Result<(), ClientConfigError> {
     let Some(text) = text else { return Ok(()) };
-    if let (Some(parent), Some(base_name)) = (path.parent(), path.file_name())
-        && let Ok(entries) = host.list_dir(parent)
-    {
-        for entry in entries {
-            if is_backup_name(base_name, &entry) {
-                let candidate = parent.join(&entry);
-                if host
-                    .read_independent_file(&candidate, path)
-                    .ok()
-                    .flatten()
-                    .as_deref()
-                    == Some(text)
-                {
-                    return Ok(());
+    if let Some(base_name) = path.file_name() {
+        let dir = match path.parent() {
+            Some(parent) if !parent.as_os_str().is_empty() => parent,
+            _ => Path::new("."),
+        };
+        if let Ok(entries) = host.list_dir(dir) {
+            for entry in entries {
+                if is_backup_name(base_name, &entry) {
+                    let candidate = dir.join(&entry);
+                    if host
+                        .read_independent_file(&candidate, path)
+                        .ok()
+                        .flatten()
+                        .as_deref()
+                        == Some(text)
+                    {
+                        return Ok(());
+                    }
                 }
             }
         }
