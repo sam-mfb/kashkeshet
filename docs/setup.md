@@ -13,6 +13,13 @@ checks the server connection with `kkt doctor`, then applies the chosen clients'
 through `kkt connect`.
 Restart connected clients so they load their settings.
 
+Every `kkt` command exits 0 when it succeeds. Wrong usage — a flag or
+value the parser cannot read, or a subcommand that is missing — exits 2
+and prints the usage or an `error:` line; `kkt agent` with no subcommand
+prints its help and exits 2. Every other failure exits 1 with an
+`error: …` line. (`kkt watch --once` also has its own exit 3 when its
+time runs out with nothing new; see [Waiting](waiting.md).)
+
 ## Questions and defaults
 
 At a terminal, every question shows its default; pressing Enter accepts it.

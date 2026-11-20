@@ -85,8 +85,14 @@ impl LaneServer for ContainerLanes<'_> {
                 )
                 .map_err(LaneError::Run)?;
             self.output.output(format_args!("{said}"));
-            self.output
-                .errors(format_args!("Exported to {}\n", dest.display()));
+            // The run in the container lists one line per lane it
+            // exported, as a local export prints, so their number is
+            // the count the closing line names everywhere.
+            self.output.errors(format_args!(
+                "Exported {} lanes to {}\n",
+                said.lines().count(),
+                dest.display()
+            ));
             Ok(())
         })
     }
@@ -289,7 +295,7 @@ mod tests {
             )]
         );
         assert_eq!(*said.output.borrow(), "reviewer.md (version 2)\n");
-        assert_eq!(*said.errors.borrow(), "Exported to /home/me/out\n");
+        assert_eq!(*said.errors.borrow(), "Exported 1 lanes to /home/me/out\n");
     }
 
     #[test]

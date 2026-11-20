@@ -17,11 +17,20 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::sync::Arc;
 
+/// What a run with the wrong arguments prints, and exits 2 for.
+const USAGE: &str = "usage: kkt-fake-product <database file>";
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match run(&args).await {
         Ok(()) => ExitCode::SUCCESS,
+        // Wrong usage exits 2, as a parser's usage errors do; every
+        // other failure exits 1.
+        Err(e) if e == USAGE => {
+            Terminal.errors(format_args!("kkt-fake-product: {e}\n"));
+            ExitCode::from(2)
+        }
         Err(e) => {
             Terminal.errors(format_args!("kkt-fake-product: {e}\n"));
             ExitCode::FAILURE
@@ -31,7 +40,7 @@ async fn main() -> ExitCode {
 
 async fn run(args: &[String]) -> Result<(), String> {
     let [path] = args else {
-        return Err("usage: kkt-fake-product <database file>".into());
+        return Err(USAGE.into());
     };
     let path = PathBuf::from(path);
     let place = SqlitePlace::new(&path, Options::DEFAULT)

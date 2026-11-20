@@ -45,6 +45,15 @@ use std::sync::Arc;
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
+    // Wrong usage exits 2, as a parser's usage errors do; every other
+    // failure exits 1.
+    let args = match parse_args(&args) {
+        Ok(args) => args,
+        Err(e) => {
+            Terminal.errors(format_args!("kkt-keymode: {e}\n"));
+            return ExitCode::from(2);
+        }
+    };
     match run(&args).await {
         Ok(()) => ExitCode::SUCCESS,
         Err(e) => {
@@ -78,9 +87,8 @@ fn parse_args(args: &[String]) -> Result<Args, String> {
     })
 }
 
-async fn run(args: &[String]) -> Result<(), String> {
-    let args = parse_args(args)?;
-    let settings = settings(&args)?;
+async fn run(args: &Args) -> Result<(), String> {
+    let settings = settings(args)?;
     let config_file = args.config.display().to_string();
     let Settings {
         db,
