@@ -47,6 +47,18 @@ pub(crate) enum CliError {
     },
 }
 
+impl CliError {
+    /// Whether this is wrong usage — a flag's value that is not usable,
+    /// checked here after the parser — rather than a failure of the
+    /// command itself. Wrong usage exits 2; the rest exit 1.
+    pub(crate) fn is_usage(&self) -> bool {
+        matches!(
+            self,
+            CliError::UnknownClient { .. } | CliError::NoServerAddress
+        )
+    }
+}
+
 /// This run's command, from the command line, with its flags as plain
 /// values. Exits, as clap does, on a command line it cannot parse or on
 /// `--help` or `--version`. An error is a flag whose value is not usable.

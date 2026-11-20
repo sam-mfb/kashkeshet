@@ -44,7 +44,7 @@ use std::sync::Arc;
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> ExitCode {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
     // Wrong usage exits 2, as a parser's usage errors do; every other
     // failure exits 1.
     let args = match parse_args(&args) {
@@ -69,15 +69,24 @@ struct Args {
     bind: Option<SocketAddr>,
 }
 
-fn parse_args(args: &[String]) -> Result<Args, String> {
+fn parse_args(args: &[std::ffi::OsString]) -> Result<Args, String> {
     const USAGE: &str = "usage: kkt-keymode --config <file> [--bind <address>]";
     let (mut config, mut bind) = (None, None);
     let mut args = args.iter();
     while let Some(arg) = args.next() {
+        // A flag is ASCII text; the value after it need not be: a config
+        // path keeps its native bytes, and a bind address that is not
+        // text is a bad value, refused as usage, never a panic.
+        let flag = arg.to_str().ok_or(USAGE)?;
         let value = args.next().ok_or(USAGE)?;
-        match arg.as_str() {
+        match flag {
             "--config" => config = Some(PathBuf::from(value)),
-            "--bind" => bind = Some(value.parse().map_err(|e| format!("--bind {value}: {e}"))?),
+            "--bind" => {
+                let value = value
+                    .to_str()
+                    .ok_or("--bind: the address is not valid text")?;
+                bind = Some(value.parse().map_err(|e| format!("--bind {value}: {e}"))?);
+            }
             _ => return Err(USAGE.into()),
         }
     }

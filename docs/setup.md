@@ -14,11 +14,15 @@ through `kkt connect`.
 Restart connected clients so they load their settings.
 
 Every `kkt` command exits 0 when it succeeds. Wrong usage — a flag or
-value the parser cannot read, or a subcommand that is missing — exits 2
-and prints the usage or an `error:` line; `kkt agent` with no subcommand
-prints its help and exits 2. Every other failure exits 1 with an
-`error: …` line. (`kkt watch --once` also has its own exit 3 when its
-time runs out with nothing new; see [Waiting](waiting.md).)
+value the parser cannot read (including a `--clients` name it does not
+know), or a subcommand that is missing — exits 2 and prints the usage
+or an `error:` line; `kkt agent` with no subcommand prints its help
+and exits 2. Every other failure exits 1. The commands that work
+before the server's log starts (every command but `kkt serve` once it
+is running) say why on standard error as one `error: …` line; a
+running `kkt serve` reports through its log instead. (`kkt watch
+--once` also has its own exit 3 when its time runs out with nothing
+new; see [Waiting](waiting.md).)
 
 ## Questions and defaults
 

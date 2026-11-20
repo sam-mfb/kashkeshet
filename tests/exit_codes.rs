@@ -45,6 +45,21 @@ fn wrong_usage_exits_2_and_other_failures_exit_1() {
     assert_eq!(code, Some(2), "{stderr}");
     assert!(stdout.is_empty(), "{stdout}");
     assert!(stderr.contains("Usage:"), "{stderr}");
+    // A flag's value checked after the parser: also wrong usage, exit 2.
+    for args in [
+        &[
+            "switch",
+            "https://example.invalid/mcp",
+            "--clients",
+            "bogus",
+        ][..],
+        &["setup", "--clients", "bogus"][..],
+    ] {
+        let (stdout, stderr, code) = run(&home, args);
+        assert_eq!(code, Some(2), "{args:?}: {stderr}");
+        assert!(stdout.is_empty(), "{args:?}: {stdout}");
+        assert!(stderr.contains("unknown client"), "{args:?}: {stderr}");
+    }
     // A plain failure: exit 1, one `error: ` line.
     let (stdout, stderr, code) = run(&home, &["key", "show", "--web"]);
     assert_eq!(code, Some(1), "{stderr}");
