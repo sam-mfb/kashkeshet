@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "7bcb9d49",
+ "commit": "7fc3d34b",
  "crates": [
   {
    "bins": [
@@ -4346,6 +4346,7 @@ window.KKT_GRAPH = {
      "fs::read_dir",
      "fs::remove_dir_all",
      "fs::rename",
+     "fs::symlink_metadata",
      "os::unix::fs::DirBuilderExt",
      "os::unix::fs::OpenOptionsExt",
      "Path::exists",
