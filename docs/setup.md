@@ -19,8 +19,9 @@ know), or a subcommand that is missing — exits 2 and prints the usage
 or an `error:` line; `kkt agent` with no subcommand prints its help
 and exits 2. Every other failure exits 1. The commands that work
 before the server's log starts (every command but `kkt serve` once it
-is running) say why on standard error as one `error: …` line; a
-running `kkt serve` reports through its log instead. (`kkt watch
+is running) print an error message beginning with `error:` on
+standard error; a running `kkt serve` reports through its log
+instead. (`kkt watch
 --once` also has its own exit 3 when its time runs out with nothing
 new; see [Waiting](waiting.md).)
 
