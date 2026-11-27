@@ -416,6 +416,9 @@ mod flow {
         fail_doctor: bool,
         /// Addresses where no server answers.
         bad_addresses: Vec<&'static str>,
+        /// Addresses whose check finds the problem given, as words of the
+        /// program's checks.
+        address_problems: Vec<(&'static str, &'static str)>,
         /// Keys the server refuses, as [`shown`] shows them.
         bad_keys: Vec<String>,
         /// An address whose server passes the first check and then stops
@@ -784,6 +787,9 @@ mod flow {
             self.checked.borrow_mut().push(checked);
             if gone || self.bad_addresses.contains(&url) {
                 return Err(StepError("problem: server: connection refused".into()));
+            }
+            if let Some((_, problem)) = self.address_problems.iter().find(|(at, _)| *at == url) {
+                return Err(StepError((*problem).into()));
             }
             Ok(())
         }
@@ -1771,33 +1777,39 @@ mod flow {
         }
     }
 
-    /// Any other https failure on this machine, such as an untrusted
-    /// certificate or an https server that fails the check, is the answer:
-    /// setup stops with it, and never tries http.
+    /// Any other https failure on this machine stops setup with its
+    /// problem, and http is never tried and no key is checked: a certificate
+    /// that is not trusted, and an https server that answers but fails the
+    /// MCP check (#700).
     #[test]
     fn another_https_failure_on_this_machine_stops_setup() {
         let https = "https://127.0.0.1:7420/mcp";
-        let steps = Fake {
-            bad_addresses: vec![https],
-            ..Fake::default()
-        };
-        let answers = Answers {
-            url: Some("127.0.0.1:7420".into()),
-            ..client_flags()
-        };
-        let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
-            .expect_err("https fails")
-            .to_string();
-        assert!(
-            error.ends_with("\nproblem: server: connection refused"),
-            "{error}"
-        );
-        assert!(!error.contains("http://"), "{error}");
-        assert_eq!(
-            steps.checked(),
-            [format!("address {https}"), format!("tls {https}")]
-        );
-        assert!(steps.done().is_empty());
+        for problem in [
+            "problem: server: error sending request for url (https://127.0.0.1:7420/mcp): \
+             invalid peer certificate: UnknownIssuer",
+            "problem: MCP: server returned 404 Not Found",
+        ] {
+            // There is https there: whatever answers speaks TLS.
+            let steps = Fake {
+                address_problems: vec![(https, problem)],
+                ..Fake::default()
+            };
+            let answers = Answers {
+                url: Some("127.0.0.1:7420".into()),
+                ..client_flags()
+            };
+            let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
+                .expect_err("https fails")
+                .to_string();
+            assert!(error.ends_with(&format!("\n{problem}")), "{error}");
+            assert!(!error.contains("http://"), "{error}");
+            assert_eq!(
+                steps.checked(),
+                [format!("address {https}"), format!("tls {https}")],
+                "no http probe and no key check: {problem}"
+            );
+            assert!(steps.done().is_empty());
+        }
     }
 
     /// A host on another machine is never tried over plain http, where the

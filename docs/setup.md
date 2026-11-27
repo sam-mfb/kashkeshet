@@ -213,7 +213,8 @@ it is using and records that full address.
 Setup tries `http` only when there is no `https` at all (nothing listens,
 or the server does not speak TLS) and the server is on this machine
 (`localhost` or a loopback address). Any other `https` problem, such as a
-certificate that is not trusted, stops setup with that problem. Setup never
+certificate that is not trusted or an `https` server that fails setup's
+check, stops setup with that problem. Setup never
 chooses plain `http` for a server on another machine, because the key
 would cross the network unencrypted. For such a server, give its full
 address, such as `http://192.168.1.5:7420/mcp`. A full address with
