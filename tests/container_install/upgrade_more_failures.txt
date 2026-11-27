@@ -80,6 +80,7 @@ attached cwd=/data/docker  docker compose --project-directory /data/docker pull
   -> exit 0
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
   -> exit 0
+say      If the server upgrades the database schema, it saves a database-only backup in its data volume, beside its database: under /data/.local/share/kashkeshet/upgrade-backups for the default database. Its log gives the completed path: `docker compose logs kkt` in /data/docker, or the log_file its config file names.
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
   -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web
@@ -106,6 +107,7 @@ attached cwd=/data/docker  docker compose --project-directory /data/docker pull
   -> exit 0
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
   -> exit 0
+say      If the server upgrades the database schema, it saves a database-only backup in its data volume, beside its database: under /data/.local/share/kashkeshet/upgrade-backups for the default database. Its log gives the completed path: `docker compose logs kkt` in /data/docker, or the log_file its config file names.
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show
   -> exit 0, out "access0123456789abcdef0123456789abcdef0123456789\n"
 run      cwd=/data/docker  docker compose --project-directory /data/docker exec -T kkt kkt key show --web

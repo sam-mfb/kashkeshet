@@ -14,6 +14,7 @@ the section for `X.Y.Z`.
 
 ### Fixes
 - **Setup's web-key hint drops `--key-file` when a client becomes a server.** When `kkt setup` turned a machine whose record said it was a client into a server, the line telling you how to read the new web key named the file, as in `kkt key show --web --key-file '~/.config/kkt/web-key'`, though the key was in its default place. The hint now goes by the role setup is installing, not the record from before setup: a key in the default place reads `kkt key show --web`. A web key elsewhere is still named, and `kkt service install` run on its own still goes by the record as it is (#702).
+- **A Docker `kkt upgrade` says where the server backs up the database before a schema upgrade.** Before it upgrades the database schema, the server saves a database-only backup of its own, in an `upgrade-backups` folder beside its database. As a service, `kkt upgrade` already said so; in Docker it said nothing, though the backup was made all the same. It now says that the backup goes in the data volume beside the database, under `/data/.local/share/kashkeshet/upgrade-backups` for the default database, and that the server's log gives the completed path: `docker compose logs kkt`, run in kkt's Docker folder, or the `log_file` the config file names (#701).
 
 ## 1.0.0
 
