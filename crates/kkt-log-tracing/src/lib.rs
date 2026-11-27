@@ -3,7 +3,8 @@
 //! and [`init_stderr_logging`] start that subscriber, to stdout, stderr or a
 //! writer the program gives, such as a rolling log file, with the program's
 //! own lines (by the targets it names) and its libraries' at their own
-//! levels. It also owns the log level setting: [`parse_level`] and its
+//! levels; [`init_logging_to`] and [`init_own_logging_to`] do the same to a
+//! writer the program gives for its terminal. It also owns the log level setting: [`parse_level`] and its
 //! defaults.
 
 mod level;
@@ -45,6 +46,49 @@ pub fn init_logging(
     };
     started.map_err(LoggingError)
 }
+
+/// Sends the log to `writer`, as [`init_logging`] sends it to stdout, with
+/// color codes only when `ansi`: for a program that wants its terminal
+/// output handled its own way, such as ending when the output is closed.
+pub fn init_logging_to(
+    writer: Box<dyn Write + Send>,
+    ansi: bool,
+    own_targets: &[&str],
+    own: Level,
+    dependencies: Level,
+) -> Result<(), LoggingError> {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(false)
+                .with_ansi(ansi)
+                .with_writer(Mutex::new(writer)),
+        )
+        .with(log_filter(own_targets, own, dependencies))
+        .try_init()
+        .map_err(LoggingError)
+}
+
+/// Sends the program's own lines to `writer`, as [`init_stderr_logging`]
+/// sends them to stderr, with color codes only when `ansi`.
+pub fn init_own_logging_to(
+    writer: Box<dyn Write + Send>,
+    ansi: bool,
+    own_targets: &[&str],
+    own: Level,
+) -> Result<(), LoggingError> {
+    tracing_subscriber::registry()
+        .with(
+            tracing_subscriber::fmt::layer()
+                .with_target(false)
+                .with_ansi(ansi)
+                .with_writer(Mutex::new(writer)),
+        )
+        .with(own_log_filter(own_targets, own))
+        .try_init()
+        .map_err(LoggingError)
+}
+
 /// Why logging could not start, as when it has started already in this
 /// process. The cause is the logging library's, given only as an error.
 #[derive(Debug, thiserror::Error)]

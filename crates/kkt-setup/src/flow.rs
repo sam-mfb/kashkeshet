@@ -6,8 +6,8 @@ use super::adopt::{AdoptSteps, Unrecorded, adoptable};
 use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
 use super::switch::SwitchSteps;
-use crate::StepError;
 use crate::flow_error::{ResumeFrom, SetupError, Stopped, UnfinishedAdvice};
+use crate::{HttpsRefused, StepError};
 use kkt_llm_agent_config::Client;
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
@@ -39,8 +39,10 @@ const DEFAULT_SETUP_CONNECT_CLIENT: bool = true;
 const DEFAULT_SETUP_ALLOW_KKT: bool = false;
 /// Whether Enter shares the server over Tailscale during interactive setup.
 const DEFAULT_SETUP_TAILSCALE: bool = false;
-/// The client-only server address Enter accepts during interactive setup.
-pub(super) const DEFAULT_SETUP_URL: &str = "http://127.0.0.1:7420/mcp";
+/// The client-only server address Enter accepts during interactive setup
+/// when the machine has no setup record to take one from: the host and port
+/// of a server on this machine.
+pub(super) const DEFAULT_SETUP_URL: &str = "127.0.0.1:7420";
 /// The client-only access key Enter accepts (no key).
 pub(super) const DEFAULT_SETUP_KEY: &str = "";
 
@@ -83,7 +85,8 @@ pub struct Answers {
     pub purpose: Option<Purpose>,
     /// Share the server over Tailscale.
     pub tailscale: Option<bool>,
-    /// For a client: the server's MCP endpoint.
+    /// For a client: the server's MCP endpoint, as a full address, or as a
+    /// host and port that setup completes ([`answered_address`]).
     pub url: Option<String>,
     /// For a client: a file holding the server's access key.
     pub key_file: Option<PathBuf>,
@@ -190,6 +193,13 @@ pub trait Steps: SwitchSteps + AdoptSteps {
     /// Checks, changing nothing, that `key`, typed in for a client and
     /// trimmed, is a valid access key. Returns why not as an error.
     fn check_typed_key(&self, key: &str) -> Result<(), StepError>;
+    /// Checks `url`, an https address, as [`SwitchSteps::check_address`]
+    /// does, changing nothing and sending no key. When it fails, says from
+    /// its first request alone whether there is no https there at all
+    /// ([`HttpsRefused::Absent`]: nothing listens, or what answers does not
+    /// speak TLS), or why else ([`HttpsRefused::Failed`]: an untrusted
+    /// certificate, or a server that answered and failed a later check).
+    fn check_https_address(&self, url: &str) -> Result<(), HttpsRefused>;
 }
 
 const MODE: Question = Question {
@@ -247,7 +257,8 @@ const ALLOW_KKT: Question = Question {
     default: Some(DEFAULT_SETUP_ALLOW_KKT),
 };
 const URL: Question = Question {
-    text: "The server's MCP address, such as https://kkt.tail1234.ts.net/mcp:",
+    text: "The server's host and port, such as kkt.tail1234.ts.net or 127.0.0.1:7420 \
+           (a full address such as https://kkt.tail1234.ts.net/mcp also works):",
     topic: "for the server's MCP address",
     flag: "--url",
     default: None,
@@ -304,13 +315,17 @@ pub fn run(
     steps: &dyn Steps,
 ) -> Result<Record, SetupError> {
     let offer = ask.interactive() && !answers.yes;
-    let local = match steps.recorded() {
-        Ok(record) => record.filter(Record::runs_server),
+    let earlier = match steps.recorded() {
+        Ok(record) => record,
         Err(e) => {
             ask.tell(&format!("{e}; setup replaces it."));
             None
         }
     };
+    // The address a client setup offers: the server this machine's record
+    // names, if it has one.
+    let recorded_url = earlier.as_ref().map(|record| record.url.clone());
+    let local = earlier.filter(Record::runs_server);
     let noted = match steps.unfinished() {
         Ok(noted) => noted,
         Err(e) => {
@@ -340,7 +355,7 @@ pub fn run(
         None => match adoptable(answers, ask, steps).map_err(SetupError::Adopt)? {
             // Adopting installs nothing, an admin key included.
             Some(found) => (Plan::Adopt(found), None),
-            None => match ask_plan(answers, ask, steps)? {
+            None => match ask_plan(answers, recorded_url.as_deref(), mcp_path, ask, steps)? {
                 plan @ Plan::Client(_) => (plan, None),
                 plan => (plan, admin_key(answers, ask)?),
             },
@@ -674,7 +689,15 @@ fn resumable(
 }
 
 /// Asks the questions that decide what to set up.
-fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan, SetupError> {
+/// `recorded_url` is the server address the machine's record names, which a
+/// client setup offers; `mcp_path` completes one given as a host and port.
+fn ask_plan(
+    answers: &Answers,
+    recorded_url: Option<&str>,
+    mcp_path: &str,
+    ask: &dyn Ask,
+    steps: &dyn Steps,
+) -> Result<Plan, SetupError> {
     let purpose = match answers.purpose {
         Some(purpose) => purpose,
         None => {
@@ -685,7 +708,13 @@ fn ask_plan(answers: &Answers, ask: &dyn Ask, steps: &dyn Steps) -> Result<Plan,
         }
     };
     if purpose == Purpose::Client {
-        return Ok(Plan::Client(client_answers(answers, ask, steps)?));
+        return Ok(Plan::Client(client_answers(
+            answers,
+            recorded_url,
+            mcp_path,
+            ask,
+            steps,
+        )?));
     }
     let tailscale = match answers.tailscale {
         Some(answer) => answer,
@@ -990,42 +1019,167 @@ pub enum ClientKey {
 
 /// Asks for the server's address and key, checking each as soon as it is
 /// given and asking again on a problem. An answer given as a flag is
-/// checked the same way, and a problem with it ends setup.
+/// checked the same way, and a problem with it ends setup. The address
+/// offered is `recorded_url`, else [`DEFAULT_SETUP_URL`]; `mcp_path`
+/// completes an address given as a host and port.
 fn client_answers(
     answers: &Answers,
+    recorded_url: Option<&str>,
+    mcp_path: &str,
     ask: &dyn Ask,
     steps: &dyn Steps,
 ) -> Result<ClientAnswers, SetupError> {
+    let offered = recorded_url.unwrap_or(DEFAULT_SETUP_URL);
     loop {
-        let url = checked_address(answers, ask, steps)?;
+        let url = checked_address(answers, offered, mcp_path, ask, steps)?;
         if let Some(key) = checked_key(&url, answers, ask, steps)? {
             return Ok(ClientAnswers { url, key });
         }
     }
 }
 
-/// The server's address, once it passes its check.
+/// The server's full address, once it passes its check. `offered` is what
+/// Enter accepts, and `mcp_path` completes a host and port.
 fn checked_address(
     answers: &Answers,
+    offered: &str,
+    mcp_path: &str,
     ask: &dyn Ask,
     steps: &dyn Steps,
 ) -> Result<String, SetupError> {
     loop {
-        let url = match &answers.url {
+        let given = match &answers.url {
             Some(url) => url.trim().to_string(),
             None => ask
-                .text(URL, DEFAULT_SETUP_URL)
+                .text(URL, offered)
                 .map_err(SetupError::Ask)?
                 .trim()
                 .to_string(),
         };
-        match steps.check_address(&url) {
-            Ok(()) => return Ok(url),
+        match answered_address(&given, mcp_path, steps) {
+            Ok(url) => {
+                if url != given {
+                    ask.tell(&format!("Using {url}"));
+                }
+                return Ok(url);
+            }
             Err(problem) if answers.url.is_some() => return Err(flag_failed(URL.flag, problem)),
             Err(problem) => ask.tell(&format!("That address did not work:\n{problem}")),
         }
     }
 }
+
+/// The full address a server address given to setup stands for, once a
+/// server answers there.
+///
+/// An address with a scheme (`://`) is full, and stands for itself,
+/// unchanged. Anything else is a host and port, such as
+/// `kkt.tail1234.ts.net` or `127.0.0.1:7420`, with a path if one is given,
+/// else `mcp_path`. It is tried over https. Only when that first https
+/// request finds no https there at all ([`HttpsRefused::Absent`]: nothing
+/// listens, or the server does not speak TLS) and the host is on this machine
+/// ([`on_this_machine`]) is it then tried over http. Any other https
+/// failure, such as an untrusted certificate or a server that fails the
+/// check, is the answer. Setup never chooses plain http for a server across
+/// a network, where the key it checks next would cross in clear: a person
+/// who means that gives the `http://` address.
+///
+/// Both addresses are checked by the address rule before any is tried or
+/// said, so a refused one, such as one holding a password, is refused in
+/// the rule's own words, which never repeat it.
+fn answered_address(given: &str, mcp_path: &str, steps: &dyn Steps) -> Result<String, StepError> {
+    if given.contains("://") {
+        return steps.check_address(given).map(|()| given.to_string());
+    }
+    let path = match given.contains('/') {
+        true => "",
+        false => mcp_path,
+    };
+    let https = format!("https://{given}{path}");
+    let http = format!("http://{given}{path}");
+    steps.validate_address(&https)?;
+    steps.validate_address(&http)?;
+    let refused = match steps.check_https_address(&https) {
+        Ok(()) => return Ok(https),
+        Err(HttpsRefused::Failed(problem)) => return Err(problem),
+        Err(HttpsRefused::Absent(problem)) => problem,
+    };
+    if !on_this_machine(given) {
+        return Err(StepError(Box::new(NoHttps {
+            https,
+            problem: refused,
+            http,
+        })));
+    }
+    match steps.check_address(&http) {
+        Ok(()) => Ok(http),
+        Err(problem) => Err(StepError(Box::new(NoneAnswered(vec![
+            (https, refused),
+            (http, problem),
+        ])))),
+    }
+}
+
+/// Whether the host of `given`, a host and port with any path, is this
+/// machine: `localhost`, or a loopback address such as `127.0.0.1` or
+/// `[::1]`. Only an address the rule has accepted is asked about.
+fn on_this_machine(given: &str) -> bool {
+    let authority = given.split('/').next().unwrap_or(given);
+    let host = match authority.strip_prefix('[') {
+        Some(rest) => rest.split(']').next().unwrap_or(rest),
+        None => authority
+            .rsplit_once(':')
+            .map_or(authority, |(host, _port)| host),
+    };
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
+}
+
+/// There is no https at a host on another machine, which setup does not try
+/// over plain http: the address tried, the problem found there, and the
+/// http address a person may give instead.
+#[derive(Debug)]
+struct NoHttps {
+    https: String,
+    problem: StepError,
+    http: String,
+}
+
+impl std::fmt::Display for NoHttps {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}: {}\nFor a server on another machine, setup tries only https. If the \
+             server uses plain http, give its full address, such as {}",
+            self.https, self.problem, self.http
+        )
+    }
+}
+
+impl std::error::Error for NoHttps {}
+
+/// No server answered at either address a host on this machine stands
+/// for: each address, with the problem found there.
+#[derive(Debug)]
+struct NoneAnswered(Vec<(String, StepError)>);
+
+impl std::fmt::Display for NoneAnswered {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut first = true;
+        for (url, problem) in &self.0 {
+            if !first {
+                writeln!(f)?;
+            }
+            first = false;
+            write!(f, "{url}: {problem}")?;
+        }
+        Ok(())
+    }
+}
+
+impl std::error::Error for NoneAnswered {}
 
 /// The key, once the server at `url` accepts it. When a key fails, the
 /// address is checked again, so a problem with the address is never taken

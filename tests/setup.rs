@@ -397,6 +397,89 @@ async fn an_unreachable_server_leaves_the_earlier_setup() {
     );
 }
 
+/// Probing a plain-http server over https: the server closes the
+/// connection on the TLS handshake, and the command reports that as a
+/// problem, rather than dying silently by SIGPIPE (#705).
+#[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
+async fn an_https_probe_of_an_http_server_is_reported_not_fatal() {
+    let (_server_home, mut server, url, key) = keyed_server("https-on-http-server").await;
+    let home = temp_home("https-on-http");
+    let https = url.replacen("http://", "https://", 1);
+    let out = Command::new(KKT)
+        .args(["doctor", "--url", &https, "--key-file"])
+        .arg(&key)
+        .own_home(&home)
+        .env("PATH", "")
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(TIMEOUT, out)
+        .await
+        .expect("kkt should finish")
+        .expect("run kkt");
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        assert_eq!(out.status.signal(), None, "{:?}: {said}", out.status);
+    }
+    assert!(!out.status.success(), "{said}");
+    assert!(
+        said.contains(&format!(
+            "problem: server: error sending request for url ({https})"
+        )),
+        "{said}"
+    );
+    server.kill().await.expect("stop kkt");
+}
+
+/// `--url` given as a host and port alone: a local server answers over
+/// http, not https, so setup records its full http address with `/mcp`, and
+/// says which address it used (#700).
+#[tokio::test]
+async fn a_client_machine_is_set_up_from_a_host_and_port() {
+    let (_server_home, mut server, url, key) = keyed_server("host-port-server").await;
+    let home = temp_home("host-port-setup");
+    let host_port = url
+        .strip_prefix("http://")
+        .and_then(|rest| rest.strip_suffix("/mcp"))
+        .expect("an http address ending in /mcp");
+    let (ok, said) = setup_client(&home, host_port, &key, &["--clients", "none"]).await;
+    assert!(ok, "{said}");
+    assert!(said.contains(&format!("Using {url}")), "{said}");
+    assert!(
+        record_text(&home).contains(&format!("url = \"{url}\"")),
+        "{}",
+        record_text(&home)
+    );
+    server.kill().await.expect("stop kkt");
+}
+
+/// A host and port holding a password or a token is refused before any
+/// server is asked, and the refusal never repeats the secret (#700).
+#[tokio::test]
+async fn a_host_and_port_with_a_secret_is_refused_without_repeating_it() {
+    let home = temp_home("host-port-secret");
+    let key = home.join("no-key");
+    for given in [
+        "kkt:hunter2@127.0.0.1:7420",
+        "127.0.0.1:7420/mcp?token=hunter2",
+    ] {
+        let (ok, said) = setup_client(&home, given, &key, &["--clients", "none"]).await;
+        assert!(!ok, "{said}");
+        assert!(said.contains("put credentials in the key file"), "{said}");
+        assert!(!said.contains("hunter2"), "{said}");
+    }
+}
+
 /// A server that answers, but at another path, fails the address check,
 /// so the problem is put on `--url`, not on the key.
 #[tokio::test]

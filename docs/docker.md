@@ -75,9 +75,13 @@ docker compose up -d
 ```
 
 Compose pulls the new image and restarts kkt. If the new version upgrades
-the database, it first backs it up inside the volume, in
-`/data/.local/share/kashkeshet/upgrade-backups`, and refuses to start if it
-can't. Making your own backup first, as above, also puts one on the host.
+the database, it first backs it up inside the volume, in an
+`upgrade-backups` folder beside the database, and refuses to start if it
+can't. For the default database that folder is
+`/data/.local/share/kashkeshet/upgrade-backups`. The server's log gives the
+backup's completed path: `docker compose logs kkt`, or the `log_file` its
+config file names. A managed `kkt upgrade` says so too. Making your own
+backup first, as above, also puts one on the host.
 
 For a managed upgrade, the old image writes the host backup. An image
 older than rc.3 omits the highest message ID in `about.txt`. A backup

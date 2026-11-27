@@ -1471,7 +1471,34 @@ fn upgrade_says_where_the_backup_went() {
     block_on(service.upgrade(&*clock, &folder(), "0.5.0", None)).unwrap();
     assert_eq!(
         *said.0.borrow(),
-        vec!["Backed up to /data/docker/backups/kkt-backup-1".to_string()]
+        vec![
+            "Backed up to /data/docker/backups/kkt-backup-1".to_string(),
+            // The server's own backup before a schema upgrade, and where to
+            // find its completed path (#701).
+            "If the server upgrades the database schema, it saves a database-only backup \
+             in its data volume, beside its database: under \
+             /data/.local/share/kashkeshet/upgrade-backups for the default database. Its log \
+             gives the completed path: `tool compose logs kkt` in /data/docker, or the \
+             log_file its config file names."
+                .to_string(),
+        ]
+    );
+}
+
+#[test]
+fn the_volume_upgrade_backups_are_under_the_images_home() {
+    // The folder said after an upgrade must follow the image's `HOME`.
+    let dockerfile = include_str!("../../../Dockerfile");
+    assert!(
+        dockerfile.lines().any(|line| line == "ENV HOME=/data"),
+        "the Dockerfile no longer sets HOME=/data"
+    );
+    assert!(crate::upgrade::VOLUME_UPGRADE_BACKUPS.starts_with("/data/"));
+    // And the folder the Docker guide names.
+    let guide = include_str!("../../../docs/docker.md").replace('\n', " ");
+    assert!(
+        guide.contains(crate::upgrade::VOLUME_UPGRADE_BACKUPS),
+        "docs/docker.md names another folder"
     );
 }
 

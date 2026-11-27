@@ -2,7 +2,8 @@
 //! this crate. [`HttpProber`] makes two requests, each on its own call: a
 //! plain GET of the server's address ([`HttpProber::answer`]), and an MCP
 //! `initialize` with an optional bearer key, closing the session it opens
-//! ([`HttpProber::initialize`]). It reports what happened as plain facts:
+//! ([`HttpProber::initialize`]); and, for an https address, whether
+//! anything there speaks TLS ([`HttpProber::tls`]). It reports what happened as plain facts:
 //! statuses, errors, and the server's name and version. Every value it
 //! sends comes from the caller's [`Settings`].
 
@@ -71,6 +72,21 @@ pub enum Initialized {
         reply: Result<Reply, ReplyError>,
         cleanup: Option<Result<Status, String>>,
     },
+}
+
+/// What a GET over https found at an address, as far as TLS goes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Tls {
+    /// A server answered in TLS, with this status.
+    Answered(Status),
+    /// Nothing listens there: the connection was refused.
+    NoListener,
+    /// Something answered, but not in TLS, as a plain-http server does.
+    NotTls,
+    /// The request failed some other way, such as a certificate that is not
+    /// trusted, a connection closed during the handshake, or a timeout: the
+    /// error.
+    Failed(String),
 }
 
 /// Why no request could be made at all.

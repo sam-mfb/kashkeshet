@@ -144,7 +144,7 @@ resolver = "3"
 # Shared by every package: each takes these with `x.workspace = true`.
 # The release number lives here (see docs/releases.md).
 [workspace.package]
-version = "1.0.0"
+version = "1.1.0-rc.1"
 edition = "2024"
 license = "MIT"
 repository = "https://github.com/sam-mfb/kashkeshet"
@@ -160,6 +160,9 @@ futures = "0.3.34"
 libc = "0.2.191"
 rand = "0.10.3"
 reqwest = { version = "0.13", default-features = false, features = ["rustls"] }
+# The TLS library reqwest uses, for kkt-probe to tell its errors apart; the
+# same version reqwest brings in, with no features of its own.
+rustls = { version = "0.23", default-features = false }
 # No features here: each crate turns on the rmcp features it uses.
 rmcp = "3.7.0"
 rusqlite = { version = "0.40.2", features = ["backup", "bundled"] }

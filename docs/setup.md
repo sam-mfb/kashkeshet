@@ -41,7 +41,7 @@ Yes/no defaults appear as `[Y/n]` (yes) or `[y/N]` (no).
 | Allow the clients set up here to always use kkt's tools and `kkt watch`? | `[y/N]` | No; clients keep asking (see [below](#letting-clients-always-use-kkt)) |
 | Continue that setup? | `[Y/n]` | Yes; continue the saved unfinished setup |
 | Try again? | `[Y/n]` | Yes; retry the failed step |
-| The server's MCP address | `[http://127.0.0.1:7420/mcp]` | The local server address |
+| The server's host and port | `[127.0.0.1:7420]`, or the address in this machine's setup record | The server the record names; with no record, the local server |
 | The server's access key | `[none]` | No key |
 
 The client address and key still have to pass their connection checks.
@@ -205,7 +205,21 @@ limit which devices and users can reach it; the key is still required.
 
 ## Client-only machine
 
-Have the server's MCP URL (ending in `/mcp`) and a copy of its access key.
+Have the server's host and port, such as `kkt.tail1234.ts.net` or
+`127.0.0.1:7420`, and a copy of its access key. Setup adds `/mcp`, unless
+you give a path, and tries the address over `https`. It says which address
+it is using and records that full address.
+
+Setup tries `http` only when there is no `https` at all (nothing listens,
+or the server does not speak TLS) and the server is on this machine
+(`localhost` or a loopback address). Any other `https` problem, such as a
+certificate that is not trusted or an `https` server that fails setup's
+check, stops setup with that problem. Setup never
+chooses plain `http` for a server on another machine, because the key
+would cross the network unencrypted. For such a server, give its full
+address, such as `http://192.168.1.5:7420/mcp`. A full address with
+`http://` or `https://` is used exactly as given. When this machine already has a setup record, setup
+offers the server address it names.
 Setup can ask for the key or use an existing private file. It records the
 remote connection without starting a local server.
 

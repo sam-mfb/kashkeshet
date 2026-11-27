@@ -33,7 +33,7 @@ pub use record::{
     DockerSetup, InstallCheck, Mode, Record, RecordError, RecordProblem, RenderError, Server,
     SetupFile, TailscaleLogin, Unfinished,
 };
-pub use step::StepError;
+pub use step::{HttpsRefused, StepError};
 pub use switch::{Switch, SwitchError, SwitchSteps, Target, switch};
 
 use std::path::{Path, PathBuf};

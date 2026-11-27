@@ -3,7 +3,7 @@
 //! accepts the key and serves MCP, and its build. Each problem says how to
 //! fix it.
 
-use crate::probe::{Initialized, Reply, ReplyError, Status, Unprobed};
+use crate::probe::{Answered, Initialized, Reply, ReplyError, Status, Tls, Unprobed};
 use crate::{Check, KEY_CHECK, Prober, SERVER_CHECK};
 use url::Url;
 
@@ -14,8 +14,56 @@ pub(crate) async fn checks(
     url: &str,
     key: Option<&str>,
 ) -> Result<Vec<Check>, Unprobed> {
-    let mut checks = Vec::new();
     let answered = prober.answer(url).await?;
+    checks_after(prober, url, key, answered).await
+}
+
+/// What the first request to an https address found: no https there at
+/// all, or the server checks made from that request on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HttpsChecks {
+    /// No https there: nothing listens, or what answers does not speak
+    /// TLS. The server check's problem, saying which.
+    Absent(Vec<Check>),
+    /// Something spoke TLS there, or the request failed some other way,
+    /// such as an untrusted certificate: the checks, as
+    /// [`crate::Inspector::address`] makes them.
+    Checked(Vec<Check>),
+}
+
+/// The checks of the https address `url`, with no key, from a first
+/// request that also says whether there is https there at all
+/// ([`Prober::tls`]). Whether there is no https is decided by that request
+/// alone: once it has found TLS, or failed some other way, every later
+/// problem is one of the checks.
+pub(crate) async fn https_checks(prober: &dyn Prober, url: &str) -> Result<HttpsChecks, Unprobed> {
+    let absent = |detail: &str| {
+        HttpsChecks::Absent(vec![Check::problem(
+            SERVER_CHECK,
+            detail,
+            "check the address, and that the server is running",
+        )])
+    };
+    let answered: Answered = match prober.tls(url).await? {
+        Tls::NoListener => return Ok(absent("nothing listens there")),
+        Tls::NotTls => return Ok(absent("the server there does not speak https")),
+        Tls::Answered(status) => Ok(status),
+        Tls::Failed(e) => Err(e),
+    };
+    let mut checks = checks_after(prober, url, None, answered).await?;
+    checks.retain(|check| check.name != KEY_CHECK);
+    Ok(HttpsChecks::Checked(checks))
+}
+
+/// The checks of the server at `url`, using `key`, from what the first
+/// request to it found (`answered`).
+async fn checks_after(
+    prober: &dyn Prober,
+    url: &str,
+    key: Option<&str>,
+    answered: Answered,
+) -> Result<Vec<Check>, Unprobed> {
+    let mut checks = Vec::new();
     // The address as the prober read it, which is how the check names it.
     let shown = Url::parse(url).map_err(|_| Unprobed::BadUrl)?;
     let status = match answered {

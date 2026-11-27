@@ -2,7 +2,7 @@
 //! each address answers are given up front, and nothing touches the machine
 //! or a network.
 
-use crate::{Answered, Initialized, KeyFile, Prober, Probing};
+use crate::{Answered, Initialized, KeyFile, Prober, Probing, Tls};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 pub struct Memory {
     keys: BTreeMap<PathBuf, KeyFile>,
     servers: BTreeMap<String, (Answered, Initialized)>,
+    tls: BTreeMap<String, Tls>,
 }
 
 impl Memory {
@@ -39,6 +40,14 @@ impl Memory {
             .insert(url.to_string(), (answered, initialized));
         self
     }
+
+    /// The same, with `tls` as what a GET over https finds at `url`. Without
+    /// it, a server given with [`Memory::server`] at `url` answers in TLS as
+    /// it answers a GET, and nothing listens at any other address.
+    pub fn tls(mut self, url: &str, tls: Tls) -> Self {
+        self.tls.insert(url.to_string(), tls);
+        self
+    }
 }
 
 impl Prober for Memory {
@@ -63,6 +72,18 @@ impl Prober for Memory {
             None => Initialized::Failed(format!("nothing answers at {url}")),
         };
         Box::pin(async move { Ok(initialized) })
+    }
+
+    fn tls<'a>(&'a self, url: &'a str) -> Probing<'a, Tls> {
+        let tls = match (self.tls.get(url), self.servers.get(url)) {
+            (Some(tls), _) => tls.clone(),
+            (None, Some((answered, _))) => match answered {
+                Ok(status) => Tls::Answered(status.clone()),
+                Err(e) => Tls::Failed(e.clone()),
+            },
+            (None, None) => Tls::NoListener,
+        };
+        Box::pin(async move { Ok(tls) })
     }
 }
 

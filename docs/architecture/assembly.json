@@ -1268,6 +1268,28 @@
      "note": "the server's log file, opened by open_log_file with the system clock"
     },
     {
+     "impl": "kkt-terminal::OutputWriter",
+     "crate": "kkt-log-tracing",
+     "to": [
+      {
+       "at": "init_logging_to",
+       "param": "writer"
+      }
+     ],
+     "note": "a command's log, on standard output, ended by SIGPIPE when that output is closed"
+    },
+    {
+     "impl": "kkt-terminal::ErrorWriter",
+     "crate": "kkt-log-tracing",
+     "to": [
+      {
+       "at": "init_own_logging_to",
+       "param": "writer"
+      }
+     ],
+     "note": "watch's, register's and reclaim's log, on standard error, ended by SIGPIPE when that output is closed"
+    },
+    {
      "own": "the log-level check, a closure over parse_level",
      "suppliers": [
       {
@@ -2249,6 +2271,10 @@
       },
       {
        "at": "inspect_address",
+       "param": "prober"
+      },
+      {
+       "at": "inspect_https_address",
        "param": "prober"
       },
       {
