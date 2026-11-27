@@ -79,12 +79,35 @@ pub enum ServicePlanError {
     Spec(kkt_deployment::PlanError),
 }
 
+/// Which access key `kkt key show --web` will go by once the command is
+/// done, which decides whether a new web key's hint must name its file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum KeyLookup {
+    /// The setup record as it is now (`kkt service install` alone leaves
+    /// it as it is).
+    Recorded,
+    /// The served access key: the configured or default one, which `kkt
+    /// setup` records for the service it is installing, whatever the record
+    /// said before.
+    Served,
+}
+
 /// `kkt service ...`: runs the command against this system's service
 /// manager and prints what happened. Installing may wait on the system
 /// clock while launchd lets the new service load.
 pub async fn run<D>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     command: ServiceAction,
+) -> Result<(), ServiceCommandError> {
+    run_for(parts, command, KeyLookup::Recorded).await
+}
+
+/// [`run`], with the key lookup that will be in effect once the caller is
+/// done.
+pub(crate) async fn run_for<D>(
+    parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
+    command: ServiceAction,
+    lookup: KeyLookup,
 ) -> Result<(), ServiceCommandError> {
     let service = parts.service;
     service.ready()?;
@@ -140,7 +163,7 @@ pub async fn run<D>(
                     parts.output.output(format_args!(
                         "Created a new web key at {}. Read it with `{}`.\n",
                         key.display(),
-                        web_key_show_command(parts, key),
+                        web_key_show_command(parts, key, lookup),
                     ));
                 }
                 if let Some(key) = &plan.new_key {
@@ -249,29 +272,37 @@ pub fn service_plan<D>(
 }
 
 /// The `kkt key show` command that reads a newly created service web key.
-/// Uses the bare `--web` form when `kkt key show --web` resolves to `key`
-/// (from the setup record when one exists, or from the configured/default
-/// access key when there is no record yet); otherwise names the file
-/// explicitly.
+/// Uses the bare `--web` form when `kkt key show --web` will resolve to
+/// `key` once the command is done; otherwise names the file explicitly.
+/// That is the setup record's web key when `lookup` is
+/// [`KeyLookup::Recorded`] and a record exists, and the configured or
+/// default access key's web key otherwise.
 pub(crate) fn web_key_show_command<D>(
     parts: &crate::InstallParts<'_, impl ConnectionSource, D>,
     key: &Path,
+    lookup: KeyLookup,
 ) -> String {
-    let resolved = match crate::record::read_setup(parts.serve, parts.setup_files) {
-        Ok(Some(record)) => kkt_deployment::recorded_key(
-            &crate::deployment::server_keys(&record),
-            kkt_deployment::KeyKind::Web,
-        )
-        .ok()
-        .flatten(),
-        Ok(None) => parts
+    let served = || {
+        parts
             .serve
             .configured_access_key()
             .ok()
             .flatten()
             .or_else(|| parts.serve.default_access_key())
-            .map(|access| kkt_keys::web_key_path(&access)),
-        Err(_) => None,
+            .map(|access| kkt_keys::web_key_path(&access))
+    };
+    let resolved = match lookup {
+        KeyLookup::Served => served(),
+        KeyLookup::Recorded => match crate::record::read_setup(parts.serve, parts.setup_files) {
+            Ok(Some(record)) => kkt_deployment::recorded_key(
+                &crate::deployment::server_keys(&record),
+                kkt_deployment::KeyKind::Web,
+            )
+            .ok()
+            .flatten(),
+            Ok(None) => served(),
+            Err(_) => None,
+        },
     };
     if resolved.as_deref() == Some(key) {
         "kkt key show --web".to_string()

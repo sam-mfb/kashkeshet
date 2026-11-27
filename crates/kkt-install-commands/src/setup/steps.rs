@@ -76,7 +76,9 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                 .or_else(|| self.parts.serve.default_access_key())
                 .map(|access| kkt_keys::web_key_path(&access))
                 .is_some_and(|path| self.parts.key_files.try_exists(&path).unwrap_or(false));
-            tokio::runtime::Handle::current().block_on(service::run(
+            // Setup records the served access key for this service, so
+            // the web key's hint goes by it, not by the record as it is.
+            tokio::runtime::Handle::current().block_on(service::run_for(
                 self.parts,
                 ServiceAction::Install(ServiceInstall {
                     config: None,
@@ -85,6 +87,7 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
                     no_access_key: false,
                     dry_run: false,
                 }),
+                service::KeyLookup::Served,
             ))?;
             let connection = connection::serve_connection(
                 self.parts.connection,

@@ -10,6 +10,11 @@ a name. A named section's page starts with a line `# vX.Y.Z: name`; an
 unnamed one's starts with its notes. A release candidate `vX.Y.Z-rc.N` uses
 the section for `X.Y.Z`.
 
+## Unreleased
+
+### Fixes
+- **Setup's web-key hint drops `--key-file` when a client becomes a server.** When `kkt setup` turned a machine whose record said it was a client into a server, the line telling you how to read the new web key named the file, as in `kkt key show --web --key-file '~/.config/kkt/web-key'`, though the key was in its default place. The hint now goes by the role setup is installing, not the record from before setup: a key in the default place reads `kkt key show --web`. A web key elsewhere is still named, and `kkt service install` run on its own still goes by the record as it is (#702).
+
 ## 1.0.0
 
 This release reorganizes kkt's code into crates that other programs can build on, and upgrades the database to a new storage layer that prepares for several swarms on one server. For an install it brings one new setup question, faster tool calls, and fixes to `kkt service` and `kkt upgrade`, most of them on macOS. Agents see no change: the tools, their text and their replies are as in 0.10.0. Read "What affects existing setups" before upgrading. A crate that depends on kkt's crates by git must also read "For crates that depend on kkt's crates by git".
