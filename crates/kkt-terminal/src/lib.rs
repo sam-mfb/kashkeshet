@@ -70,6 +70,44 @@ impl Terminal {
     pub fn output_is_terminal(&self) -> bool {
         io::stdout().is_terminal()
     }
+
+    /// Whether standard error is connected to a terminal.
+    pub fn errors_are_terminal(&self) -> bool {
+        io::stderr().is_terminal()
+    }
+}
+
+/// Standard output as a writer, for a library that writes on its own, such
+/// as a log: a write that finds it closed after [`end_on_closed_output`]
+/// ends the process, as [`Terminal::output`] does; any other failure is
+/// returned.
+pub struct OutputWriter;
+
+impl Write for OutputWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        ended_if_closed(io::stdout().write(bytes))
+    }
+    fn write_all(&mut self, bytes: &[u8]) -> io::Result<()> {
+        ended_if_closed(io::stdout().lock().write_all(bytes))
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        ended_if_closed(io::stdout().flush())
+    }
+}
+
+/// Standard error as a writer, as [`OutputWriter`] is standard output.
+pub struct ErrorWriter;
+
+impl Write for ErrorWriter {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        ended_if_closed(io::stderr().write(bytes))
+    }
+    fn write_all(&mut self, bytes: &[u8]) -> io::Result<()> {
+        ended_if_closed(io::stderr().lock().write_all(bytes))
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        ended_if_closed(io::stderr().flush())
+    }
 }
 
 /// Lets a closed standard output or error, as with `program status | head`,
@@ -78,8 +116,8 @@ impl Terminal {
 /// server keeps running when whatever reads its output goes away, and
 /// systemd starts it with SIGPIPE ignored on purpose.
 ///
-/// SIGPIPE stays ignored until a write through [`Terminal`] finds its
-/// output closed; only then is the system's default restored and the
+/// SIGPIPE stays ignored until a write through [`Terminal`],
+/// [`OutputWriter`] or [`ErrorWriter`] finds its output closed; only then is the system's default restored and the
 /// signal raised. So a network connection the other end closes, whatever
 /// write finds it closed, is an error the command reports, not the end of
 /// the command.

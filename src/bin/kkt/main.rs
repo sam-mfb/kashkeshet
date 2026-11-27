@@ -22,15 +22,15 @@ use kkt_install_commands::setup::InstallOptions;
 use kkt_log::{Level, Log};
 use kkt_log_tracing::TracingLog;
 use kkt_log_tracing::{DEFAULT_DEPENDENCY_LOG_LEVEL, DEFAULT_LOG_LEVEL};
-use kkt_log_tracing::{init_logging, init_stderr_logging};
+use kkt_log_tracing::{init_logging_to, init_own_logging_to};
 use kkt_machine::{Env, Machine, Platform};
 use kkt_machine_os::OsMachine;
 use kkt_operator_commands::agent::AgentAction;
 use kkt_operator_commands::keys::KeyKind;
 use kkt_operator_commands::lanes::LanesAction;
 use kkt_setup as setup;
-use kkt_terminal::Terminal;
 use kkt_terminal::end_on_closed_output;
+use kkt_terminal::{ErrorWriter, OutputWriter, Terminal};
 use std::path::PathBuf;
 
 // Many threads: `kkt setup` and `kkt switch` block on this runtime from
@@ -50,11 +50,17 @@ async fn main() -> std::process::ExitCode {
     let logging = match &task {
         Ok(Task::Serve { .. }) => Ok(()),
         // Standard output contains only the command's result, with no library logs.
-        Ok(Task::Watch(_) | Task::Register { .. } | Task::Reclaim { .. }) => {
-            init_stderr_logging(LOG_OWN_TARGETS, DEFAULT_LOG_LEVEL)
-        }
-        _ => init_logging(
-            None,
+        // A command's log goes through the terminal's writers, so a closed
+        // output ends the command at its first log line, as other output does.
+        Ok(Task::Watch(_) | Task::Register { .. } | Task::Reclaim { .. }) => init_own_logging_to(
+            Box::new(ErrorWriter),
+            Terminal.errors_are_terminal(),
+            LOG_OWN_TARGETS,
+            DEFAULT_LOG_LEVEL,
+        ),
+        _ => init_logging_to(
+            Box::new(OutputWriter),
+            Terminal.output_is_terminal(),
             LOG_OWN_TARGETS,
             DEFAULT_LOG_LEVEL,
             DEFAULT_DEPENDENCY_LOG_LEVEL,

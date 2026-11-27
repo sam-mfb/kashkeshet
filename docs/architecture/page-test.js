@@ -460,8 +460,8 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
       codeOnly.wires === 0 && codeOnly.tests === 0 && withTests.wires === 0 && withTests.tests > 0, { codeOnly, withTests });
 
     // A route is amber from its first hop on: exactly one
-    // stroke of the supplier's arrow lights, amber. kkt-terminal's arrow
-    // to kashkeshet only uses (WatchOutput wraps its Terminal), so its
+    // stroke of the supplier's arrow lights, amber. kkt-files's arrow
+    // to kashkeshet only uses (ClientHost wraps its Files), so its
     // used-by stroke is the hop; kkt-log-tracing's has a built-by stroke,
     // which is the hop, and its used-by stroke is not lit amber.
     const hopOn = (edge) => p.evaluate(([edge]) => {
@@ -473,27 +473,27 @@ const PAGE = "file://" + path.resolve(__dirname, "index.html");
         labels: [...document.querySelectorAll("text.delivery-label.supply")].map((x) => x.textContent),
       };
     }, [edge]);
-    await onBox("kkt-terminal", ".pick-hit");
-    const terminal = await hopOn("kashkeshet>kkt-terminal>normal");
-    await onBox("kkt-terminal", ".pick-hit");
+    await onBox("kkt-files", ".pick-hit");
+    const files = await hopOn("kashkeshet>kkt-files>normal");
+    await onBox("kkt-files", ".pick-hit");
     check("an adapter's hop is its used-by stroke, lit amber and labelled with what it wraps",
-      terminal.hops.join() === "role-uses" && terminal.amber.join() === "role-uses" &&
-      terminal.labels.some((l) => /Terminal, wrapped by .*WatchOutput/.test(l)), terminal);
+      files.hops.join() === "role-uses" && files.amber.join() === "role-uses" &&
+      files.labels.some((l) => /^Files, wrapped by .*ClientHost/.test(l)), files);
     await onBox("kkt-log-tracing", ".pick-hit");
     const tracing = await hopOn("kashkeshet>kkt-log-tracing>normal");
     await onBox("kkt-log-tracing", ".pick-hit");
     check("a built-by hop lights one amber stroke only, and its used-by stroke is not amber",
       tracing.hops.join() === "role-wires" && tracing.amber.join() === "role-wires", tracing);
     // A hop whose stroke a filter hides is not drawn.
-    await onBox("kkt-terminal", ".pick-hit");
+    await onBox("kkt-files", ".pick-hit");
     await p.click("#arrows-button");
     await p.click('#role-filters input[data-key="role:uses"]');
-    const filtered = await hopOn("kashkeshet>kkt-terminal>normal");
+    const filtered = await hopOn("kashkeshet>kkt-files>normal");
     await p.click('#role-filters input[data-key="role:uses"]');
     await p.keyboard.press("Escape");
-    await onBox("kkt-terminal", ".pick-hit");
+    await onBox("kkt-files", ".pick-hit");
     check("a hop whose stroke is filtered out is not drawn",
-      filtered.hops.length === 0 && !filtered.labels.some((l) => /Terminal, wrapped by/.test(l)), filtered);
+      filtered.hops.length === 0 && !filtered.labels.some((l) => /^Files, wrapped by/.test(l)), filtered);
     // With nothing ticked, no used-by stroke is amber.
     const resting = await p.evaluate(() => {
       const amber = getComputedStyle(document.querySelector("path.edge.role-wires")).stroke;
