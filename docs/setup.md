@@ -206,11 +206,14 @@ limit which devices and users can reach it; the key is still required.
 ## Client-only machine
 
 Have the server's host and port, such as `kkt.tail1234.ts.net` or
-`192.168.1.5:7420`, and a copy of its access key. Setup tries the address
-over `https`, then `http`, adds `/mcp`, says which address it is using,
-and records that full address. A path you give is kept. A full address with
-`http://` or `https://`, such as `https://kkt.tail1234.ts.net/mcp`, is used
-exactly as given. When this machine already has a setup record, setup
+`127.0.0.1:7420`, and a copy of its access key. Setup adds `/mcp`, unless
+you give a path, and tries the address over `https`. For a server on this
+machine (`localhost` or a loopback address), it then tries `http`. It says
+which address it is using and records that full address. Setup never
+chooses plain `http` for a server on another machine, because the key would
+cross the network unencrypted. For such a server, give its full address,
+such as `http://192.168.1.5:7420/mcp`. A full address with `http://` or
+`https://` is used exactly as given. When this machine already has a setup record, setup
 offers the server address it names.
 Setup can ask for the key or use an existing private file. It records the
 remote connection without starting a local server.

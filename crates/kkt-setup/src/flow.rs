@@ -43,9 +43,6 @@ const DEFAULT_SETUP_TAILSCALE: bool = false;
 /// when the machine has no setup record to take one from: the host and port
 /// of a server on this machine.
 pub(super) const DEFAULT_SETUP_URL: &str = "127.0.0.1:7420";
-/// The schemes tried, in order, for a server address given as a host and
-/// port.
-const SETUP_SCHEMES: [&str; 2] = ["https", "http"];
 /// The client-only access key Enter accepts (no key).
 pub(super) const DEFAULT_SETUP_KEY: &str = "";
 
@@ -89,7 +86,7 @@ pub struct Answers {
     /// Share the server over Tailscale.
     pub tailscale: Option<bool>,
     /// For a client: the server's MCP endpoint, as a full address, or as a
-    /// host and port that setup completes ([`addresses_for`]).
+    /// host and port that setup completes ([`answered_address`]).
     pub url: Option<String>,
     /// For a client: a file holding the server's access key.
     pub key_file: Option<PathBuf>,
@@ -1065,25 +1062,93 @@ fn checked_address(
     }
 }
 
-/// The first of the full addresses `given` stands for
-/// ([`addresses_for`]) at which a server answers, or the problems found at
-/// each.
+/// The full address a server address given to setup stands for, once a
+/// server answers there.
+///
+/// An address with a scheme (`://`) is full, and stands for itself,
+/// unchanged. Anything else is a host and port, such as
+/// `kkt.tail1234.ts.net` or `127.0.0.1:7420`, with a path if one is given,
+/// else `mcp_path`. It is tried over https; for a host on this machine
+/// ([`on_this_machine`]), then over http. Setup never chooses plain http
+/// for a server across a network, where the key it checks next would cross
+/// in clear: a person who means that gives the `http://` address.
+///
+/// Both addresses are checked by the address rule before any is tried or
+/// said, so a refused one, such as one holding a password, is refused in
+/// the rule's own words, which never repeat it.
 fn answered_address(given: &str, mcp_path: &str, steps: &dyn Steps) -> Result<String, StepError> {
-    let addresses = addresses_for(given, mcp_path);
-    if let [url] = addresses.as_slice() {
-        return steps.check_address(url).map(|()| url.clone());
+    if given.contains("://") {
+        return steps.check_address(given).map(|()| given.to_string());
     }
-    let mut tried = Vec::new();
-    for url in addresses {
-        match steps.check_address(&url) {
-            Ok(()) => return Ok(url),
-            Err(problem) => tried.push((url, problem)),
-        }
+    let path = match given.contains('/') {
+        true => "",
+        false => mcp_path,
+    };
+    let https = format!("https://{given}{path}");
+    let http = format!("http://{given}{path}");
+    steps.validate_address(&https)?;
+    steps.validate_address(&http)?;
+    let refused = match steps.check_address(&https) {
+        Ok(()) => return Ok(https),
+        Err(problem) => problem,
+    };
+    if !on_this_machine(given) {
+        return Err(StepError(Box::new(NoHttps {
+            https,
+            problem: refused,
+            http,
+        })));
     }
-    Err(StepError(Box::new(NoneAnswered(tried))))
+    match steps.check_address(&http) {
+        Ok(()) => Ok(http),
+        Err(problem) => Err(StepError(Box::new(NoneAnswered(vec![
+            (https, refused),
+            (http, problem),
+        ])))),
+    }
 }
 
-/// No server answered at any of the full addresses a host and port stands
+/// Whether the host of `given`, a host and port with any path, is this
+/// machine: `localhost`, or a loopback address such as `127.0.0.1` or
+/// `[::1]`. Only an address the rule has accepted is asked about.
+fn on_this_machine(given: &str) -> bool {
+    let authority = given.split('/').next().unwrap_or(given);
+    let host = match authority.strip_prefix('[') {
+        Some(rest) => rest.split(']').next().unwrap_or(rest),
+        None => authority
+            .rsplit_once(':')
+            .map_or(authority, |(host, _port)| host),
+    };
+    host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback())
+}
+
+/// No server answered over https at a host on another machine, which setup
+/// does not try over plain http: the address tried, the problem found
+/// there, and the http address a person may give instead.
+#[derive(Debug)]
+struct NoHttps {
+    https: String,
+    problem: StepError,
+    http: String,
+}
+
+impl std::fmt::Display for NoHttps {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}: {}\nFor a server on another machine, setup tries only https. If the \
+             server uses plain http, give its full address, such as {}",
+            self.https, self.problem, self.http
+        )
+    }
+}
+
+impl std::error::Error for NoHttps {}
+
+/// No server answered at either address a host on this machine stands
 /// for: each address, with the problem found there.
 #[derive(Debug)]
 struct NoneAnswered(Vec<(String, StepError)>);
@@ -1103,26 +1168,6 @@ impl std::fmt::Display for NoneAnswered {
 }
 
 impl std::error::Error for NoneAnswered {}
-
-/// The full addresses a server address given to setup stands for, in the
-/// order to try them. An address with a scheme (`://`) is full, and stands
-/// for itself, unchanged. Anything else is a host and port, such as
-/// `kkt.tail1234.ts.net` or `127.0.0.1:7420`, with a path if one is given,
-/// else `mcp_path`; it stands for that address over each of
-/// [`SETUP_SCHEMES`].
-fn addresses_for(given: &str, mcp_path: &str) -> Vec<String> {
-    if given.contains("://") {
-        return vec![given.to_string()];
-    }
-    let path = match given.find('/') {
-        Some(_) => "",
-        None => mcp_path,
-    };
-    SETUP_SCHEMES
-        .iter()
-        .map(|scheme| format!("{scheme}://{given}{path}"))
-        .collect()
-}
 
 /// The key, once the server at `url` accepts it. When a key fails, the
 /// address is checked again, so a problem with the address is never taken
