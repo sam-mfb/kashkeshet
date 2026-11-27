@@ -2954,35 +2954,39 @@ mod tests {
         let backups = kkt_backup::testing::Memory::new();
         let service = kkt_bare_service::testing::Memory::new();
         let entropy = kkt_entropy::testing::SeqEntropy::new(0);
-        let show_hint = |setup_files: &dyn crate::SetupFiles, key: &str| {
-            let parts = InstallParts {
-                container: &empty,
-                container_configs: &untouched,
-                service: &service,
-                try_bind: &try_bind,
-                remote: &remote,
-                clients: &untouched,
-                client_command: &untouched,
-                prober: &NoProbes,
-                import_lanes: &untouched,
-                connection: &untouched,
-                clock: std::sync::Arc::new(kkt_clock::testing::FixedClock::new(
-                    kkt_clock::Time::from_parts(2026, 11, 19, 12, 0, 0).expect("a time"),
-                )),
-                serve: &Defaulted,
-                service_defaults: &untouched,
-                setup_files,
-                key_files: &key_files,
-                entropy: &entropy,
-                database: &Present,
-                backups: &backups,
-                output: &said,
-                mcp_path: "/mcp",
-                login_link: &untouched,
-                lines: &untouched,
-                config_file: &untouched,
+        let show_hint_for =
+            |setup_files: &dyn crate::SetupFiles, key: &str, lookup: service::KeyLookup| {
+                let parts = InstallParts {
+                    container: &empty,
+                    container_configs: &untouched,
+                    service: &service,
+                    try_bind: &try_bind,
+                    remote: &remote,
+                    clients: &untouched,
+                    client_command: &untouched,
+                    prober: &NoProbes,
+                    import_lanes: &untouched,
+                    connection: &untouched,
+                    clock: std::sync::Arc::new(kkt_clock::testing::FixedClock::new(
+                        kkt_clock::Time::from_parts(2026, 11, 19, 12, 0, 0).expect("a time"),
+                    )),
+                    serve: &Defaulted,
+                    service_defaults: &untouched,
+                    setup_files,
+                    key_files: &key_files,
+                    entropy: &entropy,
+                    database: &Present,
+                    backups: &backups,
+                    output: &said,
+                    mcp_path: "/mcp",
+                    login_link: &untouched,
+                    lines: &untouched,
+                    config_file: &untouched,
+                };
+                service::web_key_show_command(&parts, Path::new(key), lookup)
             };
-            service::web_key_show_command(&parts, Path::new(key))
+        let show_hint = |setup_files: &dyn crate::SetupFiles, key: &str| {
+            show_hint_for(setup_files, key, service::KeyLookup::Recorded)
         };
 
         let service_record = OldService::default();
@@ -3055,6 +3059,25 @@ mod tests {
         assert_eq!(
             show_hint(&client_record, "/home/k/.config/kkt/web-key"),
             "kkt key show --web --key-file '/home/k/.config/kkt/web-key'"
+        );
+        // Setup turning a client into a server records the served key, so
+        // the default place needs no `--key-file` there (#702), while a
+        // custom place still names it.
+        assert_eq!(
+            show_hint_for(
+                &client_record,
+                "/home/k/.config/kkt/web-key",
+                service::KeyLookup::Served
+            ),
+            "kkt key show --web"
+        );
+        assert_eq!(
+            show_hint_for(
+                &client_record,
+                "/custom/dir/web-key",
+                service::KeyLookup::Served
+            ),
+            "kkt key show --web --key-file '/custom/dir/web-key'"
         );
         // A service record pointing at another key file: bare `kkt key show --web`
         // would read that other key, not the new default web key.
@@ -3190,10 +3213,11 @@ mod tests {
                 Ok(path.to_path_buf())
             }
         }
-        struct FreshFiles;
+        /// Setup's files, with the record found before setup, if any.
+        struct FreshFiles(Option<setup::Record>);
         impl crate::SetupFiles for FreshFiles {
             fn read_record(&self, _: &Path) -> Result<Option<setup::Record>, crate::PartError> {
-                Ok(None)
+                Ok(self.0.clone())
             }
             fn read_unfinished(
                 &self,
@@ -3333,7 +3357,7 @@ mod tests {
             )),
             serve: &Defaulted,
             service_defaults: &untouched,
-            setup_files: &FreshFiles,
+            setup_files: &FreshFiles(None),
             key_files: &key_files,
             entropy: &entropy,
             database: &Present,
@@ -3361,6 +3385,7 @@ mod tests {
         let said_existing = Said::default();
         let parts_existing = InstallParts {
             output: &said_existing,
+            clock: parts.clock.clone(),
             ..parts
         };
         crate::setup::run(&env, Platform::Xdg, &parts_existing, answers(), options())
@@ -3374,5 +3399,35 @@ mod tests {
             ),
             "{out_existing}"
         );
+
+        // A machine whose record says it is a client becomes a server: the
+        // hint goes by the role setup records, so the default place needs no
+        // `--key-file` (#702).
+        let said_client = Said::default();
+        let key_files_client = kkt_keys::testing::Memory::new().with_dir("/home/k/.config/kkt");
+        let client_files = FreshFiles(Some(setup::Record {
+            mode: setup::Mode::Client,
+            written_by: "1.0.0".into(),
+            url: "https://kkt.example.ts.net/mcp".into(),
+            key_file: Some(PathBuf::from("/home/k/.config/kkt/client-key")),
+            clients: None,
+        }));
+        let parts_client = InstallParts {
+            output: &said_client,
+            key_files: &key_files_client,
+            setup_files: &client_files,
+            ..parts
+        };
+        crate::setup::run(&env, Platform::Xdg, &parts_client, answers(), options())
+            .await
+            .expect("service setup over a client record");
+        let out_client = said_client.0.borrow().clone();
+        assert!(
+            out_client.contains(
+                "Created a new web key at /home/k/.config/kkt/web-key. Read it with `kkt key show --web`."
+            ),
+            "{out_client}"
+        );
+        assert!(!out_client.contains("--key-file"), "{out_client}");
     }
 }
