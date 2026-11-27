@@ -1,6 +1,6 @@
 //! What the checks need from the machine: reading key files and probing a
 //! server, behind [`Prober`], which the program supplies; with what it finds
-//! ([`KeyFile`], and a probe's facts: [`Answered`], [`Initialized`]) and the
+//! ([`KeyFile`], and a probe's facts: [`Answered`], [`Initialized`], [`Tls`]) and the
 //! checks made of them ([`Check`]).
 
 use std::future::Future;
@@ -77,6 +77,21 @@ pub enum Initialized {
     },
 }
 
+/// What a GET over https found at an address, as far as TLS goes.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Tls {
+    /// A server answered in TLS, with any status.
+    Answered,
+    /// Nothing listens there: the connection was refused.
+    NoListener,
+    /// Something answered, but not in TLS, as a plain-http server does.
+    NotTls,
+    /// The request failed some other way, such as a certificate that is not
+    /// trusted, a connection closed during the handshake, or a timeout: the
+    /// error.
+    Failed(String),
+}
+
 /// Why no request could be made at all, worded for the person.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum Unprobed {
@@ -105,6 +120,10 @@ pub trait Prober: Sync {
     /// An MCP `initialize` request to `url`, with `key` (`None` for none),
     /// closing any session it opens.
     fn initialize<'a>(&'a self, url: &'a str, key: Option<&'a str>) -> Probing<'a, Initialized>;
+
+    /// A plain GET of `url`, an https address, with no key: whether
+    /// anything there speaks TLS.
+    fn tls<'a>(&'a self, url: &'a str) -> Probing<'a, Tls>;
 }
 
 /// One check and its outcome: its name, whether it passed, what was found,

@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "cc6299d0",
+ "commit": "7578e0fc",
  "crates": [
   {
    "bins": [
@@ -7942,7 +7942,8 @@ window.KKT_GRAPH = {
      "methods": [
       "answer",
       "initialize",
-      "key_file"
+      "key_file",
+      "tls"
      ],
      "path": "Prober"
     },
@@ -8049,6 +8050,17 @@ window.KKT_GRAPH = {
       "Elsewhere",
       "Docker",
       "Service"
+     ]
+    },
+    {
+     "doc": "What a GET over https found at an address, as far as TLS goes.",
+     "kind": "enum",
+     "path": "Tls",
+     "variants": [
+      "Answered",
+      "NoListener",
+      "NotTls",
+      "Failed"
      ]
     },
     {
@@ -8178,7 +8190,8 @@ window.KKT_GRAPH = {
      "methods": [
       "key",
       "new",
-      "server"
+      "server",
+      "tls"
      ],
      "path": "testing::Memory"
     },
@@ -15451,7 +15464,8 @@ window.KKT_GRAPH = {
      "methods": [
       "answer",
       "initialize",
-      "new"
+      "new",
+      "tls"
      ],
      "path": "HttpProber"
     },
@@ -15506,6 +15520,17 @@ window.KKT_GRAPH = {
      "path": "Status"
     },
     {
+     "doc": "What a GET over https found at an address, as far as TLS goes.",
+     "kind": "enum",
+     "path": "Tls",
+     "variants": [
+      "Answered",
+      "NoListener",
+      "NotTls",
+      "Failed"
+     ]
+    },
+    {
      "doc": "Why no request could be made at all.",
      "kind": "enum",
      "path": "Unprobed",
@@ -15525,6 +15550,7 @@ window.KKT_GRAPH = {
    "testing_third_party": [],
    "third_party": [
     "reqwest",
+    "rustls",
     "serde_json"
    ]
   },
@@ -17796,6 +17822,7 @@ window.KKT_GRAPH = {
       "docker_data_notice",
       "doctor",
       "forget_unfinished",
+      "https_absent",
       "import_lanes",
       "install_docker",
       "install_service",
@@ -20889,6 +20916,7 @@ window.KKT_GRAPH = {
     "ReplyError",
     "Settings",
     "Status",
+    "Tls",
     "Unprobed",
     "shell_word"
    ],
@@ -20915,6 +20943,7 @@ window.KKT_GRAPH = {
       "ReplyError",
       "Settings",
       "Status",
+      "Tls",
       "Unprobed",
       "shell_word"
      ],
@@ -21605,6 +21634,7 @@ window.KKT_GRAPH = {
     "ReplyError",
     "Settings",
     "Status",
+    "Tls",
     "Unprobed"
    ],
    "kind": "normal",
@@ -21619,6 +21649,7 @@ window.KKT_GRAPH = {
       "ReplyError",
       "Settings",
       "Status",
+      "Tls",
       "Unprobed"
      ],
      "role": "uses"
@@ -26103,6 +26134,7 @@ window.KKT_GRAPH = {
     "SetupServer",
     "TailscaleLogin",
     "ThisMachine",
+    "Tls",
     "Unknown",
     "Unprobed",
     "UnrecordedServer",
@@ -26140,6 +26172,7 @@ window.KKT_GRAPH = {
       "SetupServer",
       "TailscaleLogin",
       "ThisMachine",
+      "Tls",
       "Unknown",
       "Unprobed",
       "UnrecordedServer",
@@ -26646,6 +26679,7 @@ window.KKT_GRAPH = {
     "Probing",
     "Reply",
     "Status",
+    "Tls",
     "report",
     "testing::Memory"
    ],
@@ -26661,6 +26695,7 @@ window.KKT_GRAPH = {
       "KeyFileUnread",
       "Probing",
       "Reply",
+      "Tls",
       "report"
      ],
      "role": "uses"

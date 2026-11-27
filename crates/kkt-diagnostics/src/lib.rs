@@ -20,7 +20,7 @@ pub use plan::{
 };
 pub use probe::{
     Answered, Check, Initialized, KeyFile, KeyFileUnread, Prober, Probing, Reply, ReplyError,
-    Status, Unprobed,
+    Status, Tls, Unprobed,
 };
 use std::path::Path;
 use std::time::Duration;

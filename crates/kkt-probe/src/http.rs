@@ -1,7 +1,7 @@
 //! [`HttpProber`]: the requests, with reqwest. reqwest's types stay in this
 //! file.
 
-use crate::{Answered, Initialized, Reply, ReplyError, Settings, Status, Unprobed};
+use crate::{Answered, Initialized, Reply, ReplyError, Settings, Status, Tls, Unprobed};
 use reqwest::{Client, Response, StatusCode, Url, redirect::Policy};
 use serde_json::{Value, json};
 
@@ -23,6 +23,17 @@ impl HttpProber {
         Ok(match client.get(url).send().await {
             Ok(response) => Ok(status(response.status())),
             Err(e) => Err(e.to_string()),
+        })
+    }
+
+    /// A plain GET of `url`, an https address: whether anything there
+    /// speaks TLS ([`Tls`]). No key is sent.
+    pub async fn tls(&self, url: &str) -> Result<Tls, Unprobed> {
+        let url = parse(url)?;
+        let client = client(self.settings)?;
+        Ok(match client.get(url).send().await {
+            Ok(_) => Tls::Answered,
+            Err(e) => tls_failure(&e).unwrap_or_else(|| Tls::Failed(e.to_string())),
         })
     }
 
@@ -100,6 +111,29 @@ fn client(settings: Settings) -> Result<Client, Unprobed> {
         ))
         .build()
         .map_err(|e| Unprobed::NoClient(e.to_string()))
+}
+
+/// What `error` says of TLS at the address, where it says something: a
+/// refused connection, or a reply that is not TLS. Each layer under reqwest
+/// (hyper, the TLS stream) hands on the one below as an I/O error, either
+/// as its source or wrapped inside it, so both are followed.
+fn tls_failure(error: &(dyn std::error::Error + 'static)) -> Option<Tls> {
+    if let Some(io) = error.downcast_ref::<std::io::Error>() {
+        if io.kind() == std::io::ErrorKind::ConnectionRefused {
+            return Some(Tls::NoListener);
+        }
+        if let Some(inner) = io.get_ref()
+            && let Some(found) = tls_failure(inner)
+        {
+            return Some(found);
+        }
+    }
+    if let Some(rustls::Error::InvalidMessage(rustls::InvalidMessage::InvalidContentType)) =
+        error.downcast_ref::<rustls::Error>()
+    {
+        return Some(Tls::NotTls);
+    }
+    error.source().and_then(tls_failure)
 }
 
 fn status(code: StatusCode) -> Status {
@@ -196,5 +230,65 @@ mod tests {
             runtime.block_on(prober.initialize("not a url", None)).err(),
             Some(Unprobed::BadUrl)
         );
+    }
+
+    /// A listener on a free local port that answers each connection with
+    /// `reply` and closes it: its address.
+    fn listener(reply: &'static [u8]) -> std::net::SocketAddr {
+        use std::io::{Read, Write};
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let address = listener.local_addr().expect("address");
+        std::thread::spawn(move || {
+            for stream in listener.incoming() {
+                let Ok(mut stream) = stream else { return };
+                let mut request = [0u8; 1024];
+                // What the client sent, and the reply, matter only to the
+                // client, which the test reads.
+                let _ = stream.read(&mut request);
+                let _ = stream.write_all(reply);
+            }
+        });
+        address
+    }
+
+    fn prober() -> HttpProber {
+        HttpProber::new(Settings {
+            timeout: std::time::Duration::from_secs(5),
+            max_response_bytes: 1024,
+            protocol_version: "2025-06-18",
+            client_name: "probe-test",
+            client_version: "0",
+        })
+    }
+
+    #[tokio::test]
+    async fn tls_says_when_a_plain_http_server_answers() {
+        let address = listener(b"HTTP/1.1 400 Bad Request\r\ncontent-length: 0\r\n\r\n");
+        let found = prober().tls(&format!("https://{address}/mcp")).await;
+        assert_eq!(found, Ok(Tls::NotTls));
+    }
+
+    #[tokio::test]
+    async fn tls_says_when_nothing_listens() {
+        let free = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let address = free.local_addr().expect("address");
+        drop(free);
+        let found = prober().tls(&format!("https://{address}/mcp")).await;
+        assert_eq!(found, Ok(Tls::NoListener));
+    }
+
+    /// A connection closed during the handshake could be a TLS server that
+    /// refused this client as well as anything else: it is a failure, not
+    /// a server without TLS.
+    #[tokio::test]
+    async fn tls_calls_a_closed_handshake_a_failure() {
+        let address = listener(b"");
+        let found = prober().tls(&format!("https://{address}/mcp")).await;
+        assert!(matches!(found, Ok(Tls::Failed(_))), "{found:?}");
+    }
+
+    #[tokio::test]
+    async fn tls_refuses_an_address_that_is_not_a_url() {
+        assert_eq!(prober().tls("not a url").await, Err(Unprobed::BadUrl));
     }
 }

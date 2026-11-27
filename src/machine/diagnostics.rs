@@ -6,7 +6,7 @@
 
 use kkt_diagnostics::{
     self as diagnostics, Answered, Initialized, KeyFile, KeyFileUnread, Prober, Probing, Reply,
-    ReplyError, Status, Unprobed,
+    ReplyError, Status, Tls, Unprobed,
 };
 use kkt_keys::KeyFiles;
 use kkt_keys_os::OsKeyFiles;
@@ -53,6 +53,17 @@ impl Prober for Probe {
         Box::pin(async move {
             let initialized = self.0.initialize(url, key).await.map_err(unprobed)?;
             Ok(self::initialized(initialized))
+        })
+    }
+
+    fn tls<'a>(&'a self, url: &'a str) -> Probing<'a, Tls> {
+        Box::pin(async move {
+            Ok(match self.0.tls(url).await.map_err(unprobed)? {
+                kkt_probe::Tls::Answered => Tls::Answered,
+                kkt_probe::Tls::NoListener => Tls::NoListener,
+                kkt_probe::Tls::NotTls => Tls::NotTls,
+                kkt_probe::Tls::Failed(e) => Tls::Failed(e),
+            })
         })
     }
 }

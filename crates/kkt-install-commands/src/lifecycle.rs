@@ -1133,6 +1133,9 @@ mod tests {
         ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Initialized> {
             panic!("uninstall probed a server")
         }
+        fn tls<'a>(&'a self, _: &'a str) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Tls> {
+            panic!("uninstall probed a server")
+        }
     }
 
     impl crate::ImportLanes for Untouched {
@@ -3296,6 +3299,9 @@ mod tests {
                         }),
                     })
                 })
+            }
+            fn tls<'a>(&'a self, _: &'a str) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Tls> {
+                Box::pin(async { Ok(kkt_diagnostics::Tls::Answered) })
             }
         }
         struct QuietLines;

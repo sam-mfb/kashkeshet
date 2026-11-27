@@ -10,7 +10,7 @@ Options:
       --no-tailscale
           Don't share the server over Tailscale
       --url <URL>
-          For a client: the server's host and port, such as kkt.tail1234.ts.net or 127.0.0.1:7420 (setup adds /mcp and uses https, or http for a server on this machine that has no https), or its full MCP address, such as http://192.168.1.5:7420/mcp
+          For a client: the server's host and port, such as kkt.tail1234.ts.net or 127.0.0.1:7420 (setup adds /mcp and uses https, or http for a server on this machine with no https at all), or its full MCP address, such as http://192.168.1.5:7420/mcp
       --key-file <KEY_FILE>
           For a client: a file holding the server's access key
       --clients <CLIENTS>

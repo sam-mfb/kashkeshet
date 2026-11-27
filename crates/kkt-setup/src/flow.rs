@@ -193,6 +193,11 @@ pub trait Steps: SwitchSteps + AdoptSteps {
     /// Checks, changing nothing, that `key`, typed in for a client and
     /// trimmed, is a valid access key. Returns why not as an error.
     fn check_typed_key(&self, key: &str) -> Result<(), StepError>;
+    /// Whether there is no https at `url`, an https address: nothing listens
+    /// there, or what answers does not speak TLS, as a plain-http server
+    /// does. Any other failure, such as a certificate that is not trusted,
+    /// is not an absence. Sends no key. An error says why it could not ask.
+    fn https_absent(&self, url: &str) -> Result<bool, StepError>;
 }
 
 const MODE: Question = Question {
@@ -1068,10 +1073,14 @@ fn checked_address(
 /// An address with a scheme (`://`) is full, and stands for itself,
 /// unchanged. Anything else is a host and port, such as
 /// `kkt.tail1234.ts.net` or `127.0.0.1:7420`, with a path if one is given,
-/// else `mcp_path`. It is tried over https; for a host on this machine
-/// ([`on_this_machine`]), then over http. Setup never chooses plain http
-/// for a server across a network, where the key it checks next would cross
-/// in clear: a person who means that gives the `http://` address.
+/// else `mcp_path`. It is tried over https. Only when there is no https
+/// there at all ([`Steps::https_absent`]: nothing listens, or the server
+/// does not speak TLS) and the host is on this machine
+/// ([`on_this_machine`]) is it then tried over http. Any other https
+/// failure, such as an untrusted certificate or a server that fails the
+/// check, is the answer. Setup never chooses plain http for a server across
+/// a network, where the key it checks next would cross in clear: a person
+/// who means that gives the `http://` address.
 ///
 /// Both addresses are checked by the address rule before any is tried or
 /// said, so a refused one, such as one holding a password, is refused in
@@ -1092,6 +1101,9 @@ fn answered_address(given: &str, mcp_path: &str, steps: &dyn Steps) -> Result<St
         Ok(()) => return Ok(https),
         Err(problem) => problem,
     };
+    if !steps.https_absent(&https)? {
+        return Err(refused);
+    }
     if !on_this_machine(given) {
         return Err(StepError(Box::new(NoHttps {
             https,
@@ -1125,9 +1137,9 @@ fn on_this_machine(given: &str) -> bool {
             .is_ok_and(|ip| ip.is_loopback())
 }
 
-/// No server answered over https at a host on another machine, which setup
-/// does not try over plain http: the address tried, the problem found
-/// there, and the http address a person may give instead.
+/// There is no https at a host on another machine, which setup does not try
+/// over plain http: the address tried, the problem found there, and the
+/// http address a person may give instead.
 #[derive(Debug)]
 struct NoHttps {
     https: String,

@@ -393,12 +393,26 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     fn check_typed_key(&self, key: &str) -> Result<(), setup::StepError> {
         check_typed_key(key).map_err(step_error)
     }
+
+    fn https_absent(&self, url: &str) -> Result<bool, setup::StepError> {
+        https_absent(self.parts.prober, url).map_err(step_error)
+    }
 }
 
 /// Checks that `key`, typed in for a client, is a valid access key, by
 /// kkt-keys' rule. Returns why not.
 fn check_typed_key(key: &str) -> Result<(), StepFailure> {
     Ok(kkt_keys::check_access_key(key)?)
+}
+
+/// Whether there is no https at `url`: nothing listens there, or what
+/// answers does not speak TLS. Asks with no key.
+fn https_absent(prober: &dyn kkt_diagnostics::Prober, url: &str) -> Result<bool, StepFailure> {
+    let tls = tokio::runtime::Handle::current().block_on(prober.tls(url))?;
+    Ok(matches!(
+        tls,
+        kkt_diagnostics::Tls::NoListener | kkt_diagnostics::Tls::NotTls
+    ))
 }
 
 impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
@@ -1213,6 +1227,9 @@ mod tests {
             _: &'a str,
             _: Option<&'a str>,
         ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Initialized> {
+            unreachable!("prober")
+        }
+        fn tls<'a>(&'a self, _: &'a str) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Tls> {
             unreachable!("prober")
         }
     }
