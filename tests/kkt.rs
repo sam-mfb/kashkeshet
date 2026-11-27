@@ -55,6 +55,19 @@ fn a_closed_standard_output_ends_a_command_quietly() {
             out.status
         );
     }
+    // A closed error output, as with `kkt key show 2>&-` piped away: the
+    // error ends the command as SIGPIPE does, with no panic (#705).
+    let (reader, writer) = std::io::pipe().expect("pipe");
+    drop(reader);
+    let out = std::process::Command::new(KKT)
+        .args(["key", "show", "--key-file", "/no/such/key"])
+        .own_home(&home)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(writer)
+        .output()
+        .expect("run kkt");
+    assert_eq!(out.status.signal(), Some(13), "{:?}", out.status);
 }
 
 #[tokio::test]

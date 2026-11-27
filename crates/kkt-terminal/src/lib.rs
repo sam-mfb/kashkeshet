@@ -7,30 +7,47 @@ pub use browser::BrowserLink;
 
 use std::fmt;
 use std::io::{self, IsTerminal, Write};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+/// Whether a closed standard output or error ends the process as SIGPIPE
+/// does ([`end_on_closed_output`]).
+static END_ON_CLOSED: AtomicBool = AtomicBool::new(false);
+
+/// The exit code a process ends with where it cannot end by SIGPIPE: 128
+/// and the signal's number, as a shell reports one ended by it.
+const CLOSED_PIPE_EXIT: i32 = 141;
 
 /// The process's standard output and standard error.
 pub struct Terminal;
 
 impl Terminal {
     /// Writes formatted output exactly as given, without adding a newline.
+    /// A failed write panics, as `print!` does, unless the output was closed
+    /// after [`end_on_closed_output`].
     pub fn output(&self, text: fmt::Arguments<'_>) {
-        print!("{text}");
+        if let Err(error) = ended_if_closed(io::stdout().lock().write_fmt(text)) {
+            panic!("failed printing to stdout: {error}");
+        }
     }
 
     /// Writes formatted errors exactly as given, without adding a newline.
+    /// A failed write panics, as `eprint!` does, unless the error output
+    /// was closed after [`end_on_closed_output`].
     pub fn errors(&self, text: fmt::Arguments<'_>) {
-        eprint!("{text}");
+        if let Err(error) = ended_if_closed(io::stderr().lock().write_fmt(text)) {
+            panic!("failed printing to stderr: {error}");
+        }
     }
 
     /// Flushes a prompt before the program waits for an answer.
     pub fn flush_output(&self) -> io::Result<()> {
-        io::stdout().flush()
+        ended_if_closed(io::stdout().flush())
     }
 
     /// Writes and flushes one message while holding the output lock.
     pub fn message(&self, line: &str) -> io::Result<()> {
         let mut out = io::stdout().lock();
-        writeln!(out, "{line}").and_then(|()| out.flush())
+        ended_if_closed(writeln!(out, "{line}").and_then(|()| out.flush()))
     }
 
     /// Whether standard input is a terminal.
@@ -55,22 +72,49 @@ impl Terminal {
     }
 }
 
-/// Lets a closed standard output, as with `program status | head`, end the
-/// command the way it ends other Unix commands (SIGPIPE), where Rust would
-/// otherwise panic at the next print. For commands only: a server keeps
-/// running when whatever reads its output goes away, and systemd starts it
-/// with SIGPIPE ignored on purpose. Network writes are unaffected: Rust
-/// asks the system not to signal for those.
+/// Lets a closed standard output or error, as with `program status | head`,
+/// end the command the way it ends other Unix commands (SIGPIPE), where
+/// Rust would otherwise panic at the next print. For commands only: a
+/// server keeps running when whatever reads its output goes away, and
+/// systemd starts it with SIGPIPE ignored on purpose.
+///
+/// SIGPIPE stays ignored until a write through [`Terminal`] finds its
+/// output closed; only then is the system's default restored and the
+/// signal raised. So a network connection the other end closes, whatever
+/// write finds it closed, is an error the command reports, not the end of
+/// the command.
 pub fn end_on_closed_output() {
-    // SAFETY: this sets only what happens on SIGPIPE, to the system's
-    // default; no handler of ours runs, and the program sets it nowhere else.
-    #[cfg(unix)]
-    if unsafe { libc::signal(libc::SIGPIPE, libc::SIG_DFL) } == libc::SIG_ERR {
-        Terminal.errors(format_args!(
-            "warning: could not restore the default for a closed output: {}\n",
-            std::io::Error::last_os_error()
-        ));
+    END_ON_CLOSED.store(true, Ordering::Relaxed);
+}
+
+/// `result`, unless it failed because the output was closed after
+/// [`end_on_closed_output`]: then the process ends there.
+fn ended_if_closed<T>(result: io::Result<T>) -> io::Result<T> {
+    match result {
+        Err(error)
+            if error.kind() == io::ErrorKind::BrokenPipe
+                && END_ON_CLOSED.load(Ordering::Relaxed) =>
+        {
+            end_by_closed_pipe()
+        }
+        result => result,
     }
+}
+
+/// Ends the process as a closed pipe ends other Unix commands: by SIGPIPE,
+/// with the system's default for it, or, where that cannot be, with
+/// [`CLOSED_PIPE_EXIT`].
+fn end_by_closed_pipe() -> ! {
+    // SAFETY: this sets only what happens on SIGPIPE, to the system's
+    // default, and raises it in this thread, which ends the process; no
+    // handler of ours runs.
+    #[cfg(unix)]
+    unsafe {
+        if libc::signal(libc::SIGPIPE, libc::SIG_DFL) != libc::SIG_ERR {
+            libc::raise(libc::SIGPIPE);
+        }
+    }
+    std::process::exit(CLOSED_PIPE_EXIT)
 }
 
 /// Why [`Terminal::read_line`] could not read a line.
