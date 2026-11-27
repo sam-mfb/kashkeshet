@@ -499,8 +499,9 @@ struct SetupFlags {
     /// Don't share the server over Tailscale.
     #[arg(long)]
     no_tailscale: bool,
-    /// For a client: the server's MCP address, such as
-    /// https://kkt.tail1234.ts.net/mcp.
+    /// For a client: the server's host and port, such as kkt.tail1234.ts.net
+    /// or 127.0.0.1:7420 (setup tries https, then http, and adds /mcp), or
+    /// its full MCP address, such as https://kkt.tail1234.ts.net/mcp.
     #[arg(long)]
     url: Option<String>,
     /// For a client: a file holding the server's access key.

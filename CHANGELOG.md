@@ -12,10 +12,14 @@ the section for `X.Y.Z`.
 
 ## Unreleased
 
+### Setup
+- **Client setup takes the server's host and port.** `kkt setup --mode client` now asks for the server's host and port, such as `kkt.tail1234.ts.net` or `127.0.0.1:7420`, and `--url` takes them too. Setup tries the address over `https`, then over `http`, adds `/mcp` unless a path is given, says which address it is using, and records that full address. An address that names its scheme, such as `https://kkt.tail1234.ts.net/mcp`, is used exactly as before, from the question, `--url` or an existing record. When neither scheme answers, setup names each address it tried with its problem (#700).
+
 ### Fixes
 - **Setup's web-key hint drops `--key-file` when a client becomes a server.** When `kkt setup` turned a machine whose record said it was a client into a server, the line telling you how to read the new web key named the file, as in `kkt key show --web --key-file '~/.config/kkt/web-key'`, though the key was in its default place. The hint now goes by the role setup is installing, not the record from before setup: a key in the default place reads `kkt key show --web`. A web key elsewhere is still named, and `kkt service install` run on its own still goes by the record as it is (#702).
 - **A Docker `kkt upgrade` says where the server backs up the database before a schema upgrade.** Before it upgrades the database schema, the server saves a database-only backup of its own, in an `upgrade-backups` folder beside its database. As a service, `kkt upgrade` already said so; in Docker it said nothing, though the backup was made all the same. It now says that the backup goes in the data volume beside the database, under `/data/.local/share/kashkeshet/upgrade-backups` for the default database, and that the server's log gives the completed path: `docker compose logs kkt`, run in kkt's Docker folder, or the `log_file` the config file names (#701).
 - **A command no longer dies silently when a server closes the connection mid-write.** `kkt doctor --url https://…` pointed at a server that speaks plain http printed nothing and exited 141: the server closed the connection on the TLS handshake, and kkt's next write to it ended the process by SIGPIPE. Commands now end by SIGPIPE only when their own output or error output is closed, as with `kkt status | head`, and a connection the server closes is reported as a problem like any other network failure (#705).
+- **Client setup offers the server this machine already uses.** At a terminal, `kkt setup --mode client` offered the local `http://127.0.0.1:7420/mcp` as its default even when the machine's setup record named another server, so pressing Enter pointed the machine at a local server that might not exist. The default is now the address in the setup record, and the local server (`127.0.0.1:7420`) only when there is no record (#700).
 
 ## 1.0.0
 
