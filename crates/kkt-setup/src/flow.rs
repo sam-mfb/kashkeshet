@@ -6,8 +6,8 @@ use super::adopt::{AdoptSteps, Unrecorded, adoptable};
 use super::ask::{Ask, Question};
 use super::record::{DockerSetup, Mode, Record, Server, TailscaleLogin, Unfinished};
 use super::switch::SwitchSteps;
-use crate::StepError;
 use crate::flow_error::{ResumeFrom, SetupError, Stopped, UnfinishedAdvice};
+use crate::{HttpsRefused, StepError};
 use kkt_llm_agent_config::Client;
 use kkt_names::{AdminName, MAX_ADMIN_NAME_CHARS};
 use std::path::{Path, PathBuf};
@@ -193,11 +193,13 @@ pub trait Steps: SwitchSteps + AdoptSteps {
     /// Checks, changing nothing, that `key`, typed in for a client and
     /// trimmed, is a valid access key. Returns why not as an error.
     fn check_typed_key(&self, key: &str) -> Result<(), StepError>;
-    /// Whether there is no https at `url`, an https address: nothing listens
-    /// there, or what answers does not speak TLS, as a plain-http server
-    /// does. Any other failure, such as a certificate that is not trusted,
-    /// is not an absence. Sends no key. An error says why it could not ask.
-    fn https_absent(&self, url: &str) -> Result<bool, StepError>;
+    /// Checks `url`, an https address, as [`SwitchSteps::check_address`]
+    /// does, changing nothing and sending no key. When it fails, says from
+    /// its first request alone whether there is no https there at all
+    /// ([`HttpsRefused::Absent`]: nothing listens, or what answers does not
+    /// speak TLS), or why else ([`HttpsRefused::Failed`]: an untrusted
+    /// certificate, or a server that answered and failed a later check).
+    fn check_https_address(&self, url: &str) -> Result<(), HttpsRefused>;
 }
 
 const MODE: Question = Question {
@@ -1073,9 +1075,9 @@ fn checked_address(
 /// An address with a scheme (`://`) is full, and stands for itself,
 /// unchanged. Anything else is a host and port, such as
 /// `kkt.tail1234.ts.net` or `127.0.0.1:7420`, with a path if one is given,
-/// else `mcp_path`. It is tried over https. Only when there is no https
-/// there at all ([`Steps::https_absent`]: nothing listens, or the server
-/// does not speak TLS) and the host is on this machine
+/// else `mcp_path`. It is tried over https. Only when that first https
+/// request finds no https there at all ([`HttpsRefused::Absent`]: nothing
+/// listens, or the server does not speak TLS) and the host is on this machine
 /// ([`on_this_machine`]) is it then tried over http. Any other https
 /// failure, such as an untrusted certificate or a server that fails the
 /// check, is the answer. Setup never chooses plain http for a server across
@@ -1097,13 +1099,11 @@ fn answered_address(given: &str, mcp_path: &str, steps: &dyn Steps) -> Result<St
     let http = format!("http://{given}{path}");
     steps.validate_address(&https)?;
     steps.validate_address(&http)?;
-    let refused = match steps.check_address(&https) {
+    let refused = match steps.check_https_address(&https) {
         Ok(()) => return Ok(https),
-        Err(problem) => problem,
+        Err(HttpsRefused::Failed(problem)) => return Err(problem),
+        Err(HttpsRefused::Absent(problem)) => problem,
     };
-    if !steps.https_absent(&https)? {
-        return Err(refused);
-    }
     if !on_this_machine(given) {
         return Err(StepError(Box::new(NoHttps {
             https,

@@ -711,9 +711,17 @@ mod flow {
             }
             .map_err(|said| StepError(said.into()))
         }
-        fn https_absent(&self, url: &str) -> Result<bool, StepError> {
-            self.checked.borrow_mut().push(format!("tls {url}"));
-            Ok(self.no_https.contains(&url))
+        /// Checks the address as [`SwitchSteps::check_address`] does; one
+        /// in `no_https` is refused as having no https there.
+        fn check_https_address(&self, url: &str) -> Result<(), HttpsRefused> {
+            if self.no_https.contains(&url) {
+                self.validate_address(url).map_err(HttpsRefused::Failed)?;
+                self.checked.borrow_mut().push(format!("address {url}"));
+                return Err(HttpsRefused::Absent(StepError(
+                    "problem: server: nothing listens there".into(),
+                )));
+            }
+            self.check_address(url).map_err(HttpsRefused::Failed)
         }
     }
 
@@ -936,7 +944,6 @@ mod flow {
             steps.checked(),
             [
                 "address https://127.0.0.1:7420/mcp",
-                "tls https://127.0.0.1:7420/mcp",
                 "address http://127.0.0.1:7420/mcp",
                 "key none for http://127.0.0.1:7420/mcp",
             ]
@@ -1768,7 +1775,6 @@ mod flow {
                 steps.checked(),
                 [
                     format!("address {https}"),
-                    format!("tls {https}"),
                     format!("address {http}"),
                     format!("key file /keys/kkt for {http}"),
                 ],
@@ -1805,7 +1811,7 @@ mod flow {
             assert!(!error.contains("http://"), "{error}");
             assert_eq!(
                 steps.checked(),
-                [format!("address {https}"), format!("tls {https}")],
+                [format!("address {https}")],
                 "no http probe and no key check: {problem}"
             );
             assert!(steps.done().is_empty());
@@ -1834,18 +1840,14 @@ mod flow {
                 .to_string();
             assert!(
                 error.ends_with(&format!(
-                    "{https}: problem: server: connection refused\n\
+                    "{https}: problem: server: nothing listens there\n\
                      For a server on another machine, setup tries only https. If the server \
                      uses plain http, give its full address, such as http://{host}/mcp"
                 )),
                 "{error}"
             );
             assert!(error.contains("--url"), "{error}");
-            assert_eq!(
-                steps.checked(),
-                [format!("address {https}"), format!("tls {https}")],
-                "{host}"
-            );
+            assert_eq!(steps.checked(), [format!("address {https}")], "{host}");
             assert!(steps.done().is_empty());
 
             // An https server there that fails the check: its problem alone.
@@ -1887,7 +1889,7 @@ mod flow {
         assert_eq!(
             ask.told.borrow()[0],
             "That address did not work:\n\
-             https://127.0.0.1:7421/mcp: problem: server: connection refused\n\
+             https://127.0.0.1:7421/mcp: problem: server: nothing listens there\n\
              http://127.0.0.1:7421/mcp: problem: server: connection refused"
         );
     }

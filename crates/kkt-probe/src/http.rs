@@ -32,7 +32,7 @@ impl HttpProber {
         let url = parse(url)?;
         let client = client(self.settings)?;
         Ok(match client.get(url).send().await {
-            Ok(_) => Tls::Answered,
+            Ok(response) => Tls::Answered(status(response.status())),
             Err(e) => tls_failure(&e).unwrap_or_else(|| Tls::Failed(e.to_string())),
         })
     }

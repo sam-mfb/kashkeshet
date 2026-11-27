@@ -42,8 +42,8 @@ impl Memory {
     }
 
     /// The same, with `tls` as what a GET over https finds at `url`. Without
-    /// it, a server given with [`Memory::server`] at `url` answers in TLS,
-    /// and nothing listens at any other address.
+    /// it, a server given with [`Memory::server`] at `url` answers in TLS as
+    /// it answers a GET, and nothing listens at any other address.
     pub fn tls(mut self, url: &str, tls: Tls) -> Self {
         self.tls.insert(url.to_string(), tls);
         self
@@ -75,10 +75,13 @@ impl Prober for Memory {
     }
 
     fn tls<'a>(&'a self, url: &'a str) -> Probing<'a, Tls> {
-        let tls = match (self.tls.get(url), self.servers.contains_key(url)) {
+        let tls = match (self.tls.get(url), self.servers.get(url)) {
             (Some(tls), _) => tls.clone(),
-            (None, true) => Tls::Answered,
-            (None, false) => Tls::NoListener,
+            (None, Some((answered, _))) => match answered {
+                Ok(status) => Tls::Answered(status.clone()),
+                Err(e) => Tls::Failed(e.clone()),
+            },
+            (None, None) => Tls::NoListener,
         };
         Box::pin(async move { Ok(tls) })
     }

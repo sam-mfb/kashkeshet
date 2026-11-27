@@ -80,8 +80,8 @@ pub enum Initialized {
 /// What a GET over https found at an address, as far as TLS goes.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Tls {
-    /// A server answered in TLS, with any status.
-    Answered,
+    /// A server answered in TLS, with this status.
+    Answered(Status),
     /// Nothing listens there: the connection was refused.
     NoListener,
     /// Something answered, but not in TLS, as a plain-http server does.

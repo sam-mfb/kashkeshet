@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "7578e0fc",
+ "commit": "9eab9c4c",
  "crates": [
   {
    "bins": [
@@ -7871,6 +7871,15 @@ window.KKT_GRAPH = {
      "path": "DockerKkt"
     },
     {
+     "doc": "What the first request to an https address found: no https there at all, or the server checks made from that request on.",
+     "kind": "enum",
+     "path": "HttpsChecks",
+     "variants": [
+      "Absent",
+      "Checked"
+     ]
+    },
+    {
      "doc": "What an MCP `initialize` request gave.",
      "kind": "enum",
      "path": "Initialized",
@@ -8138,6 +8147,11 @@ window.KKT_GRAPH = {
      "path": "inspect_admin_key"
     },
     {
+     "doc": "The checks of the https address `url`, as `inspect_address` makes them, from a first request that also says whether there is https there at all: nothing listens, or what answers does not speak TLS (`HttpsChecks::Absent`).",
+     "kind": "fn",
+     "path": "inspect_https_address"
+    },
+    {
      "doc": "`Inspector::server_with_key` on this machine.",
      "kind": "fn",
      "path": "inspect_with_key"
@@ -8294,6 +8308,17 @@ window.KKT_GRAPH = {
     },
     {
      "at": "inspect_admin_key",
+     "kind": "param",
+     "name": "prober",
+     "traits": [
+      {
+       "crate": "kkt-diagnostics",
+       "trait": "Prober"
+      }
+     ]
+    },
+    {
+     "at": "inspect_https_address",
      "kind": "param",
      "name": "prober",
      "traits": [
@@ -17601,6 +17626,15 @@ window.KKT_GRAPH = {
      "path": "DockerSetup"
     },
     {
+     "doc": "Why the check of an https address failed (`crate::Steps::check_https_address`), as its first request found it.",
+     "kind": "enum",
+     "path": "HttpsRefused",
+     "variants": [
+      "Absent",
+      "Failed"
+     ]
+    },
+    {
      "doc": "What tells whether the install an unfinished setup notes is still here.",
      "kind": "enum",
      "path": "InstallCheck",
@@ -17815,6 +17849,7 @@ window.KKT_GRAPH = {
      "methods": [
       "add_admin_key",
       "allow_kkt",
+      "check_https_address",
       "check_lanes",
       "check_typed_key",
       "detect_clients",
@@ -17822,7 +17857,6 @@ window.KKT_GRAPH = {
       "docker_data_notice",
       "doctor",
       "forget_unfinished",
-      "https_absent",
       "import_lanes",
       "install_docker",
       "install_service",
@@ -26121,6 +26155,7 @@ window.KKT_GRAPH = {
    "items": [
     "Check",
     "DockerKkt",
+    "HttpsChecks",
     "Initialized",
     "Inspector",
     "KeyToCheck",
@@ -26134,7 +26169,6 @@ window.KKT_GRAPH = {
     "SetupServer",
     "TailscaleLogin",
     "ThisMachine",
-    "Tls",
     "Unknown",
     "Unprobed",
     "UnrecordedServer",
@@ -26144,6 +26178,7 @@ window.KKT_GRAPH = {
     "docker_web_key_check",
     "inspect",
     "inspect_address",
+    "inspect_https_address",
     "inspect_with_key",
     "point_server_fix_at",
     "report",
@@ -26163,6 +26198,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "Check",
+      "HttpsChecks",
       "Initialized",
       "Plan",
       "Prober",
@@ -26172,7 +26208,6 @@ window.KKT_GRAPH = {
       "SetupServer",
       "TailscaleLogin",
       "ThisMachine",
-      "Tls",
       "Unknown",
       "Unprobed",
       "UnrecordedServer",
@@ -26182,6 +26217,7 @@ window.KKT_GRAPH = {
       "docker_web_key_check",
       "inspect",
       "inspect_address",
+      "inspect_https_address",
       "inspect_with_key",
       "point_server_fix_at",
       "report",
@@ -26210,6 +26246,7 @@ window.KKT_GRAPH = {
     "KeyFileUnread",
     "Probing",
     "Status",
+    "Tls",
     "testing::Memory"
    ],
    "to": "kkt-diagnostics"
@@ -26435,6 +26472,7 @@ window.KKT_GRAPH = {
     "BothInstalled",
     "ClientKey",
     "DockerSetup",
+    "HttpsRefused",
     "InstallCheck",
     "Installed",
     "Lines",
@@ -26478,6 +26516,7 @@ window.KKT_GRAPH = {
     {
      "detail": [
       "ClientKey",
+      "HttpsRefused",
       "InstallCheck",
       "Lines",
       "Mode",
@@ -31596,6 +31635,10 @@ window.KKT_ASSEMBLY = {
       },
       {
        "at": "inspect_address",
+       "param": "prober"
+      },
+      {
+       "at": "inspect_https_address",
        "param": "prober"
       },
       {

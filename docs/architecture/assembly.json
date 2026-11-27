@@ -2274,6 +2274,10 @@
        "param": "prober"
       },
       {
+       "at": "inspect_https_address",
+       "param": "prober"
+      },
+      {
        "at": "inspect_with_key",
        "param": "prober"
       }

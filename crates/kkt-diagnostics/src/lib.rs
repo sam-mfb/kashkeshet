@@ -10,6 +10,7 @@
 mod plan;
 mod probe;
 mod server;
+pub use server::HttpsChecks;
 #[cfg(any(test, feature = "testing"))]
 pub mod testing;
 mod this_machine;
@@ -226,6 +227,17 @@ pub async fn inspect(
 /// [`Inspector::address`] on this machine.
 pub async fn inspect_address(prober: &dyn Prober, url: &str) -> Result<Vec<Check>, Unprobed> {
     Inspector::new(prober).address(url).await
+}
+
+/// The checks of the https address `url`, as [`inspect_address`] makes
+/// them, from a first request that also says whether there is https there
+/// at all: nothing listens, or what answers does not speak TLS
+/// ([`HttpsChecks::Absent`]). That is decided by the first request alone.
+pub async fn inspect_https_address(
+    prober: &dyn Prober,
+    url: &str,
+) -> Result<HttpsChecks, Unprobed> {
+    server::https_checks(prober, url).await
 }
 
 /// [`Inspector::server_with_key`] on this machine.

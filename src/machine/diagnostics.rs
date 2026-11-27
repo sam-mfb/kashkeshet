@@ -59,7 +59,7 @@ impl Prober for Probe {
     fn tls<'a>(&'a self, url: &'a str) -> Probing<'a, Tls> {
         Box::pin(async move {
             Ok(match self.0.tls(url).await.map_err(unprobed)? {
-                kkt_probe::Tls::Answered => Tls::Answered,
+                kkt_probe::Tls::Answered(answered) => Tls::Answered(status(answered)),
                 kkt_probe::Tls::NoListener => Tls::NoListener,
                 kkt_probe::Tls::NotTls => Tls::NotTls,
                 kkt_probe::Tls::Failed(e) => Tls::Failed(e),

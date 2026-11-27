@@ -3301,7 +3301,12 @@ mod tests {
                 })
             }
             fn tls<'a>(&'a self, _: &'a str) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Tls> {
-                Box::pin(async { Ok(kkt_diagnostics::Tls::Answered) })
+                Box::pin(async {
+                    Ok(kkt_diagnostics::Tls::Answered(kkt_diagnostics::Status {
+                        code: 200,
+                        reason: None,
+                    }))
+                })
             }
         }
         struct QuietLines;
