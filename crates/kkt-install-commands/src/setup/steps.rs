@@ -393,12 +393,42 @@ impl<C: ConnectionSource, D: crate::ServiceDefaults> setup::Steps for OsSteps<'_
     fn check_typed_key(&self, key: &str) -> Result<(), setup::StepError> {
         check_typed_key(key).map_err(step_error)
     }
+
+    fn check_https_address(&self, url: &str) -> Result<(), setup::HttpsRefused> {
+        check_https_address(self.parts.prober, url)
+    }
 }
 
 /// Checks that `key`, typed in for a client, is a valid access key, by
 /// kkt-keys' rule. Returns why not.
 fn check_typed_key(key: &str) -> Result<(), StepFailure> {
     Ok(kkt_keys::check_access_key(key)?)
+}
+
+/// Checks `url`, an https address, as [`check_address`] does, and when it
+/// fails, says from the first request alone whether there is no https
+/// there at all. Asks with no key.
+fn check_https_address(
+    prober: &dyn kkt_diagnostics::Prober,
+    url: &str,
+) -> Result<(), setup::HttpsRefused> {
+    let failed = |failure: StepFailure| setup::HttpsRefused::Failed(step_error(failure));
+    kkt_deployment::connection::server_address(url, None).map_err(|e| failed(e.into()))?;
+    let found = tokio::runtime::Handle::current()
+        .block_on(diagnostics::inspect_https_address(prober, url))
+        .map_err(|e| failed(e.into()))?;
+    let (mut checks, absent) = match found {
+        kkt_diagnostics::HttpsChecks::Absent(checks) => (checks, true),
+        kkt_diagnostics::HttpsChecks::Checked(checks) => (checks, false),
+    };
+    point_server_fix_at(
+        &mut checks,
+        "check the address, and that the server is running on its machine",
+    );
+    only_problems(checks).map_err(|problems| match absent {
+        true => setup::HttpsRefused::Absent(step_error(problems)),
+        false => setup::HttpsRefused::Failed(step_error(problems)),
+    })
 }
 
 impl<C: ConnectionSource, D> setup::SwitchSteps for OsSteps<'_, '_, C, D> {
@@ -1215,6 +1245,9 @@ mod tests {
         ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Initialized> {
             unreachable!("prober")
         }
+        fn tls<'a>(&'a self, _: &'a str) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Tls> {
+            unreachable!("prober")
+        }
     }
 
     /// Runs `step` on setup's steps over the parts given here: the home
@@ -1415,6 +1448,109 @@ mod tests {
             ("http://h/mcp#f", secret),
         ] {
             assert_eq!(check_address(&prober, url), Err(said.to_string()), "{url}");
+        }
+    }
+
+    /// A prober whose TLS answer changes from one request to the next, as
+    /// when a server goes away after the first: the answers in order, the
+    /// last repeated; and what an `initialize` gives.
+    struct Turns {
+        tls: std::sync::Mutex<std::collections::VecDeque<kkt_diagnostics::Tls>>,
+        initialized: kkt_diagnostics::Initialized,
+    }
+
+    impl kkt_diagnostics::Prober for Turns {
+        fn key_file(
+            &self,
+            _: &Path,
+        ) -> Result<kkt_diagnostics::KeyFile, kkt_diagnostics::KeyFileUnread> {
+            unreachable!("no key is read")
+        }
+        fn answer<'a>(
+            &'a self,
+            _: &'a str,
+        ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Answered> {
+            Box::pin(async { Ok(Err("Connection refused".to_string())) })
+        }
+        fn initialize<'a>(
+            &'a self,
+            _: &'a str,
+            key: Option<&'a str>,
+        ) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Initialized> {
+            assert_eq!(
+                key, None,
+                "no key is sent to an https address being checked"
+            );
+            let initialized = self.initialized.clone();
+            Box::pin(async move { Ok(initialized) })
+        }
+        fn tls<'a>(&'a self, _: &'a str) -> kkt_diagnostics::Probing<'a, kkt_diagnostics::Tls> {
+            let mut turns = self.tls.lock().expect("turns");
+            let tls = match turns.len() {
+                1 => turns[0].clone(),
+                _ => turns.pop_front().expect("a turn"),
+            };
+            Box::pin(async move { Ok(tls) })
+        }
+    }
+
+    /// Whether there is no https at an address is decided by the first
+    /// request alone: a certificate failure, or an https server that
+    /// answered and then failed the MCP check, is a failure even when the
+    /// server is gone by the next request; only a refused connection or a
+    /// reply that is not TLS is an absence (#700).
+    #[test]
+    fn an_https_address_is_judged_by_its_first_request() {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("runtime");
+        let _inside = runtime.enter();
+        let url = "https://127.0.0.1:7420/mcp";
+        let ok = kkt_diagnostics::Status {
+            code: 200,
+            reason: Some("OK".into()),
+        };
+        let gone = kkt_diagnostics::Tls::NoListener;
+        let refused = kkt_diagnostics::Initialized::Failed("Connection refused".into());
+        let certificate = "invalid peer certificate: UnknownIssuer";
+        for (first, initialized, absent, said) in [
+            (
+                kkt_diagnostics::Tls::Failed(certificate.into()),
+                refused.clone(),
+                false,
+                certificate,
+            ),
+            (
+                kkt_diagnostics::Tls::Answered(ok.clone()),
+                refused.clone(),
+                false,
+                "problem: MCP: Connection refused",
+            ),
+            (
+                kkt_diagnostics::Tls::NoListener,
+                refused.clone(),
+                true,
+                "nothing listens there",
+            ),
+            (
+                kkt_diagnostics::Tls::NotTls,
+                refused.clone(),
+                true,
+                "the server there does not speak https",
+            ),
+        ] {
+            let prober = Turns {
+                tls: std::sync::Mutex::new([first.clone(), gone.clone()].into()),
+                initialized,
+            };
+            let refusal = check_https_address(&prober, url).expect_err("it fails");
+            let (was_absent, problems) = match refusal {
+                setup::HttpsRefused::Absent(problems) => (true, problems.to_string()),
+                setup::HttpsRefused::Failed(problems) => (false, problems.to_string()),
+            };
+            assert_eq!(was_absent, absent, "{first:?}: {problems}");
+            assert!(problems.contains(said), "{first:?}: {problems}");
         }
     }
 

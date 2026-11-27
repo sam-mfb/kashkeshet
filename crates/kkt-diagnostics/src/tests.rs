@@ -73,6 +73,10 @@ impl Prober for FakeProber {
             .map(|(_, initialized)| initialized);
         Box::pin(async move { answer })
     }
+
+    fn tls<'a>(&'a self, _: &'a str) -> Probing<'a, crate::Tls> {
+        panic!("the doctor's checks never ask about TLS")
+    }
 }
 
 /// The output of `future`, which must not wait: the fake prober never does.

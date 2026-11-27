@@ -416,6 +416,9 @@ mod flow {
         fail_doctor: bool,
         /// Addresses where no server answers.
         bad_addresses: Vec<&'static str>,
+        /// Addresses whose check finds the problem given, as words of the
+        /// program's checks.
+        address_problems: Vec<(&'static str, &'static str)>,
         /// Keys the server refuses, as [`shown`] shows them.
         bad_keys: Vec<String>,
         /// An address whose server passes the first check and then stops
@@ -436,6 +439,8 @@ mod flow {
         /// The setup record there is to begin with, or what could not be
         /// read from it.
         earlier: Option<Result<Record, String>>,
+        /// https addresses where nothing listens or nothing speaks TLS.
+        no_https: Vec<&'static str>,
         /// The clients with a kkt entry now.
         connected: Vec<Client>,
         /// Lane folders whose files are wrong.
@@ -706,6 +711,18 @@ mod flow {
             }
             .map_err(|said| StepError(said.into()))
         }
+        /// Checks the address as [`SwitchSteps::check_address`] does; one
+        /// in `no_https` is refused as having no https there.
+        fn check_https_address(&self, url: &str) -> Result<(), HttpsRefused> {
+            if self.no_https.contains(&url) {
+                self.validate_address(url).map_err(HttpsRefused::Failed)?;
+                self.checked.borrow_mut().push(format!("address {url}"));
+                return Err(HttpsRefused::Absent(StepError(
+                    "problem: server: nothing listens there".into(),
+                )));
+            }
+            self.check_address(url).map_err(HttpsRefused::Failed)
+        }
     }
 
     impl SwitchSteps for Fake {
@@ -751,24 +768,36 @@ mod flow {
                 _ => Ok(format!("connected {}", client.name())),
             }
         }
-        /// Refuses an address that is not http:// or https://, as the
-        /// program's steps do with kkt-deployment's rule, before any server
-        /// is asked.
-        fn validate_address(&self, _: &str) -> Result<(), StepError> {
-            Ok(())
-        }
-
-        fn check_address(&self, url: &str) -> Result<(), StepError> {
+        /// Refuses an address that is not http:// or https://, or that holds
+        /// credentials, a query or a fragment, in the words of
+        /// kkt-deployment's rule, which the program's steps apply, before
+        /// any server is asked. Like the rule's, the words never repeat the
+        /// address.
+        fn validate_address(&self, url: &str) -> Result<(), StepError> {
             if !(url.starts_with("http://") || url.starts_with("https://")) {
                 return Err(StepError(
                     "URL must be an absolute http:// or https:// address".into(),
                 ));
             }
+            if url.contains('@') || url.contains('?') || url.contains('#') {
+                return Err(StepError(
+                    "put credentials in the key file, not in the URL; query strings and fragments are not supported"
+                        .into(),
+                ));
+            }
+            Ok(())
+        }
+
+        fn check_address(&self, url: &str) -> Result<(), StepError> {
+            self.validate_address(url)?;
             let checked = format!("address {url}");
             let gone = self.flaky == Some(url) && self.checked().contains(&checked);
             self.checked.borrow_mut().push(checked);
             if gone || self.bad_addresses.contains(&url) {
                 return Err(StepError("problem: server: connection refused".into()));
+            }
+            if let Some((_, problem)) = self.address_problems.iter().find(|(at, _)| *at == url) {
+                return Err(StepError((*problem).into()));
             }
             Ok(())
         }
@@ -899,17 +928,32 @@ mod flow {
         assert!(!steps.done().iter().any(|d| d.starts_with("import lanes")));
         assert!(steps.checked().is_empty());
 
+        // With no record, Enter takes this machine's host and port; a local
+        // server answers over http, not https.
         let ask = Script::with(vec![Reply::Choose(2), Reply::Enter, Reply::Enter]);
-        let steps = Fake::default();
+        let steps = Fake {
+            bad_addresses: vec!["https://127.0.0.1:7420/mcp"],
+            no_https: vec!["https://127.0.0.1:7420/mcp"],
+            ..Fake::default()
+        };
         let record = run(&Answers::default(), "0.6.0", "/mcp", &ask, &steps).expect("client setup");
-        assert_eq!(record.url, flow::DEFAULT_SETUP_URL);
+        assert_eq!(flow::DEFAULT_SETUP_URL, "127.0.0.1:7420");
+        assert_eq!(record.url, "http://127.0.0.1:7420/mcp");
         assert_eq!(record.key_file, None);
         assert_eq!(
             steps.checked(),
             [
+                "address https://127.0.0.1:7420/mcp",
                 "address http://127.0.0.1:7420/mcp",
                 "key none for http://127.0.0.1:7420/mcp",
             ]
+        );
+        assert!(
+            ask.told
+                .borrow()
+                .contains(&"Using http://127.0.0.1:7420/mcp".to_string()),
+            "{:?}",
+            ask.told.borrow()
         );
 
         let ask = Script::with(vec![Reply::Enter, Reply::Enter]);
@@ -1646,9 +1690,9 @@ mod flow {
     }
 
     #[test]
-    fn an_address_without_http_is_asked_for_again_without_a_check() {
+    fn an_address_with_another_scheme_is_asked_for_again() {
         let ask = Script::with(vec![
-            Reply::Text("kkt.tail1234.ts.net"),
+            Reply::Text("ftp://kkt.tail1234.ts.net"),
             Reply::Text("https://kkt.tail1234.ts.net/mcp"),
         ]);
         let steps = Fake::default();
@@ -1665,6 +1709,262 @@ mod flow {
         assert_eq!(
             steps.checked()[0],
             "address https://kkt.tail1234.ts.net/mcp"
+        );
+    }
+
+    /// A host alone is tried over https, with the MCP path; the address that
+    /// answers is recorded and said (#700).
+    #[test]
+    fn a_host_and_port_is_completed_with_https_and_the_mcp_path() {
+        let ask = Script::with(vec![Reply::Text("kkt.tail1234.ts.net")]);
+        let steps = Fake::default();
+        let answers = Answers {
+            url: None,
+            ..client_flags()
+        };
+        let record = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
+        assert_eq!(record.url, "https://kkt.tail1234.ts.net/mcp");
+        assert_eq!(*ask.asked.borrow(), ["--url"]);
+        assert_eq!(
+            ask.told.borrow()[0],
+            "Using https://kkt.tail1234.ts.net/mcp"
+        );
+        assert_eq!(
+            steps.checked(),
+            [
+                "address https://kkt.tail1234.ts.net/mcp",
+                "key file /keys/kkt for https://kkt.tail1234.ts.net/mcp",
+            ]
+        );
+
+        // A path given is kept, and a port.
+        let steps = Fake::default();
+        let answers = Answers {
+            url: Some("kkt.example:8443/behind/mcp".into()),
+            ..client_flags()
+        };
+        let record = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps).expect("setup");
+        assert_eq!(record.url, "https://kkt.example:8443/behind/mcp");
+    }
+
+    /// A host on this machine with no https there (nothing listens, or the
+    /// server does not speak TLS) is tried over http, with the path setup's
+    /// caller serves at.
+    #[test]
+    fn a_host_on_this_machine_with_no_https_falls_back_to_http() {
+        for host in [
+            "127.0.0.1:7420",
+            "127.1.2.3:7420",
+            "localhost:7420",
+            "[::1]:7420",
+        ] {
+            let https: &'static str = format!("https://{host}/kkt").leak();
+            let http = format!("http://{host}/kkt");
+            let steps = Fake {
+                bad_addresses: vec![https],
+                no_https: vec![https],
+                ..Fake::default()
+            };
+            let answers = Answers {
+                url: Some(format!(" {host} ")),
+                ..client_flags()
+            };
+            let record = run(&answers, "0.4.0", "/kkt", &Script::default(), &steps).expect("setup");
+            assert_eq!(record.url, http, "{host}");
+            assert_eq!(
+                steps.checked(),
+                [
+                    format!("address {https}"),
+                    format!("address {http}"),
+                    format!("key file /keys/kkt for {http}"),
+                ],
+                "{host}"
+            );
+        }
+    }
+
+    /// Any other https failure on this machine stops setup with its
+    /// problem, and http is never tried and no key is checked: a certificate
+    /// that is not trusted, and an https server that answers but fails the
+    /// MCP check (#700).
+    #[test]
+    fn another_https_failure_on_this_machine_stops_setup() {
+        let https = "https://127.0.0.1:7420/mcp";
+        for problem in [
+            "problem: server: error sending request for url (https://127.0.0.1:7420/mcp): \
+             invalid peer certificate: UnknownIssuer",
+            "problem: MCP: server returned 404 Not Found",
+        ] {
+            // There is https there: whatever answers speaks TLS.
+            let steps = Fake {
+                address_problems: vec![(https, problem)],
+                ..Fake::default()
+            };
+            let answers = Answers {
+                url: Some("127.0.0.1:7420".into()),
+                ..client_flags()
+            };
+            let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
+                .expect_err("https fails")
+                .to_string();
+            assert!(error.ends_with(&format!("\n{problem}")), "{error}");
+            assert!(!error.contains("http://"), "{error}");
+            assert_eq!(
+                steps.checked(),
+                [format!("address {https}")],
+                "no http probe and no key check: {problem}"
+            );
+            assert!(steps.done().is_empty());
+        }
+    }
+
+    /// A host on another machine is never tried over plain http, where the
+    /// key checked next would cross the network in clear. With no https
+    /// there, setup says how to give the http address instead; any other
+    /// https failure is the answer, as on this machine.
+    #[test]
+    fn a_host_on_another_machine_is_tried_only_over_https() {
+        for host in ["192.168.1.5:7420", "kkt.typo.ts.net", "127.0.0.1.example"] {
+            let https: &'static str = format!("https://{host}/mcp").leak();
+            let steps = Fake {
+                bad_addresses: vec![https],
+                no_https: vec![https],
+                ..Fake::default()
+            };
+            let answers = Answers {
+                url: Some(host.into()),
+                ..client_flags()
+            };
+            let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
+                .expect_err("no https")
+                .to_string();
+            assert!(
+                error.ends_with(&format!(
+                    "{https}: problem: server: nothing listens there\n\
+                     For a server on another machine, setup tries only https. If the server \
+                     uses plain http, give its full address, such as http://{host}/mcp"
+                )),
+                "{error}"
+            );
+            assert!(error.contains("--url"), "{error}");
+            assert_eq!(steps.checked(), [format!("address {https}")], "{host}");
+            assert!(steps.done().is_empty());
+
+            // An https server there that fails the check: its problem alone.
+            let steps = Fake {
+                bad_addresses: vec![https],
+                ..Fake::default()
+            };
+            let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
+                .expect_err("https fails")
+                .to_string();
+            assert!(
+                error.ends_with("\nproblem: server: connection refused"),
+                "{error}"
+            );
+            assert!(!error.contains("http://"), "{error}");
+        }
+    }
+
+    /// When neither address answers for a host on this machine with no
+    /// https, each is said with its problem, and the question is asked
+    /// again.
+    #[test]
+    fn a_host_on_this_machine_where_nothing_answers_names_each_address_tried() {
+        let ask = Script::with(vec![
+            Reply::Text("127.0.0.1:7421"),
+            Reply::Text("https://kkt.tail1234.ts.net/mcp"),
+        ]);
+        let steps = Fake {
+            bad_addresses: vec!["https://127.0.0.1:7421/mcp", "http://127.0.0.1:7421/mcp"],
+            no_https: vec!["https://127.0.0.1:7421/mcp"],
+            ..Fake::default()
+        };
+        let answers = Answers {
+            url: None,
+            ..client_flags()
+        };
+        let record = run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
+        assert_eq!(record.url, "https://kkt.tail1234.ts.net/mcp");
+        assert_eq!(
+            ask.told.borrow()[0],
+            "That address did not work:\n\
+             https://127.0.0.1:7421/mcp: problem: server: nothing listens there\n\
+             http://127.0.0.1:7421/mcp: problem: server: connection refused"
+        );
+    }
+
+    /// A host and port holding a password or a token is refused by the
+    /// address rule before any server is asked, and what is said never
+    /// repeats it, as with a full address.
+    #[test]
+    fn a_host_and_port_with_a_secret_is_refused_without_repeating_it() {
+        for given in [
+            "kkt:hunter2@kkt.example",
+            "kkt.example/mcp?token=hunter2",
+            "127.0.0.1:7420/mcp#hunter2",
+        ] {
+            // Given as a flag.
+            let steps = Fake::default();
+            let answers = Answers {
+                url: Some(given.into()),
+                ..client_flags()
+            };
+            let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
+                .expect_err("refused")
+                .to_string();
+            assert!(!error.contains("hunter2"), "{error}");
+            assert!(error.contains("put credentials in the key file"), "{error}");
+            assert!(steps.checked().is_empty(), "{given}");
+
+            // Typed in answer to the question.
+            let ask = Script::with(vec![
+                Reply::Text(given),
+                Reply::Text("https://kkt.tail1234.ts.net/mcp"),
+            ]);
+            let steps = Fake::default();
+            let answers = Answers {
+                url: None,
+                ..client_flags()
+            };
+            run(&answers, "0.4.0", "/mcp", &ask, &steps).expect("setup");
+            let told = ask.told.borrow();
+            assert!(told.iter().all(|t| !t.contains("hunter2")), "{told:?}");
+            assert_eq!(
+                steps.checked()[0],
+                "address https://kkt.tail1234.ts.net/mcp"
+            );
+        }
+    }
+
+    /// A machine whose record names a server offers that server's address,
+    /// not the local one, and Enter keeps it as it is (#700).
+    #[test]
+    fn client_setup_offers_the_recorded_servers_address() {
+        let earlier = Record {
+            mode: Mode::Client,
+            written_by: "1.0.0".into(),
+            url: "https://kkt.other.ts.net/mcp".into(),
+            key_file: Some("/keys/other".into()),
+            clients: None,
+        };
+        let ask = Script::with(vec![Reply::Enter]);
+        let steps = Fake {
+            earlier: Some(Ok(earlier)),
+            ..Fake::default()
+        };
+        let answers = Answers {
+            url: None,
+            ..client_flags()
+        };
+        let record = run(&answers, "1.0.1", "/mcp", &ask, &steps).expect("setup");
+        assert_eq!(record.url, "https://kkt.other.ts.net/mcp");
+        assert_eq!(steps.checked()[0], "address https://kkt.other.ts.net/mcp");
+        // A full address is used as given, so nothing is said about it.
+        assert!(
+            !ask.told.borrow().iter().any(|t| t.starts_with("Using")),
+            "{:?}",
+            ask.told.borrow()
         );
     }
 
@@ -1811,7 +2111,7 @@ mod flow {
     fn an_address_that_is_not_a_url_is_refused_before_anything_changes() {
         let steps = Fake::default();
         let answers = Answers {
-            url: Some("kkt.example".into()),
+            url: Some("ftp://kkt.example".into()),
             ..client_flags()
         };
         let error = run(&answers, "0.4.0", "/mcp", &Script::default(), &steps)
