@@ -3,7 +3,7 @@
 // programs' assembly flows from assembly.json, both written by hand.
 // Do not edit: run the script again.
 window.KKT_GRAPH = {
- "commit": "7140d49d",
+ "commit": "cc6299d0",
  "crates": [
   {
    "bins": [
@@ -13109,6 +13109,16 @@ window.KKT_GRAPH = {
      "path": "init_logging"
     },
     {
+     "doc": "Sends the log to `writer`, as `init_logging` sends it to stdout, with color codes only when `ansi`: for a program that wants its terminal output handled its own way, such as ending when the output is closed.",
+     "kind": "fn",
+     "path": "init_logging_to"
+    },
+    {
+     "doc": "Sends the program's own lines to `writer`, as `init_stderr_logging` sends them to stderr, with color codes only when `ansi`.",
+     "kind": "fn",
+     "path": "init_own_logging_to"
+    },
+    {
      "doc": "Sends the log to stderr: the program's own lines, from `own_targets`, at `own` (see `own_log_filter`).",
      "kind": "fn",
      "path": "init_stderr_logging"
@@ -13147,6 +13157,24 @@ window.KKT_GRAPH = {
      ],
      "kind": "param",
      "name": "log_file",
+     "traits": []
+    },
+    {
+     "at": "init_logging_to",
+     "foreign": [
+      "std::io::Write"
+     ],
+     "kind": "param",
+     "name": "writer",
+     "traits": []
+    },
+    {
+     "at": "init_own_logging_to",
+     "foreign": [
+      "std::io::Write"
+     ],
+     "kind": "param",
+     "name": "writer",
      "traits": []
     }
    ],
@@ -18262,7 +18290,16 @@ window.KKT_GRAPH = {
    "crate_doc": "The process terminal: input, output, terminal detection, a link shown with a wait for Enter (`BrowserLink`) and the default behavior when a command's output pipe closes.",
    "dev_only": false,
    "features": {},
-   "foreign_implements": [],
+   "foreign_implements": [
+    {
+     "trait": "std::io::Write",
+     "type": "ErrorWriter"
+    },
+    {
+     "trait": "std::io::Write",
+     "type": "OutputWriter"
+    }
+   ],
    "holders": [],
    "implements": [],
    "items": [
@@ -18275,6 +18312,16 @@ window.KKT_GRAPH = {
       "show"
      ],
      "path": "BrowserLink"
+    },
+    {
+     "doc": "Standard error as a writer, as `OutputWriter` is standard output.",
+     "kind": "struct",
+     "path": "ErrorWriter"
+    },
+    {
+     "doc": "Standard output as a writer, for a library that writes on its own, such as a log: a write that finds it closed after `end_on_closed_output` ends the process, as `Terminal::output` does; any other failure is returned.",
+     "kind": "struct",
+     "path": "OutputWriter"
     },
     {
      "doc": "Why `Terminal::read_line` could not read a line.",
@@ -18290,6 +18337,7 @@ window.KKT_GRAPH = {
      "kind": "struct",
      "methods": [
       "errors",
+      "errors_are_terminal",
       "flush_output",
       "interactive",
       "message",
@@ -18300,7 +18348,7 @@ window.KKT_GRAPH = {
      "path": "Terminal"
     },
     {
-     "doc": "Lets a closed standard output, as with `program status | head`, end the command the way it ends other Unix commands (SIGPIPE), where Rust would otherwise panic at the next print.",
+     "doc": "Lets a closed standard output or error, as with `program status | head`, end the command the way it ends other Unix commands (SIGPIPE), where Rust would otherwise panic at the next print.",
      "kind": "fn",
      "path": "end_on_closed_output"
     }
@@ -18312,10 +18360,10 @@ window.KKT_GRAPH = {
     ],
     "src/lib.rs": [
      "io::IsTerminal",
+     "io::stderr",
      "io::stdin",
      "io::stdout",
-     "eprint!",
-     "print!"
+     "process::exit"
     ]
    },
    "name": "kkt-terminal",
@@ -21313,7 +21361,8 @@ window.KKT_GRAPH = {
     "SettingError",
     "TracingLog",
     "init_logging",
-    "init_stderr_logging",
+    "init_logging_to",
+    "init_own_logging_to",
     "logging_started",
     "parse_level"
    ],
@@ -21328,7 +21377,8 @@ window.KKT_GRAPH = {
       "LoggingError",
       "SettingError",
       "init_logging",
-      "init_stderr_logging",
+      "init_logging_to",
+      "init_own_logging_to",
       "logging_started",
       "parse_level"
      ],
@@ -21879,6 +21929,8 @@ window.KKT_GRAPH = {
    "from": "kashkeshet",
    "items": [
     "BrowserLink",
+    "ErrorWriter",
+    "OutputWriter",
     "Terminal",
     "end_on_closed_output"
    ],
@@ -21893,6 +21945,13 @@ window.KKT_GRAPH = {
       "end_on_closed_output"
      ],
      "role": "uses"
+    },
+    {
+     "detail": [
+      "ErrorWriter",
+      "OutputWriter"
+     ],
+     "role": "wires"
     }
    ],
    "target": null,
@@ -33921,6 +33980,28 @@ window.KKT_ASSEMBLY = {
       {
        "at": "init_logging",
        "param": "log_file"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-log-tracing",
+     "impl": "kkt-terminal::OutputWriter",
+     "note": "a command's log, on standard output, ended by SIGPIPE when that output is closed",
+     "to": [
+      {
+       "at": "init_logging_to",
+       "param": "writer"
+      }
+     ]
+    },
+    {
+     "crate": "kkt-log-tracing",
+     "impl": "kkt-terminal::ErrorWriter",
+     "note": "watch's, register's and reclaim's log, on standard error, ended by SIGPIPE when that output is closed",
+     "to": [
+      {
+       "at": "init_own_logging_to",
+       "param": "writer"
       }
      ]
     },

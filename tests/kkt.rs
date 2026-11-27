@@ -55,6 +55,47 @@ fn a_closed_standard_output_ends_a_command_quietly() {
             out.status
         );
     }
+    // A closed error output, as with `kkt key show 2>&-` piped away: the
+    // error ends the command as SIGPIPE does, with no panic (#705).
+    let (reader, writer) = std::io::pipe().expect("pipe");
+    drop(reader);
+    let out = std::process::Command::new(KKT)
+        .args(["key", "show", "--key-file", "/no/such/key"])
+        .own_home(&home)
+        .stdin(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(writer)
+        .output()
+        .expect("run kkt");
+    assert_eq!(out.status.signal(), Some(13), "{:?}", out.status);
+}
+
+/// A command's own log lines go to its output too: when that output is
+/// closed, the first log line ends the command, before it changes anything,
+/// as it did before kkt-terminal took over the closed output (#705). In a
+/// fresh home, `kkt connect --write` logs that it made a default access key
+/// before it writes the client's config.
+#[cfg(unix)]
+#[test]
+fn a_commands_first_log_line_to_a_closed_output_ends_it_before_it_changes_anything() {
+    use std::os::unix::process::ExitStatusExt;
+    let home = scratch::Dir::new("kkt-closed-log");
+    std::fs::create_dir_all(home.join("codex")).expect("codex folder");
+    let config = home.join("codex/config.toml");
+    let (reader, writer) = std::io::pipe().expect("pipe");
+    drop(reader);
+    let out = std::process::Command::new(KKT)
+        .args(["connect", "codex", "--write", "--client-config"])
+        .arg(&config)
+        .own_home(&home)
+        .stdin(Stdio::null())
+        .stdout(writer)
+        .stderr(Stdio::piped())
+        .output()
+        .expect("run kkt");
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert_eq!(out.status.signal(), Some(13), "{:?} {stderr}", out.status);
+    assert!(!config.exists(), "the client's config was written");
 }
 
 #[tokio::test]

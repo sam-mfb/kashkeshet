@@ -397,6 +397,50 @@ async fn an_unreachable_server_leaves_the_earlier_setup() {
     );
 }
 
+/// Probing a plain-http server over https: the server closes the
+/// connection on the TLS handshake, and the command reports that as a
+/// problem, rather than dying silently by SIGPIPE (#705).
+#[tokio::test]
+#[expect(
+    clippy::disallowed_methods,
+    reason = "kkt runs as a real process; this bounds the real wait so a hang fails the test"
+)]
+async fn an_https_probe_of_an_http_server_is_reported_not_fatal() {
+    let (_server_home, mut server, url, key) = keyed_server("https-on-http-server").await;
+    let home = temp_home("https-on-http");
+    let https = url.replacen("http://", "https://", 1);
+    let out = Command::new(KKT)
+        .args(["doctor", "--url", &https, "--key-file"])
+        .arg(&key)
+        .own_home(&home)
+        .env("PATH", "")
+        .stdin(Stdio::null())
+        .kill_on_drop(true)
+        .output();
+    let out = tokio::time::timeout(TIMEOUT, out)
+        .await
+        .expect("kkt should finish")
+        .expect("run kkt");
+    let said = format!(
+        "{}{}",
+        String::from_utf8_lossy(&out.stdout),
+        String::from_utf8_lossy(&out.stderr)
+    );
+    #[cfg(unix)]
+    {
+        use std::os::unix::process::ExitStatusExt;
+        assert_eq!(out.status.signal(), None, "{:?}: {said}", out.status);
+    }
+    assert!(!out.status.success(), "{said}");
+    assert!(
+        said.contains(&format!(
+            "problem: server: error sending request for url ({https})"
+        )),
+        "{said}"
+    );
+    server.kill().await.expect("stop kkt");
+}
+
 /// A server that answers, but at another path, fails the address check,
 /// so the problem is put on `--url`, not on the key.
 #[tokio::test]
