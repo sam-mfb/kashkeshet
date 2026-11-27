@@ -1476,8 +1476,10 @@ fn upgrade_says_where_the_backup_went() {
             // The server's own backup before a schema upgrade, and where to
             // find its completed path (#701).
             "If the server upgrades the database schema, it saves a database-only backup \
-             in its data volume under /data/.local/share/kashkeshet/upgrade-backups. \
-             `tool compose logs kkt` in /data/docker gives the completed path."
+             in its data volume, beside its database: under \
+             /data/.local/share/kashkeshet/upgrade-backups for the default database. Its log \
+             gives the completed path: `tool compose logs kkt` in /data/docker, or the \
+             log_file its config file names."
                 .to_string(),
         ]
     );

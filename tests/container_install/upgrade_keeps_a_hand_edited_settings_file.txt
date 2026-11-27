@@ -15,7 +15,7 @@ attached cwd=/data/docker  docker compose --project-directory /data/docker pull
   -> exit 0
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
   -> exit 0
-say      If the server upgrades the database schema, it saves a database-only backup in its data volume under /data/.local/share/kashkeshet/upgrade-backups. `docker compose logs kkt` in /data/docker gives the completed path.
+say      If the server upgrades the database schema, it saves a database-only backup in its data volume, beside its database: under /data/.local/share/kashkeshet/upgrade-backups for the default database. Its log gives the completed path: `docker compose logs kkt` in /data/docker, or the log_file its config file names.
 result   ()
 
 == with no KKT_VERSION and no newline at the end
@@ -33,5 +33,5 @@ attached cwd=/data/docker  docker compose --project-directory /data/docker pull
   -> exit 0
 attached cwd=/data/docker  docker compose --project-directory /data/docker up -d
   -> exit 0
-say      If the server upgrades the database schema, it saves a database-only backup in its data volume under /data/.local/share/kashkeshet/upgrade-backups. `docker compose logs kkt` in /data/docker gives the completed path.
+say      If the server upgrades the database schema, it saves a database-only backup in its data volume, beside its database: under /data/.local/share/kashkeshet/upgrade-backups for the default database. Its log gives the completed path: `docker compose logs kkt` in /data/docker, or the log_file its config file names.
 result   ()

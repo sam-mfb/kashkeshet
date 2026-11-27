@@ -13,8 +13,8 @@ use kkt_container::{Output, Project};
 use std::path::Path;
 
 /// Where the server keeps the database-only backup it makes before it
-/// upgrades the database schema, inside the data volume: beside the
-/// database `kkt serve` uses by default, under the image's `HOME` (`/data`,
+/// upgrades the database schema, inside the data volume, when it uses the
+/// default database: beside that database, under the image's `HOME` (`/data`,
 /// set in the Dockerfile) and the XDG data folder below it.
 pub(crate) const VOLUME_UPGRADE_BACKUPS: &str = "/data/.local/share/kashkeshet/upgrade-backups";
 
@@ -61,9 +61,13 @@ pub(crate) async fn upgrade(
     }
     // The new server backs the database up itself, before a schema
     // upgrade, and logs the backup's path; the container's log has it.
+    // A config file in the volume may name another database or a log file,
+    // so both are said as the defaults.
     tell.say(&format!(
         "If the server upgrades the database schema, it saves a database-only backup \
-         in its data volume under {VOLUME_UPGRADE_BACKUPS}. `{}` in {} gives the completed path.",
+         in its data volume, beside its database: under {VOLUME_UPGRADE_BACKUPS} for the \
+         default database. Its log gives the completed path: `{}` in {}, or the log_file \
+         its config file names.",
         projects.typed(&["logs", SERVER]),
         project.folder.path().display()
     ));
