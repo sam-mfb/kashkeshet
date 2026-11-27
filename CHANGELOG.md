@@ -15,6 +15,11 @@ the section for `X.Y.Z`.
 ### Fixes
 - **Setup's web-key hint drops `--key-file` when a client becomes a server.** When `kkt setup` turned a machine whose record said it was a client into a server, the line telling you how to read the new web key named the file, as in `kkt key show --web --key-file '~/.config/kkt/web-key'`, though the key was in its default place. The hint now goes by the role setup is installing, not the record from before setup: a key in the default place reads `kkt key show --web`. A web key elsewhere is still named, and `kkt service install` run on its own still goes by the record as it is (#702).
 
+## Unreleased
+
+### Fixes
+- **A Docker `kkt upgrade` says where the server backs up the database before a schema upgrade.** Before it upgrades the database schema, the server saves a database-only backup of its own. As a service, `kkt upgrade` already said so; in Docker it said nothing, though the backup was made all the same. It now prints that the backup goes in the data volume under `/data/.local/share/kashkeshet/upgrade-backups`, and that `docker compose logs kkt`, run in kkt's Docker folder, gives the completed path (#701).
+
 ## 1.0.0
 
 This release reorganizes kkt's code into crates that other programs can build on, and upgrades the database to a new storage layer that prepares for several swarms on one server. For an install it brings one new setup question, faster tool calls, and fixes to `kkt service` and `kkt upgrade`, most of them on macOS. Agents see no change: the tools, their text and their replies are as in 0.10.0. Read "What affects existing setups" before upgrading. A crate that depends on kkt's crates by git must also read "For crates that depend on kkt's crates by git".

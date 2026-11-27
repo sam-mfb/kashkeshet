@@ -12,9 +12,16 @@ use crate::setup::{Parts, save_keys, say_saved, write_embedded, write_env};
 use kkt_container::{Output, Project};
 use std::path::Path;
 
+/// Where the server keeps the database-only backup it makes before it
+/// upgrades the database schema, inside the data volume: beside the
+/// database `kkt serve` uses by default, under the image's `HOME` (`/data`,
+/// set in the Dockerfile) and the XDG data folder below it.
+pub(crate) const VOLUME_UPGRADE_BACKUPS: &str = "/data/.local/share/kashkeshet/upgrade-backups";
+
 /// Backs the server up, writes this program's Compose files and selects
 /// `new_version` in the settings file, keeping its other lines, then pulls
-/// and starts it. If the pull or the start fails, the settings file is put
+/// and starts it, and says where the server keeps the backup it makes
+/// before a schema upgrade. If the pull or the start fails, the settings file is put
 /// back as it was, so it does not claim a version that did not start and a
 /// later try is not refused. Then, with `keys`, saves the keys' copies
 /// again; if that fails the upgrade stands, and the person is told how to
@@ -52,6 +59,14 @@ pub(crate) async fn upgrade(
         }
         return Err(error);
     }
+    // The new server backs the database up itself, before a schema
+    // upgrade, and logs the backup's path; the container's log has it.
+    tell.say(&format!(
+        "If the server upgrades the database schema, it saves a database-only backup \
+         in its data volume under {VOLUME_UPGRADE_BACKUPS}. `{}` in {} gives the completed path.",
+        projects.typed(&["logs", SERVER]),
+        project.folder.path().display()
+    ));
     let Some(keys) = keys else {
         return Ok(());
     };
